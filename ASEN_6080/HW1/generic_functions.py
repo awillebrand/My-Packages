@@ -85,3 +85,11 @@ def perturbation_jacobian(r : np.array, v : np.array, mu : float, J2 : float, J3
                   [0, 0, 0, 0, 0, 0, 0, 0, 0]])
     
     return A
+
+def compute_DCM(i, LoN, AoP):
+    # Compute direction cosine matrix from perifocal to inertial frame
+    DCM = np.array([[np.cos(LoN) * np.cos(AoP) - np.sin(LoN) * np.sin(AoP) * np.cos(i), -np.cos(LoN) * np.sin(AoP) - np.sin(LoN) * np.cos(AoP) * np.cos(i),  np.sin(LoN) * np.sin(i)],
+                    [np.sin(LoN) * np.cos(AoP) + np.cos(LoN) * np.sin(AoP) * np.cos(i), -np.sin(LoN) * np.sin(AoP) + np.cos(LoN) * np.cos(AoP) * np.cos(i), -np.cos(LoN) * np.sin(i)],
+                    [np.sin(AoP) * np.sin(i), np.cos(AoP) * np.sin(i), np.cos(i)]])
+    
+    return DCM
