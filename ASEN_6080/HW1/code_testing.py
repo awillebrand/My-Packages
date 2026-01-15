@@ -42,6 +42,7 @@ AoP = np.deg2rad(40)
 f = np.deg2rad(0)
 mu = 398600.4418
 period = 2 * np.pi * np.sqrt(a**3 / mu)
+J2 = 1.08262668E-3
 mode = 'J2'
 state_length = 7 # <--- Change this depending on mode
 
