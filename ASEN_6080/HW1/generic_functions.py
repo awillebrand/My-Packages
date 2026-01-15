@@ -1,6 +1,6 @@
 import numpy as np
 
-def perturbation_jacobian(r : np.array, v : np.array, mu : float, J2 : float, J3 : float, R_e : float):
+def perturbation_jacobian(r : np.array, v : np.array, mu : float, J2 : float, J3 : float, R_e : float, mode : str = 'BaseMat'):
     """
     This function computes the partial derivatives of the acceleration associated with the J2 and J3 perturbations in a gravitational field and outputs the associated Jacobian.
 
@@ -16,6 +16,8 @@ def perturbation_jacobian(r : np.array, v : np.array, mu : float, J2 : float, J3
     J3 : float
         J3 coefficient.
     """
+    if mode != 'PointMass' and mode != 'J2' and mode != 'J3' and mode != 'Full' and mode != 'BaseMat':
+        raise ValueError("Invalid mode. Choose from 'PointMass', 'J2', 'J3', 'Full', or 'BaseMat'.")
 
     x, y, z = r
     r_norm = np.linalg.norm(r)
@@ -84,6 +86,18 @@ def perturbation_jacobian(r : np.array, v : np.array, mu : float, J2 : float, J3
                   [0, 0, 0, 0, 0, 0, 0, 0, 0],
                   [0, 0, 0, 0, 0, 0, 0, 0, 0]])
     
+    if mode == 'PointMass':
+        A = A[0:6, 0:6]
+    elif mode == 'J2':
+        # Keep initial 6x6 and J2 partials in the 8th column and row
+        A = A[np.ix_([0,1,2,3,4,5,7],[0,1,2,3,4,5,7])]
+    elif mode == 'J3':
+        # Keep initial 6x6 and J3 partials in the 9th column and row
+        A = A[np.ix_([0,1,2,3,4,5,8],[0,1,2,3,4,5,8])]
+    elif mode == 'Full':
+        A = A[np.ix_([0,1,2,3,4,5,7,8],[0,1,2,3,4,5,7,8])]
+    else:
+        pass
     return A
 
 def compute_DCM(i, LoN, AoP):

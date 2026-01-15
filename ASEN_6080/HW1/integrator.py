@@ -1,5 +1,5 @@
 import numpy as np
-from generic_functions import compute_DCM
+from generic_functions import compute_DCM, perturbation_jacobian
 from scipy.integrate import solve_ivp
 class Integrator:
     def __init__(self, mu : float, R_e : float, mode : str = 'PointMass'):
@@ -92,10 +92,58 @@ class Integrator:
             return np.array([x_dot, y_dot, z_dot, u_dot, v_dot, w_dot, 0])
         else:
             return np.array([x_dot, y_dot, z_dot, u_dot, v_dot, w_dot, 0, 0])
+    
+    def full_dynamics(self, t, augmented_state):
+        # This function is passed through the integrator when the initial state is augmented by the STM
+
+        # Determine state length based on mode and assign J2 and J3 according to mode
+        if self.mode == 'PointMass':
+            state_length = 6
+            J2 = 0
+            J3 = 0
+        elif self.mode == 'J2' or self.mode == 'J3':
+            state_length = 7
+            J2 = augmented_state[6] if self.mode == 'J2' else 0
+            J3 = augmented_state[6] if self.mode == 'J3' else 0
+        else:
+            state_length = 8
+            J2 = augmented_state[6]
+            J3 = augmented_state[7]
+
+        state = augmented_state[0:state_length]
+        phi_flat = augmented_state[state_length:]
+        phi = phi_flat.reshape((state_length, state_length))
+
+        # Compute state derivatives
+        state_dot = self.equations_of_motion(t, state)
+
+        # Compute STM derivative
+        A = perturbation_jacobian(state[0:3], state[3:6], self.mu, J2, J3, self.R_e, mode=self.mode)
+        phi_dot = A @ phi
+        phi_dot_flat = phi_dot.flatten()
+
+        return np.hstack((state_dot, phi_dot_flat))
         
-    def integrate(self, t_final, initial_state):
+    def integrate_eom(self, t_final, initial_state, teval = None):
         t_span = (0, t_final)
-        sol = solve_ivp(self.equations_of_motion, t_span, initial_state, method='RK45', rtol=1e-9, atol=1e-12)
+        sol = solve_ivp(self.equations_of_motion, t_span, initial_state, method='RK45', rtol=1e-9, atol=1e-12, t_eval=teval)
+        return sol.t, sol.y
+    
+    def integrate_stm(self, t_final, initial_state, teval = None):
+        # Determine state length based on mode
+        if self.mode == 'PointMass':
+            state_length = 6
+        elif self.mode == 'J2' or self.mode == 'J3':
+            state_length = 7
+        else:
+            state_length = 8
+
+        # Initialize STM as identity matrix
+        phi_0 = np.eye(state_length).flatten()
+        augmented_initial_state = np.hstack((initial_state, phi_0))
+
+        t_span = (0, t_final)
+        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-9, atol=1e-12, t_eval=teval)
         return sol.t, sol.y
         
         
