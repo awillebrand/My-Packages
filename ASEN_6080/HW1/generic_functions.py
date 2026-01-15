@@ -107,3 +107,43 @@ def compute_DCM(i, LoN, AoP):
                     [np.sin(AoP) * np.sin(i), np.cos(AoP) * np.sin(i), np.cos(i)]])
     
     return DCM
+
+def measurement_jacobian(sat_state : np.array, station_state : np.array):
+    """
+    This function computes measurement Jacobian associated with range and range rate measurements between a satellite and a ground station.
+    Parameters:
+    sat_state : np.Array
+        atellite state vector in Cartesian coordinates (x, y, z, u, v, w).
+    station_state : np.Array
+        Ground station state vector in Cartesian coordinates (x_s, y_s, z_s, u_s, v_s, w_s).
+    """
+
+    x, y, z = sat_state[0:3]
+    u, v, w = sat_state[3:6]
+    x_s, y_s, z_s = station_state[0:3]
+    u_s, v_s, w_s = station_state[3:6]
+
+    rho = np.linalg.norm(sat_state[0:3] - station_state[0:3])
+    rho_dot = np.dot((sat_state[0:3] - station_state[0:3]), (sat_state[3:6] - station_state[3:6])) / rho
+
+    # Range partials
+    rho_x= (x - x_s) / rho
+    rho_y = (y - y_s) / rho
+    rho_z = (z - z_s) / rho
+    rho_u = 0
+    rho_v = 0
+    rho_w = 0
+
+    # Range rate partials
+    rho_dot_x = (1 / rho) * ((u - u_s) - rho_dot * (x - x_s) / rho)
+    rho_dot_y = (1 / rho) * ((v - v_s) - rho_dot * (y - y_s) / rho)
+    rho_dot_z = (1 / rho) * ((w - w_s) - rho_dot * (z - z_s) / rho)
+    rho_dot_u = (x - x_s) / rho
+    rho_dot_v = (y - y_s) / rho
+    rho_dot_w = (z - z_s) / rho
+
+    # Construct measurement Jacobian
+    H = np.array([[rho_x, rho_y, rho_z, rho_u, rho_v, rho_w],
+                  [rho_dot_x, rho_dot_y, rho_dot_z, rho_dot_u, rho_dot_v, rho_dot_w]])
+    
+    return H

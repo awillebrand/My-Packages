@@ -1,6 +1,6 @@
 import numpy as np
 import json
-from generic_functions import perturbation_jacobian
+from generic_functions import perturbation_jacobian, measurement_jacobian
 from integrator import Integrator
 import plotly.graph_objects as go
 import plotly.express as px
@@ -28,9 +28,9 @@ A = perturbation_jacobian(r, v, mu, J2, J3, R_e)
 
 # Compare the computed Jacobian to the truth Jacobian
 diff = A - truth_jacobian
-print("Difference between computed and truth Jacobian:")
-np.set_printoptions(linewidth=200)
-print(diff)
+# print("Difference between computed and truth Jacobian:")
+# np.set_printoptions(linewidth=200)
+# print(diff)
 
 # Question 2 Testing Code --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -42,7 +42,6 @@ AoP = np.deg2rad(40)
 f = np.deg2rad(0)
 mu = 398600.4418
 period = 2 * np.pi * np.sqrt(a**3 / mu)
-J2 = 1.08262668E-3
 mode = 'J2'
 state_length = 7 # <--- Change this depending on mode
 
@@ -99,7 +98,26 @@ estimated_deviation = np.array(estimated_deviation).T
 
 # estimated_deviation = np.array(estimated_deviation).T
 
+# Question 3 Testing Code ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+# Load in test data from prob3_solution.json
+with open('prob3b_solution.json', 'r') as f:
+    test_data = json.load(f)
+
+# Pull out necessary parameters
+sc_pos = np.array(test_data['inputs']['spacecraft_state']['r'])
+sc_vel = np.array(test_data['inputs']['spacecraft_state']['v'])
+
+station_pos = np.array(test_data['inputs']['station_state']['Rs'])
+station_vel = np.array(test_data['inputs']['station_state']['Vs'])
+
+sc_state = np.hstack((sc_pos, sc_vel))
+station_state = np.hstack((station_pos, station_vel))
+
+# Compute measurement Jacobian
+H = measurement_jacobian(sc_state, station_state)
+print("Measurement Jacobian H:")
+print(H)
 # Figure generation ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Plot the orbit
