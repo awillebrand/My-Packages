@@ -20,7 +20,6 @@ v = np.array(state['v'])
 mu = state['mu']
 J2 = state['J2']
 J3 = state['J3']
-
 R_e = 6378
 
 # Call the perturbation_partials function
@@ -58,7 +57,7 @@ perturbed_state = initial_state + perturbation
 # Integrate for 15 orbital periods
 reference_time, reference_state_history = integrator.integrate_eom(15 * period, initial_state)
 perturbed_time, perturbed_state_history = integrator.integrate_eom(15 * period, perturbed_state, reference_time)
-breakpoint()
+
 # Compute deviation between reference and perturbed states
 deviation_state = perturbed_state_history - reference_state_history
 
@@ -75,6 +74,30 @@ for column in stm_history.T:
     estimated_deviation.append(propagated_deviation)
 
 estimated_deviation = np.array(estimated_deviation).T
+
+# Testing STM against provided solution ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# NEED TO KNOW HIS MU
+
+# with open('prob2b_solution.json', 'r') as f:
+#     test_data = json.load(f)
+
+# initial_state = test_data['inputs']['X0']['values']
+
+# # Integrate with STM
+# stm_time, stm_history = integrator.integrate_stm(15 * period, initial_state)
+
+# # Propagate the initial perturbation through the STM history
+
+# estimated_deviation = []
+# for column in stm_history.T:
+#     column_state = column[0:state_length]
+#     phi = column[state_length:].reshape((state_length, state_length))
+#     propagated_deviation = phi @ perturbation
+#     estimated_deviation.append(propagated_deviation)
+
+# estimated_deviation = np.array(estimated_deviation).T
+
 
 # Figure generation ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -134,3 +157,28 @@ fig.update_yaxes(title_text='Deviation (km/s)', row=2, col=1)
 fig.update_yaxes(title_text='Deviation (km/s)', row=3, col=1)
 fig.update_layout(title='Velocity Deviations Over Time', height=900)
 fig.write_html("figures/velocity_deviations.html")
+
+# Subplots with difference in deviations ------------------------------------------------------------------------------------------------------------------------------------------------
+
+fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=('X Deviation Difference', 'Y Deviation Difference', 'Z Deviation Difference'))
+fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[0, :] - estimated_deviation[0, :], mode='lines', name='Deviation Difference', line=dict(color='green')), row=1, col=1)
+fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[1, :] - estimated_deviation[1, :], mode='lines', name='Deviation Difference', line=dict(color='green')), row=2, col=1)
+fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[2, :] - estimated_deviation[2, :], mode='lines', name='Deviation Difference', line=dict(color='green')), row=3, col=1)
+fig.update_xaxes(title_text='Time (Orbital Periods)', row=3, col=1)
+fig.update_yaxes(title_text='Deviation Difference (km)', row=1, col=1)
+fig.update_yaxes(title_text='Deviation Difference (km)', row=2, col=1)
+fig.update_yaxes(title_text='Deviation Difference (km)', row=3, col=1)
+fig.update_layout(title='Position Deviation Differences Over Time', height=900)
+fig.write_html("figures/position_deviation_differences.html")
+
+# Velocity deviation differences
+fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=('U Deviation Difference', 'V Deviation Difference', 'W Deviation Difference'))
+fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[3, :] - estimated_deviation[3, :], mode='lines', name='Deviation Difference', line=dict(color='green')), row=1, col=1)
+fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[4, :] - estimated_deviation[4, :], mode='lines', name='Deviation Difference', line=dict(color='green')), row=2, col=1)
+fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[5, :] - estimated_deviation[5, :], mode='lines', name='Deviation Difference', line=dict(color='green')), row=3, col=1)
+fig.update_xaxes(title_text='Time (Orbital Periods)', row=3, col=1)
+fig.update_yaxes(title_text='Deviation Difference (km/s)', row=1, col=1)
+fig.update_yaxes(title_text='Deviation Difference (km/s)', row=2, col=1)
+fig.update_yaxes(title_text='Deviation Difference (km/s)', row=3, col=1)
+fig.update_layout(title='Velocity Deviation Differences Over Time', height=900)
+fig.write_html("figures/velocity_deviation_differences.html")

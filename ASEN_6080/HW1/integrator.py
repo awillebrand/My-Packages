@@ -126,7 +126,7 @@ class Integrator:
         
     def integrate_eom(self, t_final, initial_state, teval = None):
         t_span = (0, t_final)
-        sol = solve_ivp(self.equations_of_motion, t_span, initial_state, method='RK45', rtol=1e-9, atol=1e-12, t_eval=teval)
+        sol = solve_ivp(self.equations_of_motion, t_span, initial_state, method='RK45', rtol=1e-8, atol=1e-12, t_eval=teval)
         return sol.t, sol.y
     
     def integrate_stm(self, t_final, initial_state, teval = None):
