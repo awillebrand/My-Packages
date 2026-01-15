@@ -85,13 +85,13 @@ class Integrator:
         u_dot = -self.mu * x / r**3 + (3 / 2) * self.mu * J2 * self.R_e**2 * x / r**5 * (5 * (z**2 / r**2) - 1) + (5 / 2) * self.mu * J3 * self.R_e**3 * x * z / r**7 * (7 * z**2 / r**2 - 3)
         v_dot = -self.mu * y / r**3 + (3 / 2) * self.mu * J2 * self.R_e**2 * y / r**5 * (5 * (z**2 / r**2) - 1) + (5 / 2) * self.mu * J3 * self.R_e**3 * y * z / r**7 * (7 * z**2 / r**2 - 3)
         w_dot = -self.mu * z / r**3 + (3 / 2) * self.mu * J2 * self.R_e**2 * z / r**5 * (5 * (z**2 / r**2) - 3) + (5 / 2) * self.mu * J3 * self.R_e**3 / r**5 * (7 * z**4 / r**4 - 6 * z**2 / r**2 + 3 / 5)
-        breakpoint()
+
         if self.mode == 'PointMass':
             return np.array([x_dot, y_dot, z_dot, u_dot, v_dot, w_dot])
         elif self.mode == 'J2' or self.mode == 'J3':
-            return np.array([x_dot, y_dot, z_dot, u_dot, v_dot, w_dot, state[6]])
+            return np.array([x_dot, y_dot, z_dot, u_dot, v_dot, w_dot, 0])
         else:
-            return np.array([x_dot, y_dot, z_dot, u_dot, v_dot, w_dot, state[6], state[7]])
+            return np.array([x_dot, y_dot, z_dot, u_dot, v_dot, w_dot, 0, 0])
         
     def integrate(self, t_final, initial_state):
         t_span = (0, t_final)

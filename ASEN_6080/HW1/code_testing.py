@@ -2,6 +2,8 @@ import numpy as np
 import json
 from generic_functions import perturbation_jacobian
 from integrator import Integrator
+import plotly.graph_objects as go
+import plotly.express as px
 
 # Question 1 Testing Code ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -34,7 +36,7 @@ print(diff)
 
 a = 10000
 e = 0.01
-i = np.deg2rad(40)
+i = np.deg2rad(0)
 LoN = np.deg2rad(80)
 AoP = np.deg2rad(40)
 f = np.deg2rad(0)
@@ -44,9 +46,39 @@ period = 2 * np.pi * np.sqrt(a**3 / mu)
 integrator = Integrator(mu, R_e, 'J2')
 r_vec, v_vec = integrator.keplerian_to_cartesian(a, e, i, LoN, AoP, f)
 
-initial_state = np.hstack((r_vec, v_vec, 0))
+initial_state = np.hstack((r_vec, v_vec, J2))
+perturbed_state = initial_state + np.array([1, 0, 0, 0, 0.010, 0, 0])
 
 # Integrate for 15 orbital periods
 reference_time, reference_state_history = integrator.integrate(15 * period, initial_state)
+perturbed_time, perturbed_state_history = integrator.integrate(15 * period, perturbed_state)
 
-breakpoint()
+deviation_state = perturbed_state_history - reference_state_history
+
+# Plot the orbit
+fig = go.Figure()
+fig.add_trace(go.Scatter3d(x=reference_state_history[0, :],
+                   y=reference_state_history[1, :],
+                   z=reference_state_history[2, :],
+                   mode='lines',
+                   line=dict(width=2, color='blue'),
+                   name='Reference Orbit'))
+fig.add_trace(go.Scatter3d(
+    x=perturbed_state_history[0, :],
+    y=perturbed_state_history[1, :],
+    z=perturbed_state_history[2, :],
+    mode='lines',
+    line=dict(width=2, color='red'),
+    name='Perturbed Orbit'
+))
+fig.update_layout(
+    title='Orbit Trajectories',
+    scene=dict(
+        xaxis_title='X (km)',
+        yaxis_title='Y (km)',
+        zaxis_title='Z (km)',
+        aspectmode='data'
+    )
+)
+
+fig.show()
