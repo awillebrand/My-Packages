@@ -62,7 +62,7 @@ perturbed_time, perturbed_state_history = integrator.integrate_eom(15 * period, 
 deviation_state = perturbed_state_history - reference_state_history
 
 # Integrate with STM
-stm_time, stm_history = integrator.integrate_stm(15 * period, initial_state, reference_time)
+stm_time, stm_history = integrator.integrate_stm(15 * period, initial_state, teval=reference_time)
 
 # Propagate the initial perturbation through the STM history
 
@@ -79,24 +79,32 @@ estimated_deviation = np.array(estimated_deviation).T
 
 # NEED TO KNOW HIS MU
 
-# with open('prob2b_solution.json', 'r') as f:
-#     test_data = json.load(f)
+with open('prob2b_solution.json', 'r') as f:
+    test_data = json.load(f)
 
-# initial_state = test_data['inputs']['X0']['values']
+initial_state = np.array(test_data['inputs']['X0']['values'])
+initial_phi = np.array(test_data['inputs']['Phi0']['values']).reshape((state_length, state_length))
 
-# # Integrate with STM
-# stm_time, stm_history = integrator.integrate_stm(15 * period, initial_state)
+# Run through full_dynamics to get derivatives for test
+derivative_state = integrator.full_dynamics(0, np.hstack((initial_state, initial_phi.flatten())))
+state_dot = derivative_state[0:state_length]
+phi_dot = derivative_state[state_length:].reshape((state_length, state_length))
 
-# # Propagate the initial perturbation through the STM history
+output_state = np.array(test_data['outputs']['Xdot']['values'])
+output_phi = np.array(test_data['outputs']['Phidot']['values']).reshape((state_length, state_length))
 
-# estimated_deviation = []
-# for column in stm_history.T:
-#     column_state = column[0:state_length]
-#     phi = column[state_length:].reshape((state_length, state_length))
-#     propagated_deviation = phi @ perturbation
-#     estimated_deviation.append(propagated_deviation)
+# Percent difference in state and STM derivatives
+state_diff = state_dot - output_state
+phi_diff = phi_dot - output_phi
 
-# estimated_deviation = np.array(estimated_deviation).T
+percent_state_diff = state_diff / output_state * 100
+percent_phi_diff = phi_diff / output_phi * 100
+np.set_printoptions(linewidth=200)
+print("Percent difference in state derivatives:")
+print(percent_state_diff)
+print("Percent difference in STM derivatives:")
+print(percent_phi_diff)
+breakpoint()
 
 # Question 3 Testing Code ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
