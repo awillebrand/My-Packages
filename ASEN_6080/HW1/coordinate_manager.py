@@ -52,7 +52,7 @@ class CoordinateMgr:
             
             DCM = np.array([[np.cos(LoN) * np.cos(AoP) - np.sin(LoN) * np.sin(AoP) * np.cos(i), -np.cos(LoN) * np.sin(AoP) - np.sin(LoN) * np.cos(AoP) * np.cos(i),  np.sin(LoN) * np.sin(i)],
                     [np.sin(LoN) * np.cos(AoP) + np.cos(LoN) * np.sin(AoP) * np.cos(i), -np.sin(LoN) * np.sin(AoP) + np.cos(LoN) * np.cos(AoP) * np.cos(i), -np.cos(LoN) * np.sin(i)],
-                    [np.sin(AoP) * np.sin(i), np.cos(AoP) * np.sin(i), np.cos(i)]])
+                    [np.sin(AoP) * np.sin(i), np.cos(AoP) * np.sin(i), np.cos(i)]]).T
             return DCM
     
         # Compute Perifocal to ECI DCM
@@ -67,19 +67,19 @@ class CoordinateMgr:
             
             DCM = np.array([[np.cos(LoN) * np.cos(AoP) - np.sin(LoN) * np.sin(AoP) * np.cos(i), -np.cos(LoN) * np.sin(AoP) - np.sin(LoN) * np.cos(AoP) * np.cos(i),  np.sin(LoN) * np.sin(i)],
                     [np.sin(LoN) * np.cos(AoP) + np.cos(LoN) * np.sin(AoP) * np.cos(i), -np.sin(LoN) * np.sin(AoP) + np.cos(LoN) * np.cos(AoP) * np.cos(i), -np.cos(LoN) * np.sin(i)],
-                    [np.sin(AoP) * np.sin(i), np.cos(AoP) * np.sin(i), np.cos(i)]]).T
+                    [np.sin(AoP) * np.sin(i), np.cos(AoP) * np.sin(i), np.cos(i)]])
             return DCM
         
         # Compute ECEF to Perifocal DCM
         elif coordinate_frame_1 == 'ECEF' and coordinate_frame_2 == 'Perifocal':
-            DCM_ECI_ECEF = self.compute_DCM('ECEF', 'ECI', time=time)
-            DCM_ECI_Perifocal = self.compute_DCM('ECI', 'Perifocal', orbit_state=orbit_state)
-            DCM = DCM_ECI_Perifocal @ DCM_ECI_ECEF
+            ECEF_to_ECI = self.compute_DCM('ECEF', 'ECI', time=time)
+            ECI_to_Perifocal = self.compute_DCM('ECI', 'Perifocal', orbit_state=orbit_state)
+            DCM = ECI_to_Perifocal @ ECEF_to_ECI
             return DCM
         
         # Compute Perifocal to ECEF DCM
         elif coordinate_frame_1 == 'Perifocal' and coordinate_frame_2 == 'ECEF':
-            DCM_ECI_Perifocal = self.compute_DCM('Perifocal', 'ECI', orbit_state=orbit_state)
-            DCM_ECI_ECEF = self.compute_DCM('ECI', 'ECEF', time=time)
-            DCM = DCM_ECI_ECEF @ DCM_ECI_Perifocal
+            Perifocal_to_ECI = self.compute_DCM('Perifocal', 'ECI', orbit_state=orbit_state)
+            ECI_to_ECEF = self.compute_DCM('ECI', 'ECEF', time=time)
+            DCM = ECI_to_ECEF @ Perifocal_to_ECI
             return DCM

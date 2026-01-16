@@ -24,7 +24,7 @@ R_e = 6378
 
 # Call the perturbation_partials function
 
-A = perturbation_jacobian(r, v, mu, J2, J3, R_e)
+A = measurement_jacobian(r, v, mu, J2, J3, R_e)
 
 # Compare the computed Jacobian to the truth Jacobian
 diff = A - truth_jacobian
