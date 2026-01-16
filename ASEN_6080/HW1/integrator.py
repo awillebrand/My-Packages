@@ -1,5 +1,5 @@
 import numpy as np
-from generic_functions import compute_DCM, perturbation_jacobian
+from generic_functions import compute_DCM, state_jacobian
 from scipy.integrate import solve_ivp
 class Integrator:
     def __init__(self, mu : float, R_e : float, mode : str = 'PointMass'):
@@ -118,7 +118,7 @@ class Integrator:
         state_dot = self.equations_of_motion(t, state)
 
         # Compute STM derivative
-        A = perturbation_jacobian(state[0:3], state[3:6], self.mu, J2, J3, self.R_e, mode=self.mode)
+        A = state_jacobian(state[0:3], state[3:6], self.mu, J2, J3, self.R_e, mode=self.mode)
         phi_dot = A @ phi
         phi_dot_flat = phi_dot.flatten()
 

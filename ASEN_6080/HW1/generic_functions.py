@@ -1,6 +1,6 @@
 import numpy as np
 
-def perturbation_jacobian(r : np.array, v : np.array, mu : float, J2 : float, J3 : float, R_e : float, mode : str = 'BaseMat'):
+def state_jacobian(r : np.array, v : np.array, mu : float, J2 : float, J3 : float, R_e : float, mode : str = 'BaseMat'):
     """
     This function computes the partial derivatives of the acceleration associated with the J2 and J3 perturbations in a gravitational field and outputs the associated Jacobian.
 
@@ -116,6 +116,11 @@ def measurement_jacobian(sat_state : np.array, station_state : np.array):
         atellite state vector in Cartesian coordinates (x, y, z, u, v, w).
     station_state : np.Array
         Ground station state vector in Cartesian coordinates (x_s, y_s, z_s, u_s, v_s, w_s).
+    Returns:
+    H_sc : np.Array
+        Measurement Jacobian with respect to the satellite state.
+    H_station : np.Array
+        Measurement Jacobian with respect to the ground station state.
     """
 
     x, y, z = sat_state[0:3]
@@ -143,7 +148,10 @@ def measurement_jacobian(sat_state : np.array, station_state : np.array):
     rho_dot_w = (z - z_s) / rho
 
     # Construct measurement Jacobian
-    H = np.array([[rho_x, rho_y, rho_z, rho_u, rho_v, rho_w],
+    H_sc = np.array([[rho_x, rho_y, rho_z, rho_u, rho_v, rho_w],
                   [rho_dot_x, rho_dot_y, rho_dot_z, rho_dot_u, rho_dot_v, rho_dot_w]])
     
-    return H
+    H_station = np.array([[-rho_x, -rho_y, -rho_z],
+                          [-rho_dot_x, -rho_dot_y, -rho_dot_z]])
+    
+    return H_sc, H_station

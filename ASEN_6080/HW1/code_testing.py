@@ -1,6 +1,6 @@
 import numpy as np
 import json
-from generic_functions import perturbation_jacobian, measurement_jacobian
+from generic_functions import state_jacobian, measurement_jacobian
 from integrator import Integrator
 import plotly.graph_objects as go
 import plotly.express as px
@@ -104,7 +104,6 @@ print("Percent difference in state derivatives:")
 print(percent_state_diff)
 print("Percent difference in STM derivatives:")
 print(percent_phi_diff)
-breakpoint()
 
 # Question 3 Testing Code ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -123,9 +122,12 @@ sc_state = np.hstack((sc_pos, sc_vel))
 station_state = np.hstack((station_pos, station_vel))
 
 # Compute measurement Jacobian
-H = measurement_jacobian(sc_state, station_state)
-print("Measurement Jacobian H:")
-print(H)
+H_sc, H_station = measurement_jacobian(sc_state, station_state)
+print("Spacecraft Measurement Jacobian H:")
+print(H_sc)
+print("Station Measurement Jacobian H:")
+print(H_station)
+
 # Figure generation ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Plot the orbit
