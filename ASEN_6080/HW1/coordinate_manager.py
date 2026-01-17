@@ -32,6 +32,7 @@ class CoordinateMgr:
                             [-np.sin(theta),  np.cos(theta), 0],
                             [           0,             0, 1]])
             return DCM
+        
         # Compute ECEF to ECI DCM
         elif coordinate_frame_1 == 'ECEF' and coordinate_frame_2 == 'ECI':
             theta = self.initial_earth_spin_angle + self.earth_rotation_rate * time
@@ -51,8 +52,8 @@ class CoordinateMgr:
                 i, LoN, AoP = orbit_state
             
             DCM = np.array([[np.cos(LoN) * np.cos(AoP) - np.sin(LoN) * np.sin(AoP) * np.cos(i), -np.cos(LoN) * np.sin(AoP) - np.sin(LoN) * np.cos(AoP) * np.cos(i),  np.sin(LoN) * np.sin(i)],
-                    [np.sin(LoN) * np.cos(AoP) + np.cos(LoN) * np.sin(AoP) * np.cos(i), -np.sin(LoN) * np.sin(AoP) + np.cos(LoN) * np.cos(AoP) * np.cos(i), -np.cos(LoN) * np.sin(i)],
-                    [np.sin(AoP) * np.sin(i), np.cos(AoP) * np.sin(i), np.cos(i)]]).T
+                            [np.sin(LoN) * np.cos(AoP) + np.cos(LoN) * np.sin(AoP) * np.cos(i), -np.sin(LoN) * np.sin(AoP) + np.cos(LoN) * np.cos(AoP) * np.cos(i), -np.cos(LoN) * np.sin(i)],
+                            [np.sin(AoP) * np.sin(i), np.cos(AoP) * np.sin(i), np.cos(i)]]).T
             return DCM
     
         # Compute Perifocal to ECI DCM
@@ -66,8 +67,8 @@ class CoordinateMgr:
                 i, LoN, AoP = orbit_state
             
             DCM = np.array([[np.cos(LoN) * np.cos(AoP) - np.sin(LoN) * np.sin(AoP) * np.cos(i), -np.cos(LoN) * np.sin(AoP) - np.sin(LoN) * np.cos(AoP) * np.cos(i),  np.sin(LoN) * np.sin(i)],
-                    [np.sin(LoN) * np.cos(AoP) + np.cos(LoN) * np.sin(AoP) * np.cos(i), -np.sin(LoN) * np.sin(AoP) + np.cos(LoN) * np.cos(AoP) * np.cos(i), -np.cos(LoN) * np.sin(i)],
-                    [np.sin(AoP) * np.sin(i), np.cos(AoP) * np.sin(i), np.cos(i)]])
+                            [np.sin(LoN) * np.cos(AoP) + np.cos(LoN) * np.sin(AoP) * np.cos(i), -np.sin(LoN) * np.sin(AoP) + np.cos(LoN) * np.cos(AoP) * np.cos(i), -np.cos(LoN) * np.sin(i)],
+                            [np.sin(AoP) * np.sin(i), np.cos(AoP) * np.sin(i), np.cos(i)]])
             return DCM
         
         # Compute ECEF to Perifocal DCM
@@ -83,3 +84,66 @@ class CoordinateMgr:
             ECI_to_ECEF = self.compute_DCM('ECI', 'ECEF', time=time)
             DCM = ECI_to_ECEF @ Perifocal_to_ECI
             return DCM
+        
+        elif coordinate_frame_1 == coordinate_frame_2:
+            return np.eye(3)
+        else:
+            raise ValueError("Invalid coordinate frame transformation requested.")
+        
+    def GCS_to_ECI(self, lat : float, lon : float, R_e : float = 6378):
+        """"""
+        """
+        Convert Geocentric Spherical Coordinates (latitude, longitude, altitude) to ECI state.
+        Parameters:
+        lat : float
+            Latitude in degrees.
+        lon : float
+            Longitude in degrees.
+        R_e : float, optional
+            Earth's radius in kilometers. Default is 6378 km.
+        Returns:
+        state : np.array
+            ECI state vector [x, y, z, u, v, w] in kilometers.
+        """
+        lat_rad = np.deg2rad(lat)
+        lon_rad = np.deg2rad(lon)
+
+        r_mag = R_e
+        x = r_mag * np.cos(lat_rad) * np.cos(lon_rad)
+        y = r_mag * np.cos(lat_rad) * np.sin(lon_rad)
+        z = r_mag * np.sin(lat_rad)
+        r_vec = np.array([x, y, z])
+
+        # Velocity components (assuming stationary on Earth's surface)
+        v_vec = np.cross(np.array([0, 0, self.earth_rotation_rate]), r_vec)
+
+        return np.hstack((r_vec, v_vec))
+    
+    def GCS_to_ECEF(self, lat : float, lon : float, R_e : float = 6378):
+        """"""
+        """
+        Convert Geocentric Spherical Coordinates (latitude, longitude, altitude) to ECEF state.
+        Parameters:
+        lat : float
+            Latitude in degrees.
+        lon : float
+            Longitude in degrees.
+        R_e : float, optional
+            Earth's radius in kilometers. Default is 6378 km.
+        Returns:
+        state : np.array
+            ECEF state vector [x, y, z, u, v, w] in kilometers.
+        """
+        lat_rad = np.deg2rad(lat)
+        lon_rad = np.deg2rad(lon)
+
+        r_mag = R_e
+        x = r_mag * np.cos(lat_rad) * np.cos(lon_rad)
+        y = r_mag * np.cos(lat_rad) * np.sin(lon_rad)
+        z = r_mag * np.sin(lat_rad)
+        r_vec = np.array([x, y, z])
+
+        # Velocity components (zero in ECEF frame)
+        v_vec = np.zeros(3)
+
+        return np.hstack((r_vec, v_vec))

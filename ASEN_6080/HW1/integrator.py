@@ -1,5 +1,5 @@
 import numpy as np
-from generic_functions import compute_DCM, state_jacobian
+from generic_functions import state_jacobian
 from scipy.integrate import solve_ivp
 class Integrator:
     def __init__(self, mu : float, R_e : float, mode : str = 'PointMass'):
@@ -22,7 +22,9 @@ class Integrator:
         v_perifocal = (self.mu / h) * np.array([-np.sin(f), e + np.cos(f), 0])
         
         # Rotation matrices
-        DCM = compute_DCM(i, LoN, AoP)
+        DCM = np.array([[np.cos(LoN) * np.cos(AoP) - np.sin(LoN) * np.sin(AoP) * np.cos(i), -np.cos(LoN) * np.sin(AoP) - np.sin(LoN) * np.cos(AoP) * np.cos(i),  np.sin(LoN) * np.sin(i)],
+                        [np.sin(LoN) * np.cos(AoP) + np.cos(LoN) * np.sin(AoP) * np.cos(i), -np.sin(LoN) * np.sin(AoP) + np.cos(LoN) * np.cos(AoP) * np.cos(i), -np.cos(LoN) * np.sin(i)],
+                        [np.sin(AoP) * np.sin(i), np.cos(AoP) * np.sin(i), np.cos(i)]])
  
         # Transform to inertial frame
         r_inertial = DCM @ r_perifocal

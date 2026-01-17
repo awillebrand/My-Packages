@@ -2,6 +2,8 @@ import numpy as np
 import json
 from generic_functions import state_jacobian, measurement_jacobian
 from integrator import Integrator
+from coordinate_manager import CoordinateMgr
+from measurement_manager import MeasurementMgr
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
@@ -24,7 +26,7 @@ R_e = 6378
 
 # Call the perturbation_partials function
 
-A = measurement_jacobian(r, v, mu, J2, J3, R_e)
+A = state_jacobian(r, v, mu, J2, J3, R_e)
 
 # Compare the computed Jacobian to the truth Jacobian
 diff = A - truth_jacobian
@@ -33,7 +35,7 @@ diff = A - truth_jacobian
 # print(diff)
 
 # Question 2 Testing Code --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
+# Testing orbit propagation
 a = 10000
 e = 0.01
 i = np.deg2rad(40)
@@ -55,8 +57,9 @@ perturbation = np.array([1, 0, 0, 0, 0.010, 0, 0])
 perturbed_state = initial_state + perturbation
 
 # Integrate for 15 orbital periods
-reference_time, reference_state_history = integrator.integrate_eom(15 * period, initial_state)
-perturbed_time, perturbed_state_history = integrator.integrate_eom(15 * period, perturbed_state, reference_time)
+time_list = np.arange(0, 15 * period, 10)
+reference_time, reference_state_history = integrator.integrate_eom(15 * period, initial_state, time_list)
+perturbed_time, perturbed_state_history = integrator.integrate_eom(15 * period, perturbed_state, time_list)
 
 # Compute deviation between reference and perturbed states
 deviation_state = perturbed_state_history - reference_state_history
@@ -75,9 +78,7 @@ for column in stm_history.T:
 
 estimated_deviation = np.array(estimated_deviation).T
 
-# Testing STM against provided solution ----------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-# NEED TO KNOW HIS MU
+# Testing STM against provided solution
 
 with open('prob2b_solution.json', 'r') as f:
     test_data = json.load(f)
@@ -127,6 +128,46 @@ print("Spacecraft Measurement Jacobian H:")
 print(H_sc)
 print("Station Measurement Jacobian H:")
 print(H_station)
+
+# Question 4 Testing Code ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# Initialize Measurement Manager with ground station parameters
+station_1_mgr = MeasurementMgr(station_lat=-35.398333, station_lon=148.981944, initial_earth_spin_angle=np.deg2rad(122))
+station_2_mgr = MeasurementMgr(station_lat=40.427222, station_lon=355.749444, initial_earth_spin_angle=np.deg2rad(122))
+station_3_mgr = MeasurementMgr(station_lat=35.247163, station_lon=243.205, initial_earth_spin_angle=np.deg2rad(122))
+
+# Simulate measurements from all three stations
+station_1_measurements = station_1_mgr.simulate_measurements(reference_state_history, reference_time, 'ECI')
+station_2_measurements = station_2_mgr.simulate_measurements(reference_state_history, reference_time, 'ECI')
+station_3_measurements = station_3_mgr.simulate_measurements(reference_state_history, reference_time, 'ECI')
+
+# Find first and last values that are not NaN for each station
+station_1_not_nan = ~np.isnan(station_1_measurements[0, :])
+station_2_not_nan = ~np.isnan(station_2_measurements[0, :])
+station_3_not_nan = ~np.isnan(station_3_measurements[0, :])
+station_1_first_index = np.where(station_1_not_nan)[0][0]
+station_1_last_index = np.where(station_1_not_nan)[0][-1]
+station_2_first_index = np.where(station_2_not_nan)[0][0]
+station_2_last_index = np.where(station_2_not_nan)[0][-1]
+station_3_first_index = np.where(station_3_not_nan)[0][0]
+station_3_last_index = np.where(station_3_not_nan)[0][-1]
+
+earliest_measurement = min(station_1_first_index, station_2_first_index, station_3_first_index)
+latest_measurement = max(station_1_last_index, station_2_last_index, station_3_last_index)
+
+print(f"Earliest measurement time: {reference_time[earliest_measurement]} sec")
+print(f"Latest measurement time: {reference_time[latest_measurement]} sec")
+
+# Find history of spacecraft elevation angles from each station
+station_elevation_angles = np.zeros((3, reference_state_history.shape[1]))
+for i, time in enumerate(reference_time):
+    eci_to_ecef = station_1_mgr.coordinate_mgr.compute_DCM('ECI', 'ECEF', time=time)
+    ecef_pos = eci_to_ecef @ reference_state_history[0:3,i]
+    elevation_angle_1 = station_1_mgr.get_elevation_angle(ecef_pos)
+    elevation_angle_2 = station_2_mgr.get_elevation_angle(ecef_pos)
+    elevation_angle_3 = station_3_mgr.get_elevation_angle(ecef_pos)
+    elevation_angle_vector = np.array([elevation_angle_1, elevation_angle_2, elevation_angle_3])
+    station_elevation_angles[:, i] = elevation_angle_vector
 
 # Figure generation ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -211,3 +252,30 @@ fig.update_yaxes(title_text='Deviation Difference (km/s)', row=2, col=1)
 fig.update_yaxes(title_text='Deviation Difference (km/s)', row=3, col=1)
 fig.update_layout(title='Velocity Deviation Differences Over Time', height=900)
 fig.write_html("figures/velocity_deviation_differences.html")
+
+# Measurement Plots --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=('Range Measurements', 'Range Rate Measurements'))
+fig.add_trace(go.Scatter(x=reference_time, y=station_1_measurements[0, :], mode='lines', name='Station 1 Range', line=dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=station_2_measurements[0, :], mode='lines', name='Station 2 Range', line=dict(color='red')), row=1, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=station_3_measurements[0, :], mode='lines', name='Station 3 Range', line=dict(color='green')), row=1, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=station_1_measurements[1, :], mode='lines', name='Station 1 Range Rate', line=dict(color='blue')), row=2, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=station_2_measurements[1, :], mode='lines', name='Station 2 Range Rate', line=dict(color='red')), row=2, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=station_3_measurements[1, :], mode='lines', name='Station 3 Range Rate', line=dict(color='green')), row=2, col=1)
+fig.update_xaxes(title_text='Time (Seconds)', row=2, col=1)
+fig.update_yaxes(title_text='Range (km)', row=1, col=1)
+fig.update_yaxes(title_text='Range Rate (km/s)', row=2, col=1)
+fig.update_layout(title='Simulated Range and Range Rate Measurements from Ground Stations', height=900)
+fig.write_html("figures/simulated_measurements.html")
+
+# Elevation Angle Plot --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+fig = go.Figure()
+fig.add_trace(go.Scatter(x=reference_time, y=station_elevation_angles[0, :], mode='lines', name='Station 1 Elevation Angle', line=dict(color='blue')))
+fig.add_trace(go.Scatter(x=reference_time, y=station_elevation_angles[1, :], mode='lines', name='Station 2 Elevation Angle', line=dict(color='red')))
+fig.add_trace(go.Scatter(x=reference_time, y=station_elevation_angles[2, :], mode='lines', name='Station 3 Elevation Angle', line=dict(color='green')))
+fig.add_hline(y=10.0, line_dash="dash", line_color="black", annotation_text="10° Elevation Mask", annotation_position="top left")
+fig.update_xaxes(title_text='Time (Seconds)')
+fig.update_yaxes(title_text='Elevation Angle (degrees)')
+fig.update_layout(title='Spacecraft Elevation Angles from Ground Stations')
+fig.write_html("figures/elevation_angles.html")
