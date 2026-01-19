@@ -174,6 +174,13 @@ station_1_measurements_dsn = station_1_mgr.convert_to_DSN_units(station_1_measur
 station_2_measurements_dsn = station_2_mgr.convert_to_DSN_units(station_2_measurements)
 station_3_measurements_dsn = station_3_mgr.convert_to_DSN_units(station_3_measurements)
 
+# Simulate noisy measurements
+range_noise = 0.0
+range_rate_noise = 0.5E-6
+station_1_measurements_noisy = station_1_mgr.simulate_measurements(reference_state_history, reference_time, 'ECI', noise=True, noise_sigma=np.array([range_noise, range_rate_noise]))
+station_2_measurements_noisy = station_2_mgr.simulate_measurements(reference_state_history, reference_time, 'ECI', noise=True, noise_sigma=np.array([range_noise, range_rate_noise]))
+station_3_measurements_noisy = station_3_mgr.simulate_measurements(reference_state_history, reference_time, 'ECI', noise=True, noise_sigma=np.array([range_noise, range_rate_noise]))
+
 # Figure generation ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Plot the orbit
@@ -330,3 +337,29 @@ fig.update_layout(title='Spacecraft Elevation Angles from Ground Stations',
                   height=600,
                   legend=dict(font=dict(size=18)))
 fig.write_html("figures/elevation_angles.html")
+
+# Noisy Measurement Plots --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+fig = go.Figure()
+fig.add_trace(go.Scatter(x=reference_time, y=station_1_measurements_noisy[1, :], mode='lines', name='Station 1', line=dict(color='blue')))
+fig.add_trace(go.Scatter(x=reference_time, y=station_2_measurements_noisy[1, :], mode='lines', name='Station 2', line=dict(color='red')))
+fig.add_trace(go.Scatter(x=reference_time, y=station_3_measurements_noisy[1, :], mode='lines', name='Station 3', line=dict(color='green')))
+fig.update_xaxes(title_text='Time (Seconds)')
+fig.update_yaxes(title_text='Range Rate (km/s)')
+fig.update_layout(title='Simulated Noisy Range Rate Measurements from Ground Stations',
+                  title_font=dict(size=28),
+                  height=900,
+                  legend=dict(font=dict(size=18)))
+fig.write_html("figures/simulated_noisy_measurements.html")
+
+fig = go.Figure()
+fig.add_trace(go.Scatter(x=reference_time, y=(station_1_measurements_noisy[1, :] - station_1_measurements[1, :])*1E6, mode='markers', name='Station 1', line=dict(color='blue')))
+fig.add_trace(go.Scatter(x=reference_time, y=(station_2_measurements_noisy[1, :] - station_2_measurements[1, :])*1E6, mode='markers', name='Station 2', line=dict(color='red')))
+fig.add_trace(go.Scatter(x=reference_time, y=(station_3_measurements_noisy[1, :] - station_3_measurements[1, :])*1E6, mode='markers', name='Station 3', line=dict(color='green')))
+fig.update_xaxes(title_text='Time (Seconds)', range=[0, reference_time[-1]])
+fig.update_yaxes(title_text='Range Rate Measurement Noise (mm/s)')
+fig.update_layout(title='Range Rate Measurement Noise from Ground Stations',
+                  title_font=dict(size=28),
+                  height=900,
+                  legend=dict(font=dict(size=18)))
+fig.write_html("figures/range_rate_measurement_noise.html")
