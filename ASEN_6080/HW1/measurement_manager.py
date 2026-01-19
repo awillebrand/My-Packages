@@ -51,7 +51,7 @@ class MeasurementMgr:
 
         return elevation_angle > visibility_elevation_angle
 
-    def simulate_measurements(self, inputted_state_history : np.array, time_vector : np.array, coordinate_frame : str):
+    def simulate_measurements(self, inputted_state_history : np.array, time_vector : np.array, coordinate_frame : str, noise : bool = False, noise_sigma : np.array = np.array([0.0, 0.0])):
         """Simulate range measurements from the ground station to the spacecraft over time.
         Parameters:
         sc_state_history : np.array
@@ -60,6 +60,10 @@ class MeasurementMgr:
             1xN array of time points corresponding to the spacecraft states.
         coordinate_frame : str
             Coordinate frame of the inputted spacecraft states ('ECI' or 'ECEF').
+        noise : bool, optional
+            Whether to add noise to the measurements. Default is False.
+        noise_sigma : np.array, optional
+            2x1 array of standard deviations for range and range rate noise. Default is [0.0, 0.0].
         Returns:
         measurement_history : np.array
             2xN array of range and range rate measurements in kilometers.
@@ -74,8 +78,10 @@ class MeasurementMgr:
                 ecef_vel = eci_to_ecef @ inputted_state_history[3:6,i] - np.cross(np.array([0, 0, self.coordinate_mgr.earth_rotation_rate]), ecef_pos)
                 full_ecef_state = np.hstack((ecef_pos, ecef_vel)).T
                 sc_state_history[0:6, i] = full_ecef_state
-        else:
+        elif coordinate_frame:
             sc_state_history = inputted_state_history
+        else:
+            raise ValueError("Invalid coordinate frame. Must be 'ECI' or 'ECEF'.")
         
         # Simulate measurements
         measurement_history = np.zeros((2, sc_state_history.shape[1]))
@@ -89,6 +95,11 @@ class MeasurementMgr:
                 range_mag = np.linalg.norm(range_vec)
                 range_rate = np.dot(range_vec, (sc_vel - self.station_state_ecef[3:6])) / range_mag
 
+                # Add noise if specified
+                if noise:
+                    range_mag += np.random.normal(0.0, noise_sigma[0])
+                    range_rate += np.random.normal(0.0, noise_sigma[1])
+
                 measurement_history[0, i] = range_mag
                 measurement_history[1, i] = range_rate
             else:
@@ -96,3 +107,26 @@ class MeasurementMgr:
                 measurement_history[1, i] = np.nan
 
         return measurement_history
+
+    def convert_to_DSN_units(self, measurement_history : np.array, reference_frequency : float = 8.44e9):
+        """Convert measurements to DSN units.
+        Parameters:
+        measurement_history : np.array
+            2xN array of range (km) and range rate (km/s) measurements.
+        reference_frequency : float, optional
+            Reference frequency for Doppler shift calculation in Hz. Default is 8.44 GHz.
+        Returns:
+        dsn_measurement_history : np.array
+            2xN array of range (Range Units) and Doppler shift (Hz) measurements.
+        """
+        # Speed of light in km/s
+        c = 299792.458
+
+        dsn_measurement_history = np.zeros(measurement_history.shape)
+
+        # Convert range to Range Units
+        dsn_measurement_history[0, :] = (221 / 749) * measurement_history[0, :] * reference_frequency / c
+        # Convert range rate to Doppler shift
+        dsn_measurement_history[1, :] = - 2 * measurement_history[1, :] * reference_frequency / c
+
+        return dsn_measurement_history

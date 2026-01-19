@@ -169,6 +169,11 @@ for i, time in enumerate(reference_time):
     elevation_angle_vector = np.array([elevation_angle_1, elevation_angle_2, elevation_angle_3])
     station_elevation_angles[:, i] = elevation_angle_vector
 
+# Convert measurements to DSN units
+station_1_measurements_dsn = station_1_mgr.convert_to_DSN_units(station_1_measurements)
+station_2_measurements_dsn = station_2_mgr.convert_to_DSN_units(station_2_measurements)
+station_3_measurements_dsn = station_3_mgr.convert_to_DSN_units(station_3_measurements)
+
 # Figure generation ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Plot the orbit
@@ -194,27 +199,33 @@ fig.update_layout(
         yaxis_title='Y (km)',
         zaxis_title='Z (km)',
         aspectmode='data'
-    )
+    ),
+    legend=dict(font=dict(size=18)),
+    title_font=dict(size=28)
 )
 fig.write_html('figures\orbit_trajectories.html')
 
 # Plot the deviation in position coordinates over time in subplots
-fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=('X Deviation', 'Y Deviation', 'Z Deviation'))
+fig = make_subplots(rows=3, cols=1, vertical_spacing=0.1, shared_xaxes=True, subplot_titles=('X Deviation', 'Y Deviation', 'Z Deviation'))
 fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[0, :], mode='lines', name='Propagated Deviation', line=dict(color='blue')), row=1, col=1)
 fig.add_trace(go.Scatter(x=stm_time / period, y=estimated_deviation[0, :], mode='lines', name='STM Estimated Deviation', line=dict(color='red')), row=1, col=1)
-fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[1, :], mode='lines', name='Propagated Deviation', line=dict(color='blue')), row=2, col=1)
-fig.add_trace(go.Scatter(x=stm_time / period, y=estimated_deviation[1, :], mode='lines', name='STM Estimated Deviation', line=dict(color='red')), row=2, col=1)
-fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[2, :], mode='lines', name='Propagated Deviation', line=dict(color='blue')), row=3, col=1)
-fig.add_trace(go.Scatter(x=stm_time / period, y=estimated_deviation[2, :], mode='lines', name='STM Estimated Deviation', line=dict(color='red')), row=3, col=1)
+fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[1, :], mode='lines', name='Propagated Deviation', showlegend=False, line=dict(color='blue')), row=2, col=1)
+fig.add_trace(go.Scatter(x=stm_time / period, y=estimated_deviation[1, :], mode='lines', name='STM Estimated Deviation', showlegend=False, line=dict(color='red')), row=2, col=1)
+fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[2, :], mode='lines', name='Propagated Deviation', showlegend=False, line=dict(color='blue')), row=3, col=1)
+fig.add_trace(go.Scatter(x=stm_time / period, y=estimated_deviation[2, :], mode='lines', name='STM Estimated Deviation', showlegend=False, line=dict(color='red')), row=3, col=1)
 fig.update_xaxes(title_text='Time (Orbital Periods)', row=3, col=1)
 fig.update_yaxes(title_text='Deviation (km)', row=1, col=1)
 fig.update_yaxes(title_text='Deviation (km)', row=2, col=1)
 fig.update_yaxes(title_text='Deviation (km)', row=3, col=1)
-fig.update_layout(title='Position Deviations Over Time', height=900)
+fig.update_layout(title='Position Deviations Over Time',
+                  title_font=dict(size=28),
+                  height=900,
+                  legend=dict(font=dict(size=18)))
+fig.update_annotations(font=dict(size=20))
 fig.write_html("figures/position_deviations.html")
 
 # Plot the deviation in velocity coordinates over time in subplots
-fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=('U Deviation', 'V Deviation', 'W Deviation'))
+fig = make_subplots(rows=3, cols=1, vertical_spacing=0.1, shared_xaxes=True, subplot_titles=('U Deviation', 'V Deviation', 'W Deviation'))
 fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[3, :], mode='lines', name='Propagated Deviation', line=dict(color='blue')), row=1, col=1)
 fig.add_trace(go.Scatter(x=stm_time / period, y=estimated_deviation[3, :], mode='lines', name='STM Estimated Deviation', line=dict(color='red')), row=1, col=1)
 fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[4, :], mode='lines', name='Propagated Deviation', line=dict(color='blue')), row=2, col=1)
@@ -225,48 +236,85 @@ fig.update_xaxes(title_text='Time (Orbital Periods)', row=3, col=1)
 fig.update_yaxes(title_text='Deviation (km/s)', row=1, col=1)
 fig.update_yaxes(title_text='Deviation (km/s)', row=2, col=1)
 fig.update_yaxes(title_text='Deviation (km/s)', row=3, col=1)
-fig.update_layout(title='Velocity Deviations Over Time', height=900)
+fig.update_layout(title='Velocity Deviations Over Time',
+                  title_font=dict(size=28),
+                  height=900,
+                  legend=dict(font=dict(size=18)))
+fig.update_annotations(font=dict(size=20))
 fig.write_html("figures/velocity_deviations.html")
 
 # Subplots with difference in deviations ------------------------------------------------------------------------------------------------------------------------------------------------
 
-fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=('X Deviation Difference', 'Y Deviation Difference', 'Z Deviation Difference'))
-fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[0, :] - estimated_deviation[0, :], mode='lines', name='Deviation Difference', line=dict(color='green')), row=1, col=1)
-fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[1, :] - estimated_deviation[1, :], mode='lines', name='Deviation Difference', line=dict(color='green')), row=2, col=1)
-fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[2, :] - estimated_deviation[2, :], mode='lines', name='Deviation Difference', line=dict(color='green')), row=3, col=1)
+fig = make_subplots(rows=3, cols=1, vertical_spacing=0.1, shared_xaxes=True, subplot_titles=('X Deviation Difference', 'Y Deviation Difference', 'Z Deviation Difference'))
+fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[0, :] - estimated_deviation[0, :], mode='lines', name='Deviation Difference', line=dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[1, :] - estimated_deviation[1, :], mode='lines', name='Deviation Difference', line=dict(color='blue')), row=2, col=1)
+fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[2, :] - estimated_deviation[2, :], mode='lines', name='Deviation Difference', line=dict(color='blue')), row=3, col=1)
 fig.update_xaxes(title_text='Time (Orbital Periods)', row=3, col=1)
 fig.update_yaxes(title_text='Deviation Difference (km)', row=1, col=1)
 fig.update_yaxes(title_text='Deviation Difference (km)', row=2, col=1)
 fig.update_yaxes(title_text='Deviation Difference (km)', row=3, col=1)
-fig.update_layout(title='Position Deviation Differences Over Time', height=900)
+fig.update_layout(title='Position Deviation Differences Over Time',
+                  title_font=dict(size=28),
+                  height=900,
+                  legend=dict(font=dict(size=18)),
+                  showlegend=False)
+fig.update_annotations(font=dict(size=20))
 fig.write_html("figures/position_deviation_differences.html")
 
 # Velocity deviation differences
-fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=('U Deviation Difference', 'V Deviation Difference', 'W Deviation Difference'))
-fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[3, :] - estimated_deviation[3, :], mode='lines', name='Deviation Difference', line=dict(color='green')), row=1, col=1)
-fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[4, :] - estimated_deviation[4, :], mode='lines', name='Deviation Difference', line=dict(color='green')), row=2, col=1)
-fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[5, :] - estimated_deviation[5, :], mode='lines', name='Deviation Difference', line=dict(color='green')), row=3, col=1)
+fig = make_subplots(rows=3, cols=1, vertical_spacing=0.1, shared_xaxes=True, subplot_titles=('U Deviation Difference', 'V Deviation Difference', 'W Deviation Difference'))
+fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[3, :] - estimated_deviation[3, :], mode='lines', name='Deviation Difference', line=dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[4, :] - estimated_deviation[4, :], mode='lines', name='Deviation Difference', line=dict(color='blue')), row=2, col=1)
+fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[5, :] - estimated_deviation[5, :], mode='lines', name='Deviation Difference', line=dict(color='blue')), row=3, col=1)
 fig.update_xaxes(title_text='Time (Orbital Periods)', row=3, col=1)
 fig.update_yaxes(title_text='Deviation Difference (km/s)', row=1, col=1)
 fig.update_yaxes(title_text='Deviation Difference (km/s)', row=2, col=1)
 fig.update_yaxes(title_text='Deviation Difference (km/s)', row=3, col=1)
-fig.update_layout(title='Velocity Deviation Differences Over Time', height=900)
+fig.update_layout(title='Velocity Deviation Differences Over Time',
+                  title_font=dict(size=28),
+                  height=900,
+                  legend=dict(font=dict(size=18)),
+                  showlegend=False)
+fig.update_annotations(font=dict(size=20))
 fig.write_html("figures/velocity_deviation_differences.html")
 
 # Measurement Plots --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=('Range Measurements', 'Range Rate Measurements'))
-fig.add_trace(go.Scatter(x=reference_time, y=station_1_measurements[0, :], mode='lines', name='Station 1 Range', line=dict(color='blue')), row=1, col=1)
-fig.add_trace(go.Scatter(x=reference_time, y=station_2_measurements[0, :], mode='lines', name='Station 2 Range', line=dict(color='red')), row=1, col=1)
-fig.add_trace(go.Scatter(x=reference_time, y=station_3_measurements[0, :], mode='lines', name='Station 3 Range', line=dict(color='green')), row=1, col=1)
-fig.add_trace(go.Scatter(x=reference_time, y=station_1_measurements[1, :], mode='lines', name='Station 1 Range Rate', line=dict(color='blue')), row=2, col=1)
-fig.add_trace(go.Scatter(x=reference_time, y=station_2_measurements[1, :], mode='lines', name='Station 2 Range Rate', line=dict(color='red')), row=2, col=1)
-fig.add_trace(go.Scatter(x=reference_time, y=station_3_measurements[1, :], mode='lines', name='Station 3 Range Rate', line=dict(color='green')), row=2, col=1)
+fig = make_subplots(rows=2, cols=1, vertical_spacing=0.1, shared_xaxes=True, subplot_titles=('Range Measurements', 'Range Rate Measurements'))
+fig.add_trace(go.Scatter(x=reference_time, y=station_1_measurements[0, :], mode='lines', name='Station 1', line=dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=station_2_measurements[0, :], mode='lines', name='Station 2', line=dict(color='red')), row=1, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=station_3_measurements[0, :], mode='lines', name='Station 3', line=dict(color='green')), row=1, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=station_1_measurements[1, :], mode='lines', name='Station 1', line=dict(color='blue'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=station_2_measurements[1, :], mode='lines', name='Station 2', line=dict(color='red'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=station_3_measurements[1, :], mode='lines', name='Station 3', line=dict(color='green'), showlegend=False), row=2, col=1)
 fig.update_xaxes(title_text='Time (Seconds)', row=2, col=1)
 fig.update_yaxes(title_text='Range (km)', row=1, col=1)
 fig.update_yaxes(title_text='Range Rate (km/s)', row=2, col=1)
-fig.update_layout(title='Simulated Range and Range Rate Measurements from Ground Stations', height=900)
+# Increase subplot title font size and overall figure title font size
+fig.update_layout(title='Simulated Range and Range Rate Measurements from Ground Stations',
+                  title_font=dict(size=28),
+                  height=900,
+                  legend=dict(font=dict(size=18)))
+fig.update_annotations(font=dict(size=20))
+
 fig.write_html("figures/simulated_measurements.html")
+
+fig = make_subplots(rows=2, cols=1, vertical_spacing=0.1, shared_xaxes=True, subplot_titles=('Range Measurements', 'Doppler Measurements (DSN Units)'))
+fig.add_trace(go.Scatter(x=reference_time, y=station_1_measurements_dsn[0, :], mode='lines', name='Station 1', line=dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=station_2_measurements_dsn[0, :], mode='lines', name='Station 2', line=dict(color='red')), row=1, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=station_3_measurements_dsn[0, :], mode='lines', name='Station 3', line=dict(color='green')), row=1, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=station_1_measurements_dsn[1, :], mode='lines', name='Station 1', line=dict(color='blue'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=station_2_measurements_dsn[1, :], mode='lines', name='Station 2', line=dict(color='red'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=station_3_measurements_dsn[1, :], mode='lines', name='Station 3', line=dict(color='green'), showlegend=False), row=2, col=1)
+fig.update_xaxes(title_text='Time (Seconds)', row=2, col=1)
+fig.update_yaxes(title_text='Range (Range Units)', row=1, col=1)
+fig.update_yaxes(title_text='Doppler Shift (Hz)', row=2, col=1)
+fig.update_layout(title='Simulated Range and Doppler Measurements from Ground Stations (DSN Units)',
+                  title_font=dict(size=28),
+                  height=900,
+                  legend=dict(font=dict(size=18)))
+fig.update_annotations(font=dict(size=20))
+fig.write_html("figures/simulated_measurements_dsn.html")
 
 # Elevation Angle Plot --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -277,5 +325,8 @@ fig.add_trace(go.Scatter(x=reference_time, y=station_elevation_angles[2, :], mod
 fig.add_hline(y=10.0, line_dash="dash", line_color="black", annotation_text="10° Elevation Mask", annotation_position="top left")
 fig.update_xaxes(title_text='Time (Seconds)')
 fig.update_yaxes(title_text='Elevation Angle (degrees)')
-fig.update_layout(title='Spacecraft Elevation Angles from Ground Stations')
+fig.update_layout(title='Spacecraft Elevation Angles from Ground Stations',
+                  title_font=dict(size=28),
+                  height=600,
+                  legend=dict(font=dict(size=18)))
 fig.write_html("figures/elevation_angles.html")
