@@ -84,9 +84,9 @@ class Integrator:
         x_dot = u
         y_dot = v
         z_dot = w
-        u_dot = -self.mu * x / r**3 + (3 / 2) * self.mu * J2 * self.R_e**2 * x / r**5 * (5 * (z**2 / r**2) - 1) + (5 / 2) * self.mu * J3 * self.R_e**3 * x * z / r**7 * (7 * z**2 / r**2 - 3)
-        v_dot = -self.mu * y / r**3 + (3 / 2) * self.mu * J2 * self.R_e**2 * y / r**5 * (5 * (z**2 / r**2) - 1) + (5 / 2) * self.mu * J3 * self.R_e**3 * y * z / r**7 * (7 * z**2 / r**2 - 3)
-        w_dot = -self.mu * z / r**3 + (3 / 2) * self.mu * J2 * self.R_e**2 * z / r**5 * (5 * (z**2 / r**2) - 3) + (5 / 2) * self.mu * J3 * self.R_e**3 / r**5 * (7 * z**4 / r**4 - 6 * z**2 / r**2 + 3 / 5)
+        u_dot = -self.mu * x / r**3 + (3 / 2) * (self.mu * J2 * self.R_e**2 * x / r**5) * (5 * (z**2 / r**2) - 1) + (5 / 2) * self.mu * J3 * self.R_e**3 * x * z / r**7 * (7 * z**2 / r**2 - 3)
+        v_dot = -self.mu * y / r**3 + (3 / 2) * (self.mu * J2 * self.R_e**2 * y / r**5) * (5 * (z**2 / r**2) - 1) + (5 / 2) * self.mu * J3 * self.R_e**3 * y * z / r**7 * (7 * z**2 / r**2 - 3)
+        w_dot = -self.mu * z / r**3 + (3 / 2) * (self.mu * J2 * self.R_e**2 * z / r**5) * (5 * (z**2 / r**2) - 3) + (5 / 2) * self.mu * J3 * self.R_e**3 / r**5 * (7 * z**4 / r**4 - 6 * z**2 / r**2 + 3 / 5)
 
         if self.mode == 'PointMass':
             return np.array([x_dot, y_dot, z_dot, u_dot, v_dot, w_dot])
@@ -128,7 +128,7 @@ class Integrator:
         
     def integrate_eom(self, t_final, initial_state, teval = None):
         t_span = (0, t_final)
-        sol = solve_ivp(self.equations_of_motion, t_span, initial_state, method='RK45', rtol=1e-8, atol=1e-12, t_eval=teval)
+        sol = solve_ivp(self.equations_of_motion, t_span, initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval)
         return sol.t, sol.y
     
     def integrate_stm(self, t_final, initial_state, phi_0 = None, teval = None):
@@ -146,7 +146,7 @@ class Integrator:
 
         augmented_initial_state = np.hstack((initial_state, phi_0))
         t_span = (0, t_final)
-        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-9, atol=1e-12, t_eval=teval)
+        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval)
         return sol.t, sol.y
         
         

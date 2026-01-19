@@ -37,13 +37,14 @@ diff = A - truth_jacobian
 # Question 2 Testing Code --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Testing orbit propagation
 a = 10000
-e = 0.01
+e = 0.001
 i = np.deg2rad(40)
 LoN = np.deg2rad(80)
 AoP = np.deg2rad(40)
 f = np.deg2rad(0)
-mu = 398600.4418
+mu = 3.986004415E5
 period = 2 * np.pi * np.sqrt(a**3 / mu)
+J2 = 0.0010826269
 mode = 'J2'
 state_length = 7 # <--- Change this depending on mode
 
@@ -77,6 +78,17 @@ for column in stm_history.T:
     estimated_deviation.append(propagated_deviation)
 
 estimated_deviation = np.array(estimated_deviation).T
+
+# Pull given trajectory data for comparison
+with open('HW1_truth.txt', 'r') as f:
+    lines = f.readlines()
+    truth_time = np.zeros(len(lines))
+    truth_state_history = np.zeros((6, len(lines)))
+    for i, line in enumerate(lines):
+        data = line.split(' ')
+        data[6] = data[6].strip()
+        truth_time[i] = float(data[0])
+        truth_state_history[:, i] = np.array([float(state) for state in data[1:]])
 
 # Testing STM against provided solution
 
@@ -363,3 +375,37 @@ fig.update_layout(title='Range Rate Measurement Noise from Ground Stations',
                   height=900,
                   legend=dict(font=dict(size=18)))
 fig.write_html("figures/range_rate_measurement_noise.html")
+
+# Subplots with difference in my trajectory and truth ------------------------------------------------------------------------------------------------------------------------------------------------
+
+fig = make_subplots(rows=3, cols=1, vertical_spacing=0.1, shared_xaxes=True, subplot_titles=('X Difference', 'Y Difference', 'Z Difference'))
+fig.add_trace(go.Scatter(x=reference_time, y=reference_state_history[0, :] - truth_state_history[0, :], mode='lines', name='Deviation Difference', line=dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=reference_state_history[1, :] - truth_state_history[1, :], mode='lines', name='Deviation Difference', line=dict(color='blue')), row=2, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=reference_state_history[2, :] - truth_state_history[2, :], mode='lines', name='Deviation Difference', line=dict(color='blue')), row=3, col=1)
+fig.update_xaxes(title_text='Time (Seconds)', row=3, col=1)
+fig.update_yaxes(title_text='Difference (km)', row=1, col=1)
+fig.update_yaxes(title_text='Difference (km)', row=2, col=1)
+fig.update_yaxes(title_text='Difference (km)', row=3, col=1)
+fig.update_layout(title='Position Deviation Differences Between My Trajectory and Truth Over Time',
+                  title_font=dict(size=28),
+                  height=900,
+                  legend=dict(font=dict(size=18)),
+                  showlegend=False)
+fig.update_annotations(font=dict(size=20))
+fig.write_html("figures/position_differences_truth.html")
+
+fig = make_subplots(rows=3, cols=1, vertical_spacing=0.1, shared_xaxes=True, subplot_titles=('U Difference', 'V Difference', 'W Difference'))
+fig.add_trace(go.Scatter(x=reference_time, y=reference_state_history[3, :] - truth_state_history[3, :], mode='lines', name='Deviation Difference', line=dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=reference_state_history[4, :] - truth_state_history[4, :], mode='lines', name='Deviation Difference', line=dict(color='blue')), row=2, col=1)
+fig.add_trace(go.Scatter(x=reference_time, y=reference_state_history[5, :] - truth_state_history[5, :], mode='lines', name='Deviation Difference', line=dict(color='blue')), row=3, col=1)
+fig.update_xaxes(title_text='Time (Seconds)', row=3, col=1)
+fig.update_yaxes(title_text='Difference (km/s)', row=1, col=1)
+fig.update_yaxes(title_text='Difference (km/s)', row=2, col=1)
+fig.update_yaxes(title_text='Difference (km/s)', row=3, col=1)
+fig.update_layout(title='Velocity Deviation Differences Between My Trajectory and Truth Over Time',
+                  title_font=dict(size=28),
+                  height=900,
+                  legend=dict(font=dict(size=18)),
+                  showlegend=False)
+fig.update_annotations(font=dict(size=20))
+fig.write_html("figures/velocity_differences_truth.html")
