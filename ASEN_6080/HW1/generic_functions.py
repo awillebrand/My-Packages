@@ -108,7 +108,7 @@ def compute_DCM(i, LoN, AoP):
     
     return DCM
 
-def measurement_jacobian(sat_state : np.array, station_state : np.array):
+def measurement_jacobian(sat_state : np.array, station_state : np.array, earth_rotation_rate : float =7.2921151467064e-5):
     """
     This function computes measurement Jacobian associated with range and range rate measurements between a satellite and a ground station.
     Parameters:
@@ -116,6 +116,8 @@ def measurement_jacobian(sat_state : np.array, station_state : np.array):
         atellite state vector in Cartesian coordinates (x, y, z, u, v, w).
     station_state : np.Array
         Ground station state vector in Cartesian coordinates (x_s, y_s, z_s, u_s, v_s, w_s).
+    earth_rotation_rate : float
+        Earth's rotation rate in radians per second. Default is 7.2921151467064e-5 rad/s.
     Returns:
     H_sc : np.Array
         Measurement Jacobian with respect to the satellite state.
@@ -131,27 +133,32 @@ def measurement_jacobian(sat_state : np.array, station_state : np.array):
     rho = np.linalg.norm(sat_state[0:3] - station_state[0:3])
     rho_dot = np.dot((sat_state[0:3] - station_state[0:3]), (sat_state[3:6] - station_state[3:6])) / rho
 
-    # Range partials
-    rho_x= (x - x_s) / rho
-    rho_y = (y - y_s) / rho
-    rho_z = (z - z_s) / rho
-    rho_u = 0
-    rho_v = 0
-    rho_w = 0
+    # Spacecraft range partials
+    rho_x_sc = (x - x_s) / rho
+    rho_y_sc = (y - y_s) / rho
+    rho_z_sc = (z - z_s) / rho
+    rho_u_sc = 0
+    rho_v_sc = 0
+    rho_w_sc = 0
 
-    # Range rate partials
-    rho_dot_x = (1 / rho) * ((u - u_s) - rho_dot * (x - x_s) / rho)
-    rho_dot_y = (1 / rho) * ((v - v_s) - rho_dot * (y - y_s) / rho)
-    rho_dot_z = (1 / rho) * ((w - w_s) - rho_dot * (z - z_s) / rho)
-    rho_dot_u = (x - x_s) / rho
-    rho_dot_v = (y - y_s) / rho
-    rho_dot_w = (z - z_s) / rho
+    # Spacecraft range rate partials
+    rho_dot_x_sc = (1 / rho) * ((u - u_s) - rho_dot * (x - x_s) / rho)
+    rho_dot_y_sc = (1 / rho) * ((v - v_s) - rho_dot * (y - y_s) / rho)
+    rho_dot_z_sc = (1 / rho) * ((w - w_s) - rho_dot * (z - z_s) / rho)
+    rho_dot_u_sc = (x - x_s) / rho
+    rho_dot_v_sc = (y - y_s) / rho
+    rho_dot_w_sc = (z - z_s) / rho
+
+    # Station range rate partials
+    rho_dot_x_station = -(1 / rho) * ((u + earth_rotation_rate * y_s) + earth_rotation_rate * (y - y_s) - rho_dot * (x - x_s) / rho)
+    rho_dot_y_station = -(1 / rho) * ((v - earth_rotation_rate * x_s) - earth_rotation_rate * (x - x_s) - rho_dot * (y - y_s) / rho)
+    rho_dot_z_station = -rho_dot_z_sc
 
     # Construct measurement Jacobian
-    H_sc = np.array([[rho_x, rho_y, rho_z, rho_u, rho_v, rho_w],
-                  [rho_dot_x, rho_dot_y, rho_dot_z, rho_dot_u, rho_dot_v, rho_dot_w]])
+    H_sc = np.array([[rho_x_sc, rho_y_sc, rho_z_sc, rho_u_sc, rho_v_sc, rho_w_sc],
+                  [rho_dot_x_sc, rho_dot_y_sc, rho_dot_z_sc, rho_dot_u_sc, rho_dot_v_sc, rho_dot_w_sc]])
     
-    H_station = np.array([[-rho_x, -rho_y, -rho_z],
-                          [-rho_dot_x, -rho_dot_y, -rho_dot_z]])
+    H_station = np.array([[-rho_x_sc, -rho_y_sc, -rho_z_sc],
+                          [rho_dot_x_station, rho_dot_y_station, rho_dot_z_station]])
     
     return H_sc, H_station

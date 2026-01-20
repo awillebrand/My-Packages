@@ -30,9 +30,11 @@ A = state_jacobian(r, v, mu, J2, J3, R_e)
 
 # Compare the computed Jacobian to the truth Jacobian
 diff = A - truth_jacobian
-# print("Difference between computed and truth Jacobian:")
-# np.set_printoptions(linewidth=200)
-# print(diff)
+diff_percent = diff / truth_jacobian * 100
+print("Percent difference between computed and truth Jacobian:")
+np.set_printoptions(linewidth=200)
+print(diff_percent)
+
 
 # Question 2 Testing Code --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Testing orbit propagation
@@ -134,13 +136,26 @@ station_vel = np.array(test_data['inputs']['station_state']['Vs'])
 sc_state = np.hstack((sc_pos, sc_vel))
 station_state = np.hstack((station_pos, station_vel))
 
+truth_H_sc = np.array(test_data['outputs']['Htilde']['values'])
+
 # Compute measurement Jacobian
 H_sc, H_station = measurement_jacobian(sc_state, station_state)
-print("Spacecraft Measurement Jacobian H:")
-print(H_sc)
-print("Station Measurement Jacobian H:")
-print(H_station)
+print("Percent difference between computed and truth measurement Jacobian (spacecraft state):")
+diff_H = H_sc - truth_H_sc
+diff_H_percent = diff_H / truth_H_sc * 100
+np.set_printoptions(linewidth=200)
+print(diff_H_percent)
 
+with open('prob3d_solution.json', 'r') as f:
+    test_data = json.load(f)
+
+truth_H_station = np.array(test_data['outputs']['Htilde']['values'])
+
+print("Percent difference between computed and truth measurement Jacobian (station state):")
+diff_H_station = H_station - truth_H_station
+diff_H_station_percent = diff_H_station / truth_H_station * 100
+print(diff_H_station_percent)
+breakpoint()
 # Question 4 Testing Code ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Initialize Measurement Manager with ground station parameters
@@ -238,29 +253,42 @@ fig.update_yaxes(title_text='Deviation (km)', row=2, col=1)
 fig.update_yaxes(title_text='Deviation (km)', row=3, col=1)
 fig.update_layout(title='Position Deviations Over Time',
                   title_font=dict(size=28),
-                  height=900,
-                  legend=dict(font=dict(size=18)))
+                  width=1200,
+                  height=800,
+                  legend=dict(font=dict(size=18),
+                              yanchor="top",
+                              y=1.12,
+                              xanchor="left",
+                              x=0.72))
 fig.update_annotations(font=dict(size=20))
 fig.write_html("figures/position_deviations.html")
+fig.write_image("figures/pngs/position_deviations.png")
 
 # Plot the deviation in velocity coordinates over time in subplots
 fig = make_subplots(rows=3, cols=1, vertical_spacing=0.1, shared_xaxes=True, subplot_titles=('U Deviation', 'V Deviation', 'W Deviation'))
 fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[3, :], mode='lines', name='Propagated Deviation', line=dict(color='blue')), row=1, col=1)
 fig.add_trace(go.Scatter(x=stm_time / period, y=estimated_deviation[3, :], mode='lines', name='STM Estimated Deviation', line=dict(color='red')), row=1, col=1)
-fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[4, :], mode='lines', name='Propagated Deviation', line=dict(color='blue')), row=2, col=1)
-fig.add_trace(go.Scatter(x=stm_time / period, y=estimated_deviation[4, :], mode='lines', name='STM Estimated Deviation', line=dict(color='red')), row=2, col=1)
-fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[5, :], mode='lines', name='Propagated Deviation', line=dict(color='blue')), row=3, col=1)
-fig.add_trace(go.Scatter(x=stm_time / period, y=estimated_deviation[5, :], mode='lines', name='STM Estimated Deviation', line=dict(color='red')), row=3, col=1)
+fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[4, :], mode='lines', name='Propagated Deviation', showlegend=False, line=dict(color='blue')), row=2, col=1)
+fig.add_trace(go.Scatter(x=stm_time / period, y=estimated_deviation[4, :], mode='lines', name='STM Estimated Deviation', showlegend=False, line=dict(color='red')), row=2, col=1)
+fig.add_trace(go.Scatter(x=reference_time / period, y=deviation_state[5, :], mode='lines', name='Propagated Deviation', showlegend=False, line=dict(color='blue')), row=3, col=1)
+fig.add_trace(go.Scatter(x=stm_time / period, y=estimated_deviation[5, :], mode='lines', name='STM Estimated Deviation', showlegend=False, line=dict(color='red')), row=3, col=1)
 fig.update_xaxes(title_text='Time (Orbital Periods)', row=3, col=1)
 fig.update_yaxes(title_text='Deviation (km/s)', row=1, col=1)
 fig.update_yaxes(title_text='Deviation (km/s)', row=2, col=1)
 fig.update_yaxes(title_text='Deviation (km/s)', row=3, col=1)
+# Put legend to the right of the title
 fig.update_layout(title='Velocity Deviations Over Time',
                   title_font=dict(size=28),
-                  height=900,
-                  legend=dict(font=dict(size=18)))
+                  width=1200,
+                  height=800,
+                  legend=dict(font=dict(size=18),
+                              yanchor="top",
+                              y=1.12,
+                              xanchor="left",
+                              x=0.72))
 fig.update_annotations(font=dict(size=20))
 fig.write_html("figures/velocity_deviations.html")
+fig.write_image("figures/pngs/velocity_deviations.png")
 
 # Subplots with difference in deviations ------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -274,11 +302,13 @@ fig.update_yaxes(title_text='Deviation Difference (km)', row=2, col=1)
 fig.update_yaxes(title_text='Deviation Difference (km)', row=3, col=1)
 fig.update_layout(title='Position Deviation Differences Over Time',
                   title_font=dict(size=28),
-                  height=900,
+                  width=1200,
+                  height=800,
                   legend=dict(font=dict(size=18)),
                   showlegend=False)
 fig.update_annotations(font=dict(size=20))
 fig.write_html("figures/position_deviation_differences.html")
+fig.write_image("figures/pngs/position_deviation_differences.png")
 
 # Velocity deviation differences
 fig = make_subplots(rows=3, cols=1, vertical_spacing=0.1, shared_xaxes=True, subplot_titles=('U Deviation Difference', 'V Deviation Difference', 'W Deviation Difference'))
@@ -291,11 +321,13 @@ fig.update_yaxes(title_text='Deviation Difference (km/s)', row=2, col=1)
 fig.update_yaxes(title_text='Deviation Difference (km/s)', row=3, col=1)
 fig.update_layout(title='Velocity Deviation Differences Over Time',
                   title_font=dict(size=28),
-                  height=900,
+                  width=1200,
+                  height=800,
                   legend=dict(font=dict(size=18)),
                   showlegend=False)
 fig.update_annotations(font=dict(size=20))
-fig.write_html("figures/velocity_deviation_differences.html")
+#fig.write_html("figures/velocity_deviation_differences.html")
+fig.write_image("figures/pngs/velocity_deviation_differences.png")
 
 # Measurement Plots --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -386,13 +418,15 @@ fig.update_xaxes(title_text='Time (Seconds)', row=3, col=1)
 fig.update_yaxes(title_text='Difference (km)', row=1, col=1)
 fig.update_yaxes(title_text='Difference (km)', row=2, col=1)
 fig.update_yaxes(title_text='Difference (km)', row=3, col=1)
-fig.update_layout(title='Position Deviation Differences Between My Trajectory and Truth Over Time',
+fig.update_layout(title='Position Differences Between My Trajectory and Truth Over Time',
                   title_font=dict(size=28),
-                  height=900,
+                  width=1200,
+                  height=800,
                   legend=dict(font=dict(size=18)),
                   showlegend=False)
 fig.update_annotations(font=dict(size=20))
 fig.write_html("figures/position_differences_truth.html")
+fig.write_image("figures/pngs/position_differences_truth.png")
 
 fig = make_subplots(rows=3, cols=1, vertical_spacing=0.1, shared_xaxes=True, subplot_titles=('U Difference', 'V Difference', 'W Difference'))
 fig.add_trace(go.Scatter(x=reference_time, y=reference_state_history[3, :] - truth_state_history[3, :], mode='lines', name='Deviation Difference', line=dict(color='blue')), row=1, col=1)
@@ -402,10 +436,12 @@ fig.update_xaxes(title_text='Time (Seconds)', row=3, col=1)
 fig.update_yaxes(title_text='Difference (km/s)', row=1, col=1)
 fig.update_yaxes(title_text='Difference (km/s)', row=2, col=1)
 fig.update_yaxes(title_text='Difference (km/s)', row=3, col=1)
-fig.update_layout(title='Velocity Deviation Differences Between My Trajectory and Truth Over Time',
+fig.update_layout(title='Velocity Differences Between My Trajectory and Truth Over Time',
                   title_font=dict(size=28),
-                  height=900,
+                  width=1200,
+                  height=800,
                   legend=dict(font=dict(size=18)),
                   showlegend=False)
 fig.update_annotations(font=dict(size=20))
 fig.write_html("figures/velocity_differences_truth.html")
+fig.write_image("figures/pngs/velocity_differences_truth.png")
