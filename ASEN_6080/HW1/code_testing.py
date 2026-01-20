@@ -344,11 +344,16 @@ fig.update_yaxes(title_text='Range Rate (km/s)', row=2, col=1)
 # Increase subplot title font size and overall figure title font size
 fig.update_layout(title='Simulated Range and Range Rate Measurements from Ground Stations',
                   title_font=dict(size=28),
-                  height=900,
-                  legend=dict(font=dict(size=18)))
+                  width=1200,
+                  height=800,
+                  legend=dict(font=dict(size=18),
+                              yanchor="top",
+                              y=1.12,
+                              xanchor="left",
+                              x=0.72))
 fig.update_annotations(font=dict(size=20))
-
 fig.write_html("figures/simulated_measurements.html")
+fig.write_image("figures/pngs/simulated_measurements.png")
 
 fig = make_subplots(rows=2, cols=1, vertical_spacing=0.1, shared_xaxes=True, subplot_titles=('Range Measurements', 'Doppler Measurements (DSN Units)'))
 fig.add_trace(go.Scatter(x=reference_time, y=station_1_measurements_dsn[0, :], mode='lines', name='Station 1', line=dict(color='blue')), row=1, col=1)
@@ -362,10 +367,16 @@ fig.update_yaxes(title_text='Range (Range Units)', row=1, col=1)
 fig.update_yaxes(title_text='Doppler Shift (Hz)', row=2, col=1)
 fig.update_layout(title='Simulated Range and Doppler Measurements from Ground Stations (DSN Units)',
                   title_font=dict(size=28),
-                  height=900,
-                  legend=dict(font=dict(size=18)))
+                  width=1200,
+                  height=800,
+                  legend=dict(font=dict(size=18),
+                              yanchor="top",
+                              y=1.12,
+                              xanchor="left",
+                              x=0.72))
 fig.update_annotations(font=dict(size=20))
 fig.write_html("figures/simulated_measurements_dsn.html")
+fig.write_image("figures/pngs/simulated_measurements_dsn.png")
 
 # Elevation Angle Plot --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
