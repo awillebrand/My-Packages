@@ -148,5 +148,3 @@ class Integrator:
         t_span = (0, t_final)
         sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval)
         return sol.t, sol.y
-        
-        
