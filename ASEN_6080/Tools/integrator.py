@@ -127,6 +127,20 @@ class Integrator:
         return np.hstack((state_dot, phi_dot_flat))
         
     def integrate_eom(self, t_final, initial_state, teval = None):
+        """Integrate the equations of motion for the spacecraft.
+        Parameters:
+        t_final : float
+            Final time for integration in seconds.
+        initial_state : np.array
+            nx1 array of initial spacecraft state in ECI frame. First 6 elements are [x, y, z, u, v, w] in km and km/s.
+        teval : np.array, optional
+            1xN array of time points at which to store the computed solution. Default is None.
+        Returns:
+        time_vector : np.array
+            1xN array of time points corresponding to the spacecraft states.
+        state_history : np.array
+            nxN array of spacecraft states over time in ECI frame."""
+        
         t_span = (0, t_final)
         sol = solve_ivp(self.equations_of_motion, t_span, initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval)
         return sol.t, sol.y
