@@ -1,9 +1,6 @@
 import numpy as np
 import json
-from generic_functions import state_jacobian, measurement_jacobian
-from integrator import Integrator
-from coordinate_manager import CoordinateMgr
-from measurement_manager import MeasurementMgr
+from ASEN_6080.Tools import state_jacobian, measurement_jacobian, Integrator, MeasurementMgr, CoordinateMgr
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
@@ -155,7 +152,7 @@ print("Percent difference between computed and truth measurement Jacobian (stati
 diff_H_station = H_station - truth_H_station
 diff_H_station_percent = diff_H_station / truth_H_station * 100
 print(diff_H_station_percent)
-breakpoint()
+
 # Question 4 Testing Code ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Initialize Measurement Manager with ground station parameters
@@ -344,11 +341,12 @@ fig.update_yaxes(title_text='Range Rate (km/s)', row=2, col=1)
 # Increase subplot title font size and overall figure title font size
 fig.update_layout(title='Simulated Range and Range Rate Measurements from Ground Stations',
                   title_font=dict(size=28),
-                  height=900,
+                  width=1200,
+                  height=800,
                   legend=dict(font=dict(size=18)))
 fig.update_annotations(font=dict(size=20))
-
 fig.write_html("figures/simulated_measurements.html")
+fig.write_image("figures/pngs/simulated_measurements.png")
 
 fig = make_subplots(rows=2, cols=1, vertical_spacing=0.1, shared_xaxes=True, subplot_titles=('Range Measurements', 'Doppler Measurements (DSN Units)'))
 fig.add_trace(go.Scatter(x=reference_time, y=station_1_measurements_dsn[0, :], mode='lines', name='Station 1', line=dict(color='blue')), row=1, col=1)
@@ -362,25 +360,29 @@ fig.update_yaxes(title_text='Range (Range Units)', row=1, col=1)
 fig.update_yaxes(title_text='Doppler Shift (Hz)', row=2, col=1)
 fig.update_layout(title='Simulated Range and Doppler Measurements from Ground Stations (DSN Units)',
                   title_font=dict(size=28),
-                  height=900,
+                  width=1200,
+                  height=800,
                   legend=dict(font=dict(size=18)))
 fig.update_annotations(font=dict(size=20))
 fig.write_html("figures/simulated_measurements_dsn.html")
+fig.write_image("figures/pngs/simulated_measurements_dsn.png")
 
 # Elevation Angle Plot --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=reference_time, y=station_elevation_angles[0, :], mode='lines', name='Station 1 Elevation Angle', line=dict(color='blue')))
-fig.add_trace(go.Scatter(x=reference_time, y=station_elevation_angles[1, :], mode='lines', name='Station 2 Elevation Angle', line=dict(color='red')))
-fig.add_trace(go.Scatter(x=reference_time, y=station_elevation_angles[2, :], mode='lines', name='Station 3 Elevation Angle', line=dict(color='green')))
+fig.add_trace(go.Scatter(x=reference_time, y=station_elevation_angles[0, :], mode='lines', name='Station 1', line=dict(color='blue')))
+fig.add_trace(go.Scatter(x=reference_time, y=station_elevation_angles[1, :], mode='lines', name='Station 2', line=dict(color='red')))
+fig.add_trace(go.Scatter(x=reference_time, y=station_elevation_angles[2, :], mode='lines', name='Station 3', line=dict(color='green')))
 fig.add_hline(y=10.0, line_dash="dash", line_color="black", annotation_text="10° Elevation Mask", annotation_position="top left")
 fig.update_xaxes(title_text='Time (Seconds)')
 fig.update_yaxes(title_text='Elevation Angle (degrees)')
 fig.update_layout(title='Spacecraft Elevation Angles from Ground Stations',
                   title_font=dict(size=28),
-                  height=600,
+                  width=1200,
+                  height=800,
                   legend=dict(font=dict(size=18)))
 fig.write_html("figures/elevation_angles.html")
+fig.write_image("figures/pngs/elevation_angles.png")
 
 # Noisy Measurement Plots --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -392,9 +394,12 @@ fig.update_xaxes(title_text='Time (Seconds)')
 fig.update_yaxes(title_text='Range Rate (km/s)')
 fig.update_layout(title='Simulated Noisy Range Rate Measurements from Ground Stations',
                   title_font=dict(size=28),
-                  height=900,
+                  width=1200,
+                  height=800,
                   legend=dict(font=dict(size=18)))
 fig.write_html("figures/simulated_noisy_measurements.html")
+fig.write_image("figures/pngs/simulated_noisy_measurements.png")
+
 
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=reference_time, y=(station_1_measurements_noisy[1, :] - station_1_measurements[1, :])*1E6, mode='markers', name='Station 1', line=dict(color='blue')))
@@ -404,9 +409,11 @@ fig.update_xaxes(title_text='Time (Seconds)', range=[0, reference_time[-1]])
 fig.update_yaxes(title_text='Range Rate Measurement Noise (mm/s)')
 fig.update_layout(title='Range Rate Measurement Noise from Ground Stations',
                   title_font=dict(size=28),
-                  height=900,
+                  width=1200,
+                  height=800,
                   legend=dict(font=dict(size=18)))
 fig.write_html("figures/range_rate_measurement_noise.html")
+fig.write_image("figures/pngs/range_rate_measurement_noise.png")
 
 # Subplots with difference in my trajectory and truth ------------------------------------------------------------------------------------------------------------------------------------------------
 
