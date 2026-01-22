@@ -1,5 +1,12 @@
 import numpy as np
 import json
+# Set file path to include necessary modules
+import sys
+import os
+module_dir = os.path.join('.', 'ASEN_6080','Tools')
+data_dir = os.path.join('.', 'ASEN_6080', 'HW1')
+sys.path.append(module_dir)
+sys.path.append(data_dir)
 from generic_functions import state_jacobian, measurement_jacobian
 from integrator import Integrator
 from coordinate_manager import CoordinateMgr
