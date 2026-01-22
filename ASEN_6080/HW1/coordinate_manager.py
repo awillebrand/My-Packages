@@ -4,7 +4,7 @@ from integrator import Integrator
 class CoordinateMgr:
     def __init__(self, initial_earth_spin_angle : float = 0.0):
         """This class manages coordinate frame transformations."""
-        self.earth_rotation_rate = 7.2921151467064  # rad/s
+        self.earth_rotation_rate = (2*np.pi)/86164.0905  # rad/s
         self.initial_earth_spin_angle = initial_earth_spin_angle
 
     def compute_DCM(self, coordinate_frame_1 : str, coordinate_frame_2 : str, time : float = None, orbit_state : np.array = None):
