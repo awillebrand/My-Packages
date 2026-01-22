@@ -1,5 +1,5 @@
 import numpy as np
-from generic_functions import state_jacobian
+from .generic_functions import state_jacobian
 from scipy.integrate import solve_ivp
 class Integrator:
     def __init__(self, mu : float, R_e : float, mode : str = 'PointMass'):

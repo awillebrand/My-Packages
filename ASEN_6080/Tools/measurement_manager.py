@@ -1,5 +1,5 @@
 import numpy as np
-from coordinate_manager import CoordinateMgr
+from .coordinate_manager import CoordinateMgr
 
 class MeasurementMgr:
     def __init__(self, station_lat : float, station_lon : float, initial_earth_spin_angle : float = 0.0):

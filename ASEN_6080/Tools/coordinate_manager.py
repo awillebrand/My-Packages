@@ -1,5 +1,5 @@
 import numpy as np
-from integrator import Integrator
+from .integrator import Integrator
 
 class CoordinateMgr:
     def __init__(self, initial_earth_spin_angle : float = 0.0):

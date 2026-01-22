@@ -3,14 +3,8 @@ import json
 # Set file path to include necessary modules
 import sys
 import os
-module_dir = os.path.join('.', 'ASEN_6080','Tools')
-data_dir = os.path.join('.', 'ASEN_6080', 'HW1')
-sys.path.append(module_dir)
-sys.path.append(data_dir)
-from generic_functions import state_jacobian, measurement_jacobian
-from integrator import Integrator
-from coordinate_manager import CoordinateMgr
-from measurement_manager import MeasurementMgr
+
+from ASEN_6080.Tools import state_jacobian, measurement_jacobian, Integrator, MeasurementMgr, CoordinateMgr
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
