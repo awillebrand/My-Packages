@@ -156,9 +156,9 @@ print(diff_H_station_percent)
 # Question 4 Testing Code ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Initialize Measurement Manager with ground station parameters
-station_1_mgr = MeasurementMgr(station_lat=-35.398333, station_lon=148.981944, initial_earth_spin_angle=np.deg2rad(122))
-station_2_mgr = MeasurementMgr(station_lat=40.427222, station_lon=355.749444, initial_earth_spin_angle=np.deg2rad(122))
-station_3_mgr = MeasurementMgr(station_lat=35.247163, station_lon=243.205, initial_earth_spin_angle=np.deg2rad(122))
+station_1_mgr = MeasurementMgr('station_1', station_lat=-35.398333, station_lon=148.981944, initial_earth_spin_angle=np.deg2rad(122))
+station_2_mgr = MeasurementMgr('station_2', station_lat=40.427222, station_lon=355.749444, initial_earth_spin_angle=np.deg2rad(122))
+station_3_mgr = MeasurementMgr('station_3', station_lat=35.247163, station_lon=243.205, initial_earth_spin_angle=np.deg2rad(122))
 
 # Simulate measurements from all three stations
 station_1_measurements = station_1_mgr.simulate_measurements(reference_state_history, reference_time, 'ECI')

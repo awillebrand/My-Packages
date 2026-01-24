@@ -114,7 +114,7 @@ fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=station_2_residual
 fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=station_3_residuals[1,:]*10**6, mode='markers', name='Station 3 Range Rate Residuals', line=dict(color='blue')))
 fig.update_traces(marker=dict(size=4))
 fig.update_xaxes(title_text="Time (s)")
-fig.update_yaxes(title_text="Range Rate Residuals (mm/s)", showexponent="all", exponentformat="e", range=[-4,4])
+fig.update_yaxes(title_text="Range Rate Residuals (mm/s)", showexponent="all", exponentformat="e")
 fig.update_layout(title_text="Measurement Residuals Over Time",
                   title_font=dict(size=24),
                   width=1200,
