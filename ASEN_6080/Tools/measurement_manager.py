@@ -2,9 +2,11 @@ import numpy as np
 from .coordinate_manager import CoordinateMgr
 
 class MeasurementMgr:
-    def __init__(self, station_lat : float, station_lon : float, initial_earth_spin_angle : float = 0.0):
+    def __init__(self, station_name : str, station_lat : float, station_lon : float, initial_earth_spin_angle : float = 0.0):
         """This class manages measurement simulations for a station at the inputted GCS coordinates.
         Parameters:
+        station_name : str
+            Name of the ground station.
         station_lat : float
             Latitude of the ground station in degrees.
         station_lon : float
@@ -14,8 +16,10 @@ class MeasurementMgr:
         station_alt : float, optional
             Altitude of the ground station above Earth's surface in kilometers. Default is 0.0 km.
         """
-
+        self.station_name = station_name
         self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle)
+        self.lat = station_lat
+        self.lon = station_lon
         self.station_state_ecef = self.coordinate_mgr.GCS_to_ECEF(station_lat, station_lon)
 
     def get_elevation_angle(self, sc_position_ecef : np.array):
