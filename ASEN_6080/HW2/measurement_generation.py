@@ -21,7 +21,7 @@ period = 2 * np.pi * np.sqrt(a**3 / mu)
 # Set integration and measurement settings
 mode = 'J2'
 noise_std = np.array([1, 1e-6]) # [range noise = 1 km, range rate noise = 1 mm/s]
-
+#noise_std = np.zeros(2)  # No noise for initial testing
 # Integrate orbit trajectory
 integrator = Integrator(mu, R_e, mode)
 r_vec, v_vec = integrator.keplerian_to_cartesian(a, e, i, LoN, AoP, f)
