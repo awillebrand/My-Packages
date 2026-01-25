@@ -20,7 +20,7 @@ station_2_mgr = MeasurementMgr("station_2", station_lat=40.427222, station_lon=3
 station_3_mgr = MeasurementMgr("station_3", station_lat=35.247163, station_lon=243.205, initial_earth_spin_angle=np.deg2rad(122))
 station_mgr_list = [station_1_mgr, station_2_mgr, station_3_mgr]
 
-initial_state_deviation = np.array([0.0505, -0.609, -0.742, 0.0001602, -0.000416, 0.000870, 0])
+initial_state_deviation = np.array([1.010e-02, -1.218e-01, -1.484e-01,  3.204e-05, -8.320e-05, 1.740e-04,  0.000e+00])
 initial_state_guess = truth_data['initial_state'].values[0] + initial_state_deviation
 P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3])**2
 
@@ -95,7 +95,7 @@ for i in range(3):
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=state_errors[i+3,:], mode='lines', name='State Error', line=dict(color='blue'), showlegend=False if i>0 else True), row=i+1, col=1)
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=3*np.sqrt(covariance_history[i+3,i+3,:]), mode='lines', name="3\u03C3 Bounds", line=dict(color='red', dash='dash'), showlegend=False if i>0 else True), row=i+1, col=1)
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=-3*np.sqrt(covariance_history[i+3,i+3,:]), mode='lines', name="3\u03C3 Bounds", line=dict(color='red', dash='dash'), showlegend=False), row=i+1, col=1)
-    fig.update_yaxes(title_text="Velocity Error (km)", showexponent="all", exponentformat="e", row=i+1, col=1)
+    fig.update_yaxes(title_text="Velocity Error (km)", showexponent="all", exponentformat="e", range=[-4e-7, 4e-7], row=i+1, col=1)
 
 fig.update_xaxes(title_text="Time (s)", row=3, col=1)
 fig.update_layout(title_text="Estimated State Velocity Errors Over Time",

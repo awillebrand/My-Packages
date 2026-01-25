@@ -19,7 +19,7 @@ station_2_mgr = MeasurementMgr("station_2", station_lat=40.427222, station_lon=3
 station_3_mgr = MeasurementMgr("station_3", station_lat=35.247163, station_lon=243.205, initial_earth_spin_angle=np.deg2rad(122))
 station_mgr_list = [station_1_mgr, station_2_mgr, station_3_mgr]
 
-initial_state_deviation = np.array([0.0505, -0.609, -0.742, 0.0001602, -0.000416, 0.000870, 0])
+initial_state_deviation = np.array([1.010e-02, -1.218e-01, -1.484e-01,  3.204e-05, -8.320e-05, 1.740e-04,  0.000e+00])
 initial_state_guess = truth_data['initial_state'].values[0] + initial_state_deviation
 P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3])**2
 
