@@ -115,7 +115,7 @@ class EKF:
         covariance_estimates[:,:,0] = P
 
         for k, time in enumerate(time_vector[1:], start=1):
-            print(f"EKF Time Step {k}/{len(time_vector)-1}")
+            print(f"EKF Time Step {k}/{len(time_vector)-1}", end='\r')
             # Integrate from previous time to current time
             previous_time = time_vector[k-1]
             integration_state = np.hstack((X_k_0, initial_state[6]))
@@ -131,8 +131,8 @@ class EKF:
             predict_P = self.predict(P, phi, Q)
 
             # Check if measurements are available at this time
-            current_measurement_residuals = measurement_matrix[:,:,:,k]
-            if np.isnan(current_measurement_residuals).all():
+            current_measurements = measurement_matrix[:,:,:,k]
+            if np.isnan(current_measurements).all():
                 # No measurements available, propagate state and covariance
                 x_hat = np.zeros((6,1))  # No correction
                 P = predict_P
@@ -142,20 +142,25 @@ class EKF:
                 # Determine which stations are visible
                 visible_station_indices = []
                 for i in range(len(self.measurement_mgrs)):
-                    if not np.isnan(current_measurement_residuals[:,:,i]).all():
+                    if not np.isnan(current_measurements[:,:,i]).all():
                         visible_station_indices.append(i)
 
                 # Compute residuals
-                stacked_residuals = np.vstack([current_measurement_residuals[:,:,i] for i in visible_station_indices])
 
-                # Compute H matrices
+
+                # Compute H matrices and measurement residuals for visible stations
                 H_matrices = []
+                measurement_residuals = []
                 for i in visible_station_indices:
                     mgr = self.measurement_mgrs[i]
                     station_state_eci = self.coordinate_mgr.GCS_to_ECI(mgr.lat, mgr.lon, time)
+                    measurement = mgr.simulate_measurements(np.vstack(X_k), np.array([time]), 'ECI', noise=False)
+                    residual = current_measurements[:,:,i] - measurement
                     [H, _] = measurement_jacobian(X_k, station_state_eci)
+                    measurement_residuals.append(residual)
                     H_matrices.append(H)
 
+                stacked_residuals = np.vstack(measurement_residuals)
                 stacked_H = np.vstack(H_matrices)
 
                 # Stack R matrices for visible stations

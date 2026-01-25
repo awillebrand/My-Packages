@@ -5,3 +5,4 @@ ASEN_6080/HW2/figures/*
 !ASEN_6080/HW1/figures/pngs/.gitkeep
 !ASEN_6080/HW2/figures/batch_lls_results/.gitkeep
 !ASEN_6080/HW2/figures/lkf_results/.gitkeep
+!ASEN_6080/HW2/figures/ekf_results/.gitkeep
