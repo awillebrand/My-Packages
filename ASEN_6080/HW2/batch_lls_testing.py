@@ -11,7 +11,7 @@ truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data.pkl")
 mu = 3.986004415E5
 R_e = 6378
 J2 = 0.0010826269
-noise_std = np.array([1, 1e-6]) # [range noise = 1 km, range rate noise = 1 mm/s]
+noise_var = np.array([1, 1e-6])**2 # [range noise = 1 km, range rate noise = 1 mm/s]
 
 integrator = Integrator(mu, R_e, mode='J2')
 station_1_mgr = MeasurementMgr("station_1", station_lat=-35.398333, station_lon=148.981944, initial_earth_spin_angle=np.deg2rad(122))
@@ -19,14 +19,13 @@ station_2_mgr = MeasurementMgr("station_2", station_lat=40.427222, station_lon=3
 station_3_mgr = MeasurementMgr("station_3", station_lat=35.247163, station_lon=243.205, initial_earth_spin_angle=np.deg2rad(122))
 station_mgr_list = [station_1_mgr, station_2_mgr, station_3_mgr]
 
-initial_state_guess = truth_data['initial_state'].values[0]
-initial_state_deviation = np.array([0.0505, -0.609, -0.742, 0.0001602, -0.000416, 0.000870])
-initial_state_deviation = np.zeros(6)
+initial_state_deviation = np.array([0.0505, -0.609, -0.742, 0.0001602, -0.000416, 0.000870, 0])
+initial_state_guess = truth_data['initial_state'].values[0] + initial_state_deviation
 P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3])**2
 
-batch_estimator = BatchLLSEstimator(integrator, station_mgr_list, 122.0)
+batch_estimator = BatchLLSEstimator(integrator, station_mgr_list, np.deg2rad(122.0))
 
-estimated_state, estimated_covariance = batch_estimator.estimate_initial_state(initial_state_guess, measurement_data, noise_std, tol=1e-6, a_priori_covariance=P_0, a_priori_state_correction=initial_state_deviation)
+estimated_state, estimated_covariance = batch_estimator.estimate_initial_state(initial_state_guess, measurement_data, np.diag(noise_var), tol=1e-9, a_priori_covariance=P_0)
 
 # Verify against truth data
 augmented_truth_state = truth_data['augmented_state_history'].values
@@ -60,6 +59,29 @@ station_3_truth = np.vstack(measurement_data["station_3_measurements"].values).T
 station_1_residuals = station_1_truth - station_1_measurements
 station_2_residuals = station_2_truth - station_2_measurements
 station_3_residuals = station_3_truth - station_3_measurements
+
+station_residuals_list = [station_1_residuals, station_2_residuals, station_3_residuals]
+# Compute standard deviation and mean of residuals
+for i in range(3):
+    residuals = station_residuals_list[i]
+    non_nan_residuals = residuals[:, ~np.isnan(residuals).any(axis=0)]
+    range_std = np.std(non_nan_residuals[0,:])
+    range_mean = np.mean(non_nan_residuals[0,:])
+    range_rate_std = np.std(non_nan_residuals[1,:])
+    range_rate_mean = np.mean(non_nan_residuals[1,:])
+    print(f"Station {i+1} Range Residuals Std Dev: {range_std:.6f} km, Mean: {range_mean:.6f} km")
+    print(f"Station {i+1} Range Rate Residuals Std Dev: {range_rate_std*1e6:.6f} mm/s, Mean: {range_rate_mean*1e6:.6f} mm/s")
+
+# Compute RMS errors
+rms_position_error = np.sqrt(np.mean(state_errors[0:3,:]**2, axis=1))
+rms_position_error_3D = np.sqrt(np.mean(np.sum(state_errors[0:3,:]**2, axis=0)))
+rms_velocity_error = np.sqrt(np.mean(state_errors[3:6,:]**2, axis=1))
+rms_velocity_error_3D = np.sqrt(np.mean(np.sum(state_errors[3:6,:]**2, axis=0)))
+
+print(f"RMS Position Errors (km): X: {rms_position_error[0]}, Y: {rms_position_error[1]}, Z: {rms_position_error[2]}")
+print(f"RMS Velocity Errors (km/s): X: {rms_velocity_error[0]}, Y: {rms_velocity_error[1]}, Z: {rms_velocity_error[2]}")
+print(f"3D RMS Position Error (km): {rms_position_error_3D}")
+print(f"3D RMS Velocity Error (km/s): {rms_velocity_error_3D}")
 
 # Plot results
 fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=("X Position Error", "Y Position Error", "Z Position Error"))
@@ -127,9 +149,9 @@ fig = make_subplots(rows=2, cols=1, subplot_titles=("Range Residuals Histogram",
 fig.add_trace(go.Histogram(x=station_1_residuals[0,:], xbins=dict(size=1e-1), name='Station 1 Range Residuals', marker_color='red', opacity=0.7), row=1, col=1)
 fig.add_trace(go.Histogram(x=station_2_residuals[0,:], xbins=dict(size=1e-1), name='Station 2 Range Residuals', marker_color='green', opacity=0.7), row=1, col=1)
 fig.add_trace(go.Histogram(x=station_3_residuals[0,:], xbins=dict(size=1e-1), name='Station 3 Range Residuals', marker_color='blue', opacity=0.7), row=1, col=1)
-fig.add_trace(go.Histogram(x=station_1_residuals[1,:], xbins=dict(size=1e-5), name='Station 1 Range Rate Residuals', marker_color='red', opacity=0.7), row=2, col=1)
-fig.add_trace(go.Histogram(x=station_2_residuals[1,:], xbins=dict(size=1e-5), name='Station 2 Range Rate Residuals', marker_color='green', opacity=0.7), row=2, col=1)
-fig.add_trace(go.Histogram(x=station_3_residuals[1,:], xbins=dict(size=1e-5), name='Station 3 Range Rate Residuals', marker_color='blue', opacity=0.7), row=2, col=1)
+fig.add_trace(go.Histogram(x=station_1_residuals[1,:], xbins=dict(size=1e-7), name='Station 1 Range Rate Residuals', marker_color='red', opacity=0.7), row=2, col=1)
+fig.add_trace(go.Histogram(x=station_2_residuals[1,:], xbins=dict(size=1e-7), name='Station 2 Range Rate Residuals', marker_color='green', opacity=0.7), row=2, col=1)
+fig.add_trace(go.Histogram(x=station_3_residuals[1,:], xbins=dict(size=1e-7), name='Station 3 Range Rate Residuals', marker_color='blue', opacity=0.7), row=2, col=1)
 fig.update_xaxes(title_text="Residuals", row=1, col=1)
 fig.update_xaxes(title_text="Residuals", row=2, col=1)
 fig.update_yaxes(title_text="Count", row=1, col=1)

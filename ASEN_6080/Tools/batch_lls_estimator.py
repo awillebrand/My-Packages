@@ -12,12 +12,14 @@ class BatchLLSEstimator:
             An instance of the Integrator class for orbit propagation.
         measurement_mgr_list : list
             A list of MeasurementMgr instances for different ground stations.
+        initial_earth_spin_angle : float
+            Initial Earth spin angle in radians.
         """
         self.integrator = integrator
         self.measurement_mgrs = measurement_mgr_list
         self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle=initial_earth_spin_angle)
 
-    def estimate_initial_state(self, a_priori_state : np.ndarray, measurement_data : pd.DataFrame, noise_variances : np.array, a_priori_covariance : np.ndarray = None, a_priori_state_correction : np.ndarray = None, max_iterations : int = 20, tol : float = 1e-5):
+    def estimate_initial_state(self, a_priori_state : np.ndarray, measurement_data : pd.DataFrame, R : np.array, a_priori_covariance : np.ndarray = None, a_priori_state_correction : np.ndarray = None, max_iterations : int = 20, tol : float = 1e-5):
         """
         Estimate the initial state using Batch Least Squares.
 
@@ -26,8 +28,8 @@ class BatchLLSEstimator:
             Initial guess for the state vector.
         measurement_data : pd.DataFrame
             DataFrame containing the measurement data.
-        noise_variances : np.array
-            Array of measurement noise variances.
+        R : np.array
+            Measurement noise covariance matrix R.
         a_priori_covariance : np.ndarray
             Initial covariance matrix for the state estimate.
         a_priori_state_correction : np.ndarray, optional
@@ -55,7 +57,6 @@ class BatchLLSEstimator:
         raw_state_length = len(estimated_state)
         
         # Compute noise covariance matrix R
-        R = np.diag(noise_variances)
         R_inv = np.linalg.inv(R)
 
         for iteration in range(max_iterations):
