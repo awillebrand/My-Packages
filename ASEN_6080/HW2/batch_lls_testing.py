@@ -97,7 +97,7 @@ fig.update_layout(title_text="Estimated State Position Errors Over Time",
                   width=1200,
                   height=800,
                   legend=dict(font=dict(size=14)))
-fig.write_html("ASEN_6080/HW2/figures/estimated_state_position_errors.html")
+fig.write_html("ASEN_6080/HW2/figures/batch_lls_results/estimated_state_position_errors.html")
 
 fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=("X Velocity Error", "Y Velocity Error", "Z Velocity Error"))
 for i in range(3):
@@ -112,7 +112,7 @@ fig.update_layout(title_text="Estimated State Velocity Errors Over Time",
                   width=1200,
                   height=800,
                   legend=dict(font=dict(size=14)))
-fig.write_html("ASEN_6080/HW2/figures/estimated_state_velocity_errors.html")
+fig.write_html("ASEN_6080/HW2/figures/batch_lls_results/estimated_state_velocity_errors.html")
 
 # Plot measurement residuals
 
@@ -128,7 +128,7 @@ fig.update_layout(title_text="Measurement Residuals Over Time",
                   width=1200,
                   height=800,
                   legend=dict(font=dict(size=14)))
-fig.write_html("ASEN_6080/HW2/figures/measurement_range_residuals.html")
+fig.write_html("ASEN_6080/HW2/figures/batch_lls_results/measurement_range_residuals.html")
 
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=station_1_residuals[1,:]*10**6, mode='markers', name='Station 1 Range Rate Residuals', line=dict(color='red')))
@@ -142,7 +142,7 @@ fig.update_layout(title_text="Measurement Residuals Over Time",
                   width=1200,
                   height=800,
                   legend=dict(font=dict(size=14)))
-fig.write_html("ASEN_6080/HW2/figures/measurement_range_rate_residuals.html")
+fig.write_html("ASEN_6080/HW2/figures/batch_lls_results/measurement_range_rate_residuals.html")
 
 # Measurement histograms
 fig = make_subplots(rows=2, cols=1, subplot_titles=("Range Residuals Histogram", "Range Rate Residuals Histogram"))
@@ -162,4 +162,4 @@ fig.update_layout(title_text="Measurement Residuals Histograms",
                   height=800,
                   legend=dict(font=dict(size=14)),
                   bargap=0.2)
-fig.write_html("ASEN_6080/HW2/figures/measurement_residuals_histograms.html")
+fig.write_html("ASEN_6080/HW2/figures/batch_lls_results/measurement_residuals_histograms.html")

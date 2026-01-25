@@ -144,14 +144,16 @@ class LKF:
         covariance_estimates = np.zeros((6, 6, len(time_vector)))
 
         for k, time in enumerate(time_vector):
+            print(f"Processing time step {k+1} of {len(time_vector)}", end='\r')
             # Check if measurements are available at this time
             current_measurement_residuals = measurement_residuals_matrix[:,:,:,k]
+            if k == 0:
+                phi = stm_history[:,:,k]
+            else:
+                phi = stm_history[:,:,k] @ np.linalg.inv(stm_history[:,:,k-1])
             if np.isnan(current_measurement_residuals).all():
                 # No measurements available, propagate state and covariance
-                phi = stm_history[:,:,k]
-                if k == 354:
-                    breakpoint()
-                x_hat, P, _ = self.predict(initial_x_correction, P, phi, np.zeros((2,6)), Q, R)
+                x_hat, P, _ = self.predict(x_hat, P, phi, np.zeros((2,6)), Q, R)
             else:
                 # Determine which stations are visible
                 visible_station_indices = []
@@ -177,7 +179,7 @@ class LKF:
                 stacked_Q = block_diag(*visible_Q)
 
                 # Predict and update steps
-                predict_x_hat, predict_P, K = self.predict(initial_x_correction, P, stm_history[:,:,k], stacked_H, stacked_Q, stacked_R)
+                predict_x_hat, predict_P, K = self.predict(x_hat, P, phi, stacked_H, stacked_Q, stacked_R)
                 x_hat, P = self.update(predict_x_hat, predict_P, K, stacked_residuals, stacked_H)
 
             # Store estimates
