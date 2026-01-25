@@ -165,21 +165,18 @@ class LKF:
                 visible_residuals = []
                 visible_H = []
                 visible_R = []
-                visible_Q = []
 
                 for i in visible_station_indices:
                     visible_residuals.append(current_measurement_residuals[:,:,i])
                     visible_H.append(H_matrix[:,:,i,k])
                     visible_R.append(R)
-                    visible_Q.append(Q)
             
                 stacked_residuals = np.vstack(visible_residuals)
                 stacked_H = np.vstack(visible_H)
                 stacked_R = block_diag(*visible_R)
-                stacked_Q = block_diag(*visible_Q)
 
                 # Predict and update steps
-                predict_x_hat, predict_P, K = self.predict(x_hat, P, phi, stacked_H, stacked_Q, stacked_R)
+                predict_x_hat, predict_P, K = self.predict(x_hat, P, phi, stacked_H, Q, stacked_R)
                 x_hat, P = self.update(predict_x_hat, predict_P, K, stacked_residuals, stacked_H)
 
             # Store estimates

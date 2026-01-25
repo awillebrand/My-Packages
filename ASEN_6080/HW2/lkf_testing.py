@@ -154,3 +154,32 @@ fig.update_layout(title_text="Measurement Residuals Histograms",
                   legend=dict(font=dict(size=14)),
                   bargap=0.2)
 fig.write_html('ASEN_6080/HW2/figures/lkf_results/measurement_residuals_histograms.html')
+
+# Plot difference between trajectories
+[_, perturbed_trajectory] = integrator.integrate_eom(measurement_data['time'].values[-1], initial_state_guess, measurement_data['time'].values)
+[_, true_trajectory] = integrator.integrate_eom(measurement_data['time'].values[-1], truth_data['initial_state'].values[0], measurement_data['time'].values)
+
+trajectory_difference = perturbed_trajectory - true_trajectory
+fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=("X Position Difference", "Y Position Difference", "Z Position Difference"))
+for i in range(3):
+    fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=trajectory_difference[i,:], mode='lines', name='Trajectory Difference', line=dict(color='blue'), showlegend=False if i>0 else True), row=i+1, col=1)
+    fig.update_yaxes(title_text="Position Difference (km)", showexponent="all", exponentformat="e", row=i+1, col=1)
+fig.update_xaxes(title_text="Time (s)", row=3, col=1)
+fig.update_layout(title_text="Trajectory Position Differences Over Time",
+                    title_font=dict(size=24),
+                     width=1200,
+                     height=800,    
+                        legend=dict(font=dict(size=14)))
+fig.write_html('ASEN_6080/HW2/figures/lkf_results/trajectory_position_differences.html')
+
+fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=("X Velocity Difference", "Y Velocity Difference", "Z Velocity Difference"))
+for i in range(3):
+    fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=trajectory_difference[i+3,:], mode='lines', name='Trajectory Difference', line=dict(color='blue'), showlegend=False if i>0 else True), row=i+1, col=1)
+    fig.update_yaxes(title_text="Velocity Difference (km/s)", showexponent="all", exponentformat="e", row=i+1, col=1)
+fig.update_xaxes(title_text="Time (s)", row=3, col=1)
+fig.update_layout(title_text="Trajectory Velocity Differences Over Time",
+                  title_font=dict(size=24),
+                  width=1200,
+                  height=800,
+                  legend=dict(font=dict(size=14)))
+fig.write_html('ASEN_6080/HW2/figures/lkf_results/trajectory_velocity_differences.html')
