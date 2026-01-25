@@ -119,7 +119,7 @@ class EKF:
             # Integrate from previous time to current time
             previous_time = time_vector[k-1]
             integration_state = np.hstack((X_k_0, initial_state[6]))
-            [_, augmented_state_history] = self.integrator.integrate_stm(time, integration_state, teval=[previous_time, time])
+            [_, augmented_state_history] = self.integrator.integrate_stm(time, integration_state, teval=[previous_time, time], initial_time=previous_time)
 
             # Separate state and STM
             raw_state = augmented_state_history[:,-1]
@@ -155,25 +155,33 @@ class EKF:
                     mgr = self.measurement_mgrs[i]
                     station_state_eci = self.coordinate_mgr.GCS_to_ECI(mgr.lat, mgr.lon, time)
                     measurement = mgr.simulate_measurements(np.vstack(X_k), np.array([time]), 'ECI', noise=False)
+                        
                     residual = current_measurements[:,:,i] - measurement
                     [H, _] = measurement_jacobian(X_k, station_state_eci)
                     measurement_residuals.append(residual)
                     H_matrices.append(H)
 
-                stacked_residuals = np.vstack(measurement_residuals)
-                stacked_H = np.vstack(H_matrices)
+                if np.isnan(np.vstack(measurement_residuals)).all():
+                    # Treat as if no measurements are available, pure prediction
+                    x_hat = np.zeros((6,1))  # No correction
+                    P = predict_P
+                else:
+                    stacked_residuals = np.vstack(measurement_residuals)
+                    stacked_H = np.vstack(H_matrices)
 
-                # Stack R matrices for visible stations
-                visible_R = [R for _ in visible_station_indices]
-                stacked_R = block_diag(*visible_R)
+                    # Stack R matrices for visible stations
+                    visible_R = [R for _ in visible_station_indices]
+                    stacked_R = block_diag(*visible_R)
 
-                # Update step
-                x_hat, P = self.update(predict_P, stacked_residuals, stacked_H, stacked_R)
+                    # Update step
+                    x_hat, P = self.update(predict_P, stacked_residuals, stacked_H, stacked_R)
 
             # Store estimates
             state_estimates[:,k] = X_k + x_hat.T
             covariance_estimates[:,:,k] = P
-
+            if np.isnan(x_hat).any():
+                breakpoint()
+                print("NaN detected in state estimate!")
             X_k_0 = X_k
 
         return state_estimates, covariance_estimates

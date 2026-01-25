@@ -145,7 +145,7 @@ class Integrator:
         sol = solve_ivp(self.equations_of_motion, t_span, initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval)
         return sol.t, sol.y
     
-    def integrate_stm(self, t_final, initial_state, phi_0 = None, teval = None):
+    def integrate_stm(self, t_final, initial_state, phi_0 = None, teval = None, initial_time : float = 0):
         # Determine state length based on mode
         if self.mode == 'PointMass':
             state_length = 6
@@ -159,6 +159,6 @@ class Integrator:
             phi_0 = np.eye(state_length).flatten()
 
         augmented_initial_state = np.hstack((initial_state, phi_0))
-        t_span = (0, t_final)
+        t_span = (initial_time, t_final)
         sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval)
         return sol.t, sol.y
