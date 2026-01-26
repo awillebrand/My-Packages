@@ -20,7 +20,7 @@ R_e = 6378
 J2 = 0.0010826269
 
 raw_state_length = 7
-noise_var = np.array([1, 1e-6])**2 # [range noise = 1 km, range rate noise = 1 mm/s]
+noise_var = np.array([1e-3, 1e-6])**2 # [range noise = 1 m, range rate noise = 1 mm/s]
 
 integrator = Integrator(mu, R_e, mode='J2')
 station_1_mgr = MeasurementMgr("station_1", station_lat=-35.398333, station_lon=148.981944, initial_earth_spin_angle=np.deg2rad(122))
@@ -70,7 +70,7 @@ for i in range(3):
     range_mean = np.mean(non_nan_residuals[0,:])
     range_rate_std = np.std(non_nan_residuals[1,:])
     range_rate_mean = np.mean(non_nan_residuals[1,:])
-    print(f"Station {i+1} Range Residuals Std Dev: {range_std:.6f} km, Mean: {range_mean:.6f} km")
+    print(f"Station {i+1} Range Residuals Std Dev: {range_std*1000:.6f} m, Mean: {range_mean*1000:.6f} m")
     print(f"Station {i+1} Range Rate Residuals Std Dev: {range_rate_std*1e6:.6f} mm/s, Mean: {range_rate_mean*1e6:.6f} mm/s")
 
 # Compute RMS errors

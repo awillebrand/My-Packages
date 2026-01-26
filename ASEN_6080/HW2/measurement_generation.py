@@ -21,7 +21,7 @@ period = 2 * np.pi * np.sqrt(a**3 / mu)
 
 # Set integration and measurement settings
 mode = 'Full'
-noise_std = np.array([1, 1e-6]) # [range noise = 1 km, range rate noise = 1 mm/s]
+noise_std = np.array([1e-3, 1e-6]) # [range noise = 1 m, range rate noise = 1 mm/s]
 #noise_std = np.zeros(2)  # No noise for initial testing
 # Integrate orbit trajectory
 integrator = Integrator(mu, R_e, mode)
@@ -67,7 +67,7 @@ measurement_data_frame = pd.DataFrame({
     'station_3_measurements': list(station_3_measurements.T)
 })
 
-measurement_data_frame.to_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements_J3.pkl")
+measurement_data_frame.to_pickle("ASEN_6080/HW2/measurement_data/simulated_measurement_J3.pkl")
 
 # Integrate STM for future use
 [_, augmented_state_history] = integrator.integrate_stm(time_vector[-1], initial_state, teval=time_vector)
