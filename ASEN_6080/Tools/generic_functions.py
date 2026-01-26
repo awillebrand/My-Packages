@@ -113,7 +113,7 @@ def measurement_jacobian(sat_state : np.array, station_state : np.array, earth_r
     This function computes measurement Jacobian associated with range and range rate measurements between a satellite and a ground station.
     Parameters:
     sat_state : np.Array
-        atellite state vector in Cartesian coordinates (x, y, z, u, v, w).
+        Satellite state vector in Cartesian coordinates (x, y, z, u, v, w).
     station_state : np.Array
         Ground station state vector in Cartesian coordinates (x_s, y_s, z_s, u_s, v_s, w_s).
     earth_rotation_rate : float

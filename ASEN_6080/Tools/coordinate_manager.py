@@ -90,7 +90,7 @@ class CoordinateMgr:
         else:
             raise ValueError("Invalid coordinate frame transformation requested.")
         
-    def GCS_to_ECI(self, lat : float, lon : float, R_e : float = 6378):
+    def GCS_to_ECI(self, lat : float, lon : float, time : float, R_e : float = 6378):
         """"""
         """
         Convert Geocentric Spherical Coordinates (latitude, longitude, altitude) to ECI state.
@@ -99,6 +99,8 @@ class CoordinateMgr:
             Latitude in degrees.
         lon : float
             Longitude in degrees.
+        time : float
+            Time in seconds since initial epoch.
         R_e : float, optional
             Earth's radius in kilometers. Default is 6378 km.
         Returns:
@@ -113,6 +115,10 @@ class CoordinateMgr:
         y = r_mag * np.cos(lat_rad) * np.sin(lon_rad)
         z = r_mag * np.sin(lat_rad)
         r_vec = np.array([x, y, z])
+
+        # Convert to ECI frame
+        ecef_to_eci_dcm = self.compute_DCM('ECEF', 'ECI', time=time)
+        r_vec = ecef_to_eci_dcm @ r_vec
 
         # Velocity components (assuming stationary on Earth's surface)
         v_vec = np.cross(np.array([0, 0, self.earth_rotation_rate]), r_vec)

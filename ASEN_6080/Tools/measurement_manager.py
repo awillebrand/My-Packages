@@ -2,9 +2,11 @@ import numpy as np
 from .coordinate_manager import CoordinateMgr
 
 class MeasurementMgr:
-    def __init__(self, station_lat : float, station_lon : float, initial_earth_spin_angle : float = 0.0):
+    def __init__(self, station_name : str, station_lat : float, station_lon : float, initial_earth_spin_angle : float = 0.0):
         """This class manages measurement simulations for a station at the inputted GCS coordinates.
         Parameters:
+        station_name : str
+            Name of the ground station.
         station_lat : float
             Latitude of the ground station in degrees.
         station_lon : float
@@ -14,8 +16,10 @@ class MeasurementMgr:
         station_alt : float, optional
             Altitude of the ground station above Earth's surface in kilometers. Default is 0.0 km.
         """
-
+        self.station_name = station_name
         self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle)
+        self.lat = station_lat
+        self.lon = station_lon
         self.station_state_ecef = self.coordinate_mgr.GCS_to_ECEF(station_lat, station_lon)
 
     def get_elevation_angle(self, sc_position_ecef : np.array):
@@ -70,30 +74,44 @@ class MeasurementMgr:
         """
         # Check of coordinate conversion is needed
         if coordinate_frame == 'ECI':
+            eci_sc_state_history = inputted_state_history
             # Convert spacecraft states to ECEF
-            sc_state_history = np.zeros(inputted_state_history.shape)
+            ecef_sc_state_history = np.zeros(inputted_state_history.shape)
             for i, time in enumerate(time_vector):
                 eci_to_ecef = self.coordinate_mgr.compute_DCM('ECI', 'ECEF', time=time)
                 ecef_pos = eci_to_ecef @ inputted_state_history[0:3,i]
                 ecef_vel = eci_to_ecef @ inputted_state_history[3:6,i] - np.cross(np.array([0, 0, self.coordinate_mgr.earth_rotation_rate]), ecef_pos)
                 full_ecef_state = np.hstack((ecef_pos, ecef_vel)).T
-                sc_state_history[0:6, i] = full_ecef_state
-        elif coordinate_frame:
-            sc_state_history = inputted_state_history
+                ecef_sc_state_history[0:6, i] = full_ecef_state
+        elif coordinate_frame == 'ECEF':
+            ecef_sc_state_history = inputted_state_history
+            # Convert spacecraft states to ECI
+            eci_sc_state_history = np.zeros(inputted_state_history.shape)
+            for i, time in enumerate(time_vector):
+                ecef_to_eci = self.coordinate_mgr.compute_DCM('ECEF', 'ECI', time=time)
+                eci_pos = ecef_to_eci @ inputted_state_history[0:3,i]
+                eci_vel = ecef_to_eci @ inputted_state_history[3:6,i] + np.cross(np.array([0, 0, self.coordinate_mgr.earth_rotation_rate]), eci_pos)
+                full_eci_state = np.hstack((eci_pos, eci_vel)).T
+                eci_sc_state_history[0:6, i] = full_eci_state
         else:
             raise ValueError("Invalid coordinate frame. Must be 'ECI' or 'ECEF'.")
         
         # Simulate measurements
-        measurement_history = np.zeros((2, sc_state_history.shape[1]))
-        for i in range(sc_state_history.shape[1]):
-            sc_pos = sc_state_history[0:3, i]
+        measurement_history = np.zeros((2, eci_sc_state_history.shape[1]))
+        for i in range(eci_sc_state_history.shape[1]):
+            eci_sc_pos = eci_sc_state_history[0:3, i]
+            ecef_sc_pos = ecef_sc_state_history[0:3, i]
             # Check visibility
-            if self.is_visible(sc_pos) == True:
-                sc_vel = sc_state_history[3:6, i]
+            if self.is_visible(ecef_sc_pos) == True:
+                # Convert station to ECI at the current time
+                time = time_vector[i]
+                station_state_eci = self.coordinate_mgr.GCS_to_ECI(self.lat, self.lon, time)
+
+                eci_sc_vel = eci_sc_state_history[3:6, i]
                 
-                range_vec = sc_pos - self.station_state_ecef[0:3]
+                range_vec = eci_sc_pos - station_state_eci[0:3]
                 range_mag = np.linalg.norm(range_vec)
-                range_rate = np.dot(range_vec, (sc_vel - self.station_state_ecef[3:6])) / range_mag
+                range_rate = np.dot(range_vec, (eci_sc_vel - station_state_eci[3:6])) / range_mag
 
                 # Add noise if specified
                 if noise:
