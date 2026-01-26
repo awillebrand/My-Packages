@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from ASEN_6080.Tools import Integrator, MeasurementMgr, CoordinateMgr, measurement_jacobian
+from ASEN_6080.Tools import Integrator, MeasurementMgr, CoordinateMgr, measurement_jacobian, LKF
 from scipy.linalg import block_diag
 
 class EKF:
@@ -68,11 +68,12 @@ class EKF:
 
         # Update covariance estimate
         identity_matrix = np.eye(predicted_covariance.shape[0])
-        updated_covariance = (identity_matrix - K @ H) @ predicted_covariance
+        updated_covariance = (identity_matrix - K @ H) @ predicted_covariance @ (identity_matrix - K @ H).T + K @ R @ K.T
+        #updated_covariance = (identity_matrix - K @ H) @ predicted_covariance
 
         return x_hat, updated_covariance
     
-    def run(self, initial_state, initial_x_correction : np.ndarray, initial_covariance : np.ndarray, measurement_data : pd.DataFrame, Q : np.ndarray = 0, R : np.ndarray = 0):
+    def run(self, initial_state, initial_x_correction : np.ndarray, initial_covariance : np.ndarray, measurement_data : pd.DataFrame, Q : np.ndarray = 0, R : np.ndarray = 0, start_mode : str = 'cold', start_length : int = 100):
         """
         Run the Extended Kalman Filter over the provided measurement data.
 
@@ -89,14 +90,48 @@ class EKF:
             The process noise covariance matrix. Default is 0.
         R : np.ndarray, optional
             The measurement noise covariance matrix. Default is 0.
+        start_mode : str, optional
+            The starting mode of the filter ('cold' or 'warm'). Default is 'cold'.
+        start_length : int, optional
+            The number of initial measurements to use for warm start. Default is 100.
         Returns:
         Tuple
             A tuple containing the state estimates and covariance estimates over time.
         """
-        x_hat = initial_x_correction
-        P = initial_covariance
+
         raw_state_length = len(initial_state)
         time_vector = measurement_data['time'].values
+        state_estimates = np.zeros((6, len(time_vector)))
+        covariance_estimates = np.zeros((6, 6, len(time_vector)))
+
+        if start_mode == 'cold':
+            print("Starting EKF in cold start mode.")
+            x_hat = initial_x_correction
+            P = initial_covariance
+            X_k_0 = initial_state[0:6] + x_hat.T
+            state_estimates[:,0] = X_k_0 + x_hat.T
+            covariance_estimates[:,:,0] = P
+            ekf_start = 0
+        elif start_mode == 'warm':
+            print("Starting EKF in warm start mode.")
+            # Run LKF on initial measurements to get initial state correction
+            lkf = LKF(self.integrator, self.measurement_mgrs, initial_earth_spin_angle=self.coordinate_mgr.initial_earth_spin_angle)
+            [lkf_x_history, lkf_P_history] = lkf.run(initial_state, initial_x_correction, initial_covariance, measurement_data.iloc[0:start_length], Q=Q, R=R)
+            P = lkf_P_history[:,:,-1]
+            X_k_0 = lkf_x_history[-1,:]
+            x_hat = np.zeros((6,1))  # No additional correction after warm start
+
+            # Save initial LKF output as first state estimates
+            state_estimates[:,0:start_length] = lkf_x_history
+            covariance_estimates[:,:,0:start_length] = lkf_P_history
+            ekf_start = start_length
+
+            # Remove first start_length measurements from measurement data for EKF run
+            measurement_data = measurement_data.iloc[start_length:].reset_index(drop=True)
+            time_vector = measurement_data['time'].values
+            breakpoint()
+        else:
+            raise ValueError("Invalid start_mode. Choose 'cold' or 'warm'.")
 
         # Reorganize measurement data into a 4D matrix: (measurement_type, measurement_dimension, station_index, time_index)
         measurement_matrix = np.zeros((2,1,len(self.measurement_mgrs),len(time_vector)))  # Assuming 2 measurements per station
@@ -108,11 +143,6 @@ class EKF:
                 measurement_matrix[:,:,i,j] = np.vstack(truth_measurements[:,j])
 
         # Perform EKF estimation process
-        state_estimates = np.zeros((6, len(time_vector)))
-        covariance_estimates = np.zeros((6, 6, len(time_vector)))
-        X_k_0 = initial_state[0:6] + x_hat.T
-        state_estimates[:,0] = X_k_0 + x_hat.T
-        covariance_estimates[:,:,0] = P
 
         for k, time in enumerate(time_vector[1:], start=1):
             print(f"EKF Time Step {k}/{len(time_vector)-1}", end='\r')
@@ -146,9 +176,6 @@ class EKF:
                     if not np.isnan(current_measurements[:,:,i]).all():
                         visible_station_indices.append(i)
 
-                # Compute residuals
-
-
                 # Compute H matrices and measurement residuals for visible stations
                 H_matrices = []
                 measurement_residuals = []
@@ -179,8 +206,8 @@ class EKF:
                     
 
             # Store estimates
-            state_estimates[:,k] = X_k + x_hat.T
-            covariance_estimates[:,:,k] = P
+            state_estimates[:,k+ekf_start] = X_k + x_hat.T
+            covariance_estimates[:,:,k+ekf_start] = P
             if np.isnan(x_hat).any():
                 print("NaN detected in state estimate!")
             X_k_0 = X_k + x_hat.T

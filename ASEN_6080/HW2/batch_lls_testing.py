@@ -27,13 +27,13 @@ station_3_mgr = MeasurementMgr("station_3", station_lat=35.247163, station_lon=2
 station_mgr_list = [station_1_mgr, station_2_mgr, station_3_mgr]
 
 initial_state_deviation = np.array([1.010e-02, -1.218e-01, -1.484e-01,  3.204e-05, -8.320e-05, 1.740e-04,  0.000e+00])
-initial_state_guess = truth_data['initial_state'].values[0][0:7] + initial_state_deviation
+initial_state_guess = truth_data['initial_state'].values[0][0:7] + initial_state_deviation*100
 P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3])**2
 large_P_0 = np.diag([1000, 1000, 1000, 1, 1, 1])**2
 
 batch_estimator = BatchLLSEstimator(integrator, station_mgr_list, np.deg2rad(122.0))
 
-estimated_state, estimated_covariance = batch_estimator.estimate_initial_state(initial_state_guess, measurement_data, np.diag(noise_var), tol=1e-9, a_priori_covariance=P_0)
+estimated_state, estimated_covariance = batch_estimator.estimate_initial_state(initial_state_guess, measurement_data, np.diag(noise_var), tol=1e-9, a_priori_covariance=large_P_0)
 
 # Verify against truth data
 augmented_truth_state = truth_data['augmented_state_history'].values

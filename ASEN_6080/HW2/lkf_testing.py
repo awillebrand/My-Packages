@@ -29,13 +29,13 @@ station_3_mgr = MeasurementMgr("station_3", station_lat=35.247163, station_lon=2
 station_mgr_list = [station_1_mgr, station_2_mgr, station_3_mgr]
 
 initial_state_deviation = np.array([1.010e-02, -1.218e-01, -1.484e-01,  3.204e-05, -8.320e-05, 1.740e-04,  0.000e+00])
-initial_state_guess = truth_data['initial_state'].values[0][0:7] + initial_state_deviation
+initial_state_guess = truth_data['initial_state'].values[0][0:7] + initial_state_deviation*100
 P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3])**2
 large_P_0 = np.diag([1000, 1000, 1000, 1, 1, 1])**2
 
 lkf = LKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
 
-estimated_state_history, covariance_history = lkf.run(initial_state_guess, np.zeros(6), P_0, measurement_data, R=np.diag(noise_var))
+estimated_state_history, covariance_history = lkf.run(initial_state_guess, np.zeros(6), large_P_0, measurement_data, R=np.diag(noise_var))
 
 # Verify against truth data
 augmented_truth_state = truth_data['augmented_state_history'].values
@@ -90,7 +90,7 @@ for i in range(3):
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=state_errors[i,:], mode='lines', name='State Error', line=dict(color='blue'), showlegend=False if i>0 else True), row=i+1, col=1)
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=3*np.sqrt(np.abs(covariance_history[i,i,:])), mode='lines', name="3\u03C3 Bounds", line=dict(color='red', dash='dash'), showlegend=False if i>0 else True), row=i+1, col=1)
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=-3*np.sqrt(np.abs(covariance_history[i,i,:])), mode='lines', name="3\u03C3 Bounds", line=dict(color='red', dash='dash'), showlegend=False), row=i+1, col=1)
-    fig.update_yaxes(title_text="Position Error (km)", showexponent="all", exponentformat="e", range=[-5e-4, 5e-4], row=i+1, col=1)
+    fig.update_yaxes(title_text="Position Error (km)", showexponent="all", exponentformat="e", range=[-max(state_errors[i,4000:5000])*1.5, max(state_errors[i,4000:5000])*1.5], row=i+1, col=1)
 fig.update_xaxes(title_text="Time (s)", row=3, col=1)
 fig.update_layout(title_text="Estimated State Position Errors Over Time",
                   title_font=dict(size=28),
@@ -109,7 +109,7 @@ for i in range(3):
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=state_errors[i+3,:], mode='lines', name='State Error', line=dict(color='blue'), showlegend=False if i>0 else True), row=i+1, col=1)
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=3*np.sqrt(np.abs(covariance_history[i+3,i+3,:])), mode='lines', name="3\u03C3 Bounds", line=dict(color='red', dash='dash'), showlegend=False if i>0 else True), row=i+1, col=1)
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=-3*np.sqrt(np.abs(covariance_history[i+3,i+3,:])), mode='lines', name="3\u03C3 Bounds", line=dict(color='red', dash='dash'), showlegend=False), row=i+1, col=1)
-    fig.update_yaxes(title_text="Velocity Error (km)", showexponent="all", exponentformat="e", range=[-4e-7, 4e-7], row=i+1, col=1)
+    fig.update_yaxes(title_text="Velocity Error (km)", showexponent="all", exponentformat="e", range=[-max(state_errors[i+3,4000:5000])*1.5, max(state_errors[i+3,4000:5000])*1.5], row=i+1, col=1)
 fig.update_annotations(font=dict(size=20))
 fig.update_xaxes(title_text="Time (s)", row=3, col=1)
 fig.update_layout(title_text="Estimated State Velocity Errors Over Time",

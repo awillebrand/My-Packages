@@ -36,7 +36,7 @@ large_P_0 = np.diag([1000, 1000, 1000, 1, 1, 1])**2
 ekf = EKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
 Q = np.diag([1e-14, 1e-14, 1e-14, 1e-14, 1e-14, 1e-14])
 
-estimated_state_history, covariance_history = ekf.run(initial_state_guess, np.zeros(6), P_0, measurement_data, R=np.diag(noise_var))
+estimated_state_history, covariance_history = ekf.run(initial_state_guess, np.zeros(6), P_0, measurement_data, R=np.diag(noise_var), start_mode='cold')
 
 # Verify against truth data
 augmented_truth_state = truth_data['augmented_state_history'].values
@@ -91,7 +91,7 @@ for i in range(3):
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=state_errors[i,:], mode='lines', name='State Error', line=dict(color='blue'), showlegend=False if i>0 else True), row=i+1, col=1)
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=3*np.sqrt(covariance_history[i,i,:]), mode='lines', name="3\u03C3 Bounds", line=dict(color='red', dash='dash'), showlegend=False if i>0 else True), row=i+1, col=1)
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=-3*np.sqrt(covariance_history[i,i,:]), mode='lines', name="3\u03C3 Bounds", line=dict(color='red', dash='dash'), showlegend=False), row=i+1, col=1)
-    fig.update_yaxes(title_text="Position Error (km)", showexponent="all", exponentformat="e", range=[-5e-4, 5e-4], row=i+1, col=1)
+    fig.update_yaxes(title_text="Velocity Error (km)", showexponent="all", exponentformat="e", range=[-5e-4, 5e-4], row=i+1, col=1) # range=[-5e-4, 5e-4]
 fig.update_xaxes(title_text="Time (s)", row=3, col=1)
 fig.update_layout(title_text="Estimated State Position Errors Over Time",
                   title_font=dict(size=28),
