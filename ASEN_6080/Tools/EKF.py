@@ -118,7 +118,8 @@ class EKF:
             print(f"EKF Time Step {k}/{len(time_vector)-1}", end='\r')
             # Integrate from previous time to current time
             previous_time = time_vector[k-1]
-            integration_state = np.hstack((X_k_0, initial_state[6]))
+            integration_state = np.append(X_k_0, initial_state[6])
+            
             [_, augmented_state_history] = self.integrator.integrate_stm(time, integration_state, teval=[previous_time, time], initial_time=previous_time)
 
             # Separate state and STM
@@ -175,14 +176,15 @@ class EKF:
 
                     # Update step
                     x_hat, P = self.update(predict_P, stacked_residuals, stacked_H, stacked_R)
+                    
 
             # Store estimates
             state_estimates[:,k] = X_k + x_hat.T
             covariance_estimates[:,:,k] = P
             if np.isnan(x_hat).any():
-                breakpoint()
                 print("NaN detected in state estimate!")
-            X_k_0 = X_k
+            X_k_0 = X_k + x_hat.T
+            breakpoint()
 
         return state_estimates, covariance_estimates
             

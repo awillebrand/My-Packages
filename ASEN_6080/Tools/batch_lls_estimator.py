@@ -111,11 +111,11 @@ class BatchLLSEstimator:
             x_hat = np.linalg.inv(Lambda) @ N
             estimated_state[0:6] += x_hat
             if np.linalg.norm(x_hat) < tol:
-                print(f"Converged in {iteration} iterations.")
+                print(f"Converged in {iteration+1} iterations.")
                 P_0 = np.linalg.inv(Lambda)
                 return estimated_state, P_0
             else:
-                print(f"Iteration {iteration}: State correction norm = {np.linalg.norm(x_correction)}")
+                print(f"Iteration {iteration+1}: State correction norm = {np.linalg.norm(x_correction)}")
                 print(f"x_hat = {np.linalg.norm(x_hat)}")
                 x_correction = x_correction - x_hat
         print("Maximum iterations reached without convergence.")
