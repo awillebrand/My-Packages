@@ -110,7 +110,7 @@ class EKF:
         # Perform EKF estimation process
         state_estimates = np.zeros((6, len(time_vector)))
         covariance_estimates = np.zeros((6, 6, len(time_vector)))
-        X_k_0 = initial_state[0:6]
+        X_k_0 = initial_state[0:6] + x_hat.T
         state_estimates[:,0] = X_k_0 + x_hat.T
         covariance_estimates[:,:,0] = P
 
@@ -184,7 +184,6 @@ class EKF:
             if np.isnan(x_hat).any():
                 print("NaN detected in state estimate!")
             X_k_0 = X_k + x_hat.T
-            breakpoint()
 
         return state_estimates, covariance_estimates
             

@@ -9,9 +9,17 @@ warnings.simplefilter('error', RuntimeWarning)
 measurement_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements.pkl")
 truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data.pkl")
 
+# # Set second half of measurements to nan for testing
+# midpoint = len(measurement_data)//2
+# nan_array = np.array([np.nan, np.nan])
+# for col in ['station_1_measurements', 'station_2_measurements', 'station_3_measurements']:
+#     measurement_data.loc[midpoint:, col] = measurement_data.loc[midpoint:, col].apply(lambda x: nan_array.copy())
+
 mu = 3.986004415E5
 R_e = 6378
 J2 = 0.0010826269
+
+raw_state_length = 7
 noise_var = np.array([1, 1e-6])**2 # [range noise = 1 km, range rate noise = 1 mm/s]
 
 integrator = Integrator(mu, R_e, mode='J2')
@@ -21,13 +29,13 @@ station_3_mgr = MeasurementMgr("station_3", station_lat=35.247163, station_lon=2
 station_mgr_list = [station_1_mgr, station_2_mgr, station_3_mgr]
 
 initial_state_deviation = np.array([1.010e-02, -1.218e-01, -1.484e-01,  3.204e-05, -8.320e-05, 1.740e-04,  0.000e+00])
-initial_state_guess = truth_data['initial_state'].values[0] + initial_state_deviation
+initial_state_guess = truth_data['initial_state'].values[0][0:7] + initial_state_deviation
 P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3])**2
 large_P_0 = np.diag([1000, 1000, 1000, 1, 1, 1])**2
 
 lkf = LKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
 
-estimated_state_history, covariance_history = lkf.run(initial_state_guess, np.zeros(6), large_P_0, measurement_data, R=np.diag(noise_var))
+estimated_state_history, covariance_history = lkf.run(initial_state_guess, np.zeros(6), P_0, measurement_data, R=np.diag(noise_var))
 
 # Verify against truth data
 augmented_truth_state = truth_data['augmented_state_history'].values
@@ -180,7 +188,7 @@ fig.write_html('ASEN_6080/HW2/figures/lkf_results/measurement_residuals_histogra
 
 # Plot difference between trajectories
 [_, perturbed_trajectory] = integrator.integrate_eom(measurement_data['time'].values[-1], initial_state_guess, measurement_data['time'].values)
-[_, true_trajectory] = integrator.integrate_eom(measurement_data['time'].values[-1], truth_data['initial_state'].values[0], measurement_data['time'].values)
+[_, true_trajectory] = integrator.integrate_eom(measurement_data['time'].values[-1], truth_data['initial_state'].values[0][0:7], measurement_data['time'].values)
 
 trajectory_difference = perturbed_trajectory - true_trajectory
 fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=("X Position Difference", "Y Position Difference", "Z Position Difference"))

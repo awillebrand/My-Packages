@@ -76,6 +76,7 @@ class BatchLLSEstimator:
             H_matrix = np.empty((len(self.measurement_mgrs), len(time_vector)), dtype=object)
             for i, mgr in enumerate(self.measurement_mgrs):
                 station_name = mgr.station_name
+
                 truth_measurements = np.vstack(measurement_data[f"{station_name}_measurements"].values).T
                 simulated_measurements = mgr.simulate_measurements(augmented_state_history[0:6,:], time_vector, 'ECI', noise=False)
 

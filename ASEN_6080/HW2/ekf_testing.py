@@ -10,9 +10,16 @@ warnings.simplefilter('error', RuntimeWarning)
 measurement_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements.pkl")
 truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data.pkl")
 
+# # Set second half of measurements to nan for testing
+# midpoint = len(measurement_data)//2
+# nan_array = np.array([np.nan, np.nan])
+# for col in ['station_1_measurements', 'station_2_measurements', 'station_3_measurements']:
+#     measurement_data.loc[midpoint:, col] = measurement_data.loc[midpoint:, col].apply(lambda x: nan_array.copy())
+
 mu = 3.986004415E5
 R_e = 6378
 J2 = 0.0010826269
+raw_state_length = 7
 noise_var = np.array([1, 1e-6])**2 # [range noise = 1 km, range rate noise = 1 mm/s]
 
 integrator = Integrator(mu, R_e, mode='J2')
@@ -22,13 +29,14 @@ station_3_mgr = MeasurementMgr("station_3", station_lat=35.247163, station_lon=2
 station_mgr_list = [station_1_mgr, station_2_mgr, station_3_mgr]
 
 initial_state_deviation = np.array([1.010e-02, -1.218e-01, -1.484e-01,  3.204e-05, -8.320e-05, 1.740e-04,  0.000e+00])
-initial_state_guess = truth_data['initial_state'].values[0] + initial_state_deviation
+initial_state_guess = truth_data['initial_state'].values[0][0:7] + initial_state_deviation
 P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3])**2
 large_P_0 = np.diag([1000, 1000, 1000, 1, 1, 1])**2
 
 ekf = EKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
+Q = np.diag([1e-14, 1e-14, 1e-14, 1e-14, 1e-14, 1e-14])
 
-estimated_state_history, covariance_history = ekf.run(initial_state_guess, np.zeros(6), large_P_0, measurement_data, R=np.diag(noise_var))
+estimated_state_history, covariance_history = ekf.run(initial_state_guess, np.zeros(6), P_0, measurement_data, R=np.diag(noise_var))
 
 # Verify against truth data
 augmented_truth_state = truth_data['augmented_state_history'].values
@@ -83,7 +91,7 @@ for i in range(3):
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=state_errors[i,:], mode='lines', name='State Error', line=dict(color='blue'), showlegend=False if i>0 else True), row=i+1, col=1)
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=3*np.sqrt(covariance_history[i,i,:]), mode='lines', name="3\u03C3 Bounds", line=dict(color='red', dash='dash'), showlegend=False if i>0 else True), row=i+1, col=1)
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=-3*np.sqrt(covariance_history[i,i,:]), mode='lines', name="3\u03C3 Bounds", line=dict(color='red', dash='dash'), showlegend=False), row=i+1, col=1)
-    fig.update_yaxes(title_text="Position Error (km)", showexponent="all", exponentformat="e", row=i+1, col=1)
+    fig.update_yaxes(title_text="Position Error (km)", showexponent="all", exponentformat="e", range=[-5e-4, 5e-4], row=i+1, col=1)
 fig.update_xaxes(title_text="Time (s)", row=3, col=1)
 fig.update_layout(title_text="Estimated State Position Errors Over Time",
                   title_font=dict(size=28),
@@ -181,7 +189,7 @@ fig.write_html('ASEN_6080/HW2/figures/ekf_results/measurement_residuals_histogra
 
 # Plot difference between trajectories
 [_, perturbed_trajectory] = integrator.integrate_eom(measurement_data['time'].values[-1], initial_state_guess, measurement_data['time'].values)
-[_, true_trajectory] = integrator.integrate_eom(measurement_data['time'].values[-1], truth_data['initial_state'].values[0], measurement_data['time'].values)
+[_, true_trajectory] = integrator.integrate_eom(measurement_data['time'].values[-1], truth_data['initial_state'].values[0][0:7], measurement_data['time'].values)
 
 trajectory_difference = perturbed_trajectory - true_trajectory
 fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=("X Position Difference", "Y Position Difference", "Z Position Difference"))
@@ -217,3 +225,21 @@ fig.update_layout(title_text="Trajectory Velocity Differences Over Time",
                               x=0.87))
 fig.update_annotations(font=dict(size=20))
 fig.write_html('ASEN_6080/HW2/figures/ekf_results/trajectory_velocity_differences.html')
+
+# Plot estimated trajectory
+fig = go.Figure()
+fig.add_trace(go.Scatter3d(x=truth_state_history[0,:], y=truth_state_history[1,:], z=truth_state_history[2,:], mode='lines', name='Truth Trajectory', line=dict(color='green')))
+fig.add_trace(go.Scatter3d(x=estimated_state_history[0,:], y=estimated_state_history[1,:], z=estimated_state_history[2,:], mode='lines', name='Estimated Trajectory', line=dict(color='blue')))
+fig.update_layout(title_text="Estimated vs Truth Trajectory",
+                  title_font=dict(size=28),
+                  width=1200,
+                  height=800,
+                  legend=dict(font=dict(size=18),
+                              yanchor="top",
+                              y=1.2,
+                              xanchor="left",
+                              x=0.87),
+                  scene=dict(xaxis_title='X Position (km)',
+                             yaxis_title='Y Position (km)',
+                             zaxis_title='Z Position (km)'))
+fig.write_html('ASEN_6080/HW2/figures/ekf_results/estimated_vs_truth_trajectory.html')
