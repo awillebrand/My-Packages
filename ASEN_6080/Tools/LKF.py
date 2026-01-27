@@ -20,6 +20,31 @@ class LKF:
         self.measurement_mgrs = measurement_mgr_list
         self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle=initial_earth_spin_angle)
 
+    def ensure_positive_definite(self, P : np.ndarray, min_eigenvalue: float = 1e-13):
+        """
+        Ensure covariance matrix is symmetric positive definite.
+        
+        Parameters:
+        P : np.ndarray - Covariance matrix
+        min_eigenvalue : float - Minimum allowed eigenvalue
+        
+        Returns:
+        np.ndarray - Regularized positive definite covariance matrix
+        """
+        # Enforce symmetry
+        P = 0.5 * (P + P.T)
+        
+        # Eigendecomposition
+        eigenvalues, eigenvectors = np.linalg.eigh(P)
+        
+        # Clamp negative eigenvalues
+        eigenvalues = np.maximum(eigenvalues, min_eigenvalue)
+        
+        # Reconstruct
+        P_fixed = eigenvectors @ np.diag(eigenvalues) @ eigenvectors.T
+        
+        return P_fixed
+
     def predict(self, x_hat : np.ndarray, P : np.ndarray, phi : np.ndarray, H : np.ndarray, Q : np.ndarray, R : np.ndarray):
         """
         Perform the prediction step of the Kalman Filter.
@@ -48,12 +73,16 @@ class LKF:
         # Predict covariance
         predicted_covariance = phi @ P @ phi.T + Q
 
+        # Ensure positive definiteness if predicted covariance is very large
+        if np.any(np.abs(np.diag(predicted_covariance)) > 1e3):
+            predicted_covariance = self.ensure_positive_definite(predicted_covariance)
+
         # Compute Kalman Gain
         kalman_gain = predicted_covariance @ H.T @ np.linalg.inv(H @ predicted_covariance @ H.T + R)
 
         return predicted_state, predicted_covariance, kalman_gain
     
-    def update(self, predicted_state : np.ndarray, predicted_covariance : np.ndarray, kalman_gain : np.ndarray, measurement_residual : np.ndarray, H : np.ndarray):
+    def update(self, predicted_state : np.ndarray, predicted_covariance : np.ndarray, kalman_gain : np.ndarray, measurement_residual : np.ndarray, H : np.ndarray, R: np.ndarray):
         """
         Perform the update step of the Kalman Filter.
 
@@ -68,6 +97,8 @@ class LKF:
             The measurement residual (innovation).
         H : np.ndarray
             The measurement matrix.
+        R : np.ndarray
+            The measurement noise covariance matrix.
         Returns:
         tuple
             A tuple containing the updated state and updated covariance.
@@ -77,7 +108,8 @@ class LKF:
 
         # Update covariance estimate
         I = np.eye(predicted_covariance.shape[0])
-        updated_covariance = (I - kalman_gain @ H) @ predicted_covariance
+        #updated_covariance = (I - kalman_gain @ H) @ predicted_covariance
+        updated_covariance = (I - kalman_gain @ H) @ predicted_covariance @ (I - kalman_gain @ H).T + kalman_gain @ R @ kalman_gain.T
 
         return updated_state, updated_covariance
     
@@ -177,11 +209,13 @@ class LKF:
 
                 # Predict and update steps
                 predict_x_hat, predict_P, K = self.predict(x_hat, P, phi, stacked_H, Q, stacked_R)
-                x_hat, P = self.update(predict_x_hat, predict_P, K, stacked_residuals, stacked_H)
+                x_hat, P = self.update(predict_x_hat, predict_P, K, stacked_residuals, stacked_H, stacked_R)
 
             # Store estimates
 
             state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
+            if np.any(np.diag(P) < 0):
+                breakpoint()
             covariance_estimates[:,:,k] = P
         
         return state_estimates, covariance_estimates

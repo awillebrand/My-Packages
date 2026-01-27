@@ -32,11 +32,10 @@ initial_state_deviation = np.array([1.010e-02, -1.218e-01, -1.484e-01,  3.204e-0
 initial_state_guess = truth_data['initial_state'].values[0][0:7] + initial_state_deviation
 P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3])**2
 large_P_0 = np.diag([1000, 1000, 1000, 1, 1, 1])**2
-
 ekf = EKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
 Q = np.diag([1e-14, 1e-14, 1e-14, 1e-14, 1e-14, 1e-14])
 
-estimated_state_history, covariance_history = ekf.run(initial_state_guess, np.zeros(6), P_0, measurement_data, R=np.diag(noise_var), start_mode='cold')
+estimated_state_history, covariance_history = ekf.run(initial_state_guess, np.zeros(6), P_0, measurement_data, R=np.diag(noise_var))
 
 # Verify against truth data
 augmented_truth_state = truth_data['augmented_state_history'].values
@@ -127,12 +126,12 @@ fig.write_html('ASEN_6080/HW2/figures/ekf_results/estimated_state_velocity_error
 # Plot measurement residuals
 
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=station_1_residuals[0,1:], mode='markers', name='Station 1', line=dict(color='red')))
-fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=station_2_residuals[0,1:], mode='markers', name='Station 2', line=dict(color='green')))
-fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=station_3_residuals[0,1:], mode='markers', name='Station 3', line=dict(color='blue')))
+fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=station_1_residuals[0,1:]*1000, mode='markers', name='Station 1', line=dict(color='red')))
+fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=station_2_residuals[0,1:]*1000, mode='markers', name='Station 2', line=dict(color='green')))
+fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=station_3_residuals[0,1:]*1000, mode='markers', name='Station 3', line=dict(color='blue')))
 fig.update_traces(marker=dict(size=4))
 fig.update_xaxes(title_text="Time (s)")
-fig.update_yaxes(title_text="Range Residuals (km)", showexponent="all", exponentformat="e", range=[-4,4])
+fig.update_yaxes(title_text="Range Residuals (m)", showexponent="all", exponentformat="e", range=[-4,4])
 fig.update_layout(title_text="Range Measurement Residuals Over Time",
                   title_font=dict(size=28),
                   width=1200,
@@ -150,7 +149,7 @@ fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=station_2_residual
 fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=station_3_residuals[1,1:]*10**6, mode='markers', name='Station 3', line=dict(color='blue')))
 fig.update_traces(marker=dict(size=4))
 fig.update_xaxes(title_text="Time (s)")
-fig.update_yaxes(title_text="Range Rate Residuals (mm/s)", showexponent="all", exponentformat="e")
+fig.update_yaxes(title_text="Range Rate Residuals (mm/s)", showexponent="all", exponentformat="e", range=[-4,4])
 fig.update_layout(title_text="Range Rate Measurement Residuals Over Time",
                   title_font=dict(size=28),
                   width=1200,
@@ -164,9 +163,9 @@ fig.write_html('ASEN_6080/HW2/figures/ekf_results/measurement_range_rate_residua
 
 # Measurement histograms
 fig = make_subplots(rows=2, cols=1, subplot_titles=("Range Residuals Histogram", "Range Rate Residuals Histogram"))
-fig.add_trace(go.Histogram(x=station_1_residuals[0,1:], xbins=dict(size=1e-1), name='Station 1', marker_color='red', opacity=0.7), row=1, col=1)
-fig.add_trace(go.Histogram(x=station_2_residuals[0,1:], xbins=dict(size=1e-1), name='Station 2', marker_color='green', opacity=0.7), row=1, col=1)
-fig.add_trace(go.Histogram(x=station_3_residuals[0,1:], xbins=dict(size=1e-1), name='Station 3', marker_color='blue', opacity=0.7), row=1, col=1)
+fig.add_trace(go.Histogram(x=station_1_residuals[0,1:], xbins=dict(size=1e-4), name='Station 1', marker_color='red', opacity=0.7), row=1, col=1)
+fig.add_trace(go.Histogram(x=station_2_residuals[0,1:], xbins=dict(size=1e-4), name='Station 2', marker_color='green', opacity=0.7), row=1, col=1)
+fig.add_trace(go.Histogram(x=station_3_residuals[0,1:], xbins=dict(size=1e-4), name='Station 3', marker_color='blue', opacity=0.7), row=1, col=1)
 fig.add_trace(go.Histogram(x=station_1_residuals[1,1:], xbins=dict(size=1e-7), name='Station 1', marker_color='red', opacity=0.7, showlegend=False), row=2, col=1)
 fig.add_trace(go.Histogram(x=station_2_residuals[1,1:], xbins=dict(size=1e-7), name='Station 2', marker_color='green', opacity=0.7, showlegend=False), row=2, col=1)
 fig.add_trace(go.Histogram(x=station_3_residuals[1,1:], xbins=dict(size=1e-7), name='Station 3', marker_color='blue', opacity=0.7, showlegend=False), row=2, col=1)

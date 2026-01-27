@@ -73,7 +73,7 @@ class EKF:
 
         return x_hat, updated_covariance
     
-    def run(self, initial_state, initial_x_correction : np.ndarray, initial_covariance : np.ndarray, measurement_data : pd.DataFrame, Q : np.ndarray = 0, R : np.ndarray = 0, start_mode : str = 'cold', start_length : int = 100):
+    def run(self, initial_state, initial_x_correction : np.ndarray, initial_covariance : np.ndarray, input_measurement_data : pd.DataFrame, Q : np.ndarray = 0, R : np.ndarray = 0, start_mode : str = 'cold', start_length : int = 100):
         """
         Run the Extended Kalman Filter over the provided measurement data.
 
@@ -98,12 +98,12 @@ class EKF:
         Tuple
             A tuple containing the state estimates and covariance estimates over time.
         """
-
+        measurement_data = input_measurement_data.copy()
         raw_state_length = len(initial_state)
         time_vector = measurement_data['time'].values
         state_estimates = np.zeros((6, len(time_vector)))
         covariance_estimates = np.zeros((6, 6, len(time_vector)))
-
+        
         if start_mode == 'cold':
             print("Starting EKF in cold start mode.")
             x_hat = initial_x_correction
@@ -111,16 +111,16 @@ class EKF:
             X_k_0 = initial_state[0:6] + x_hat.T
             state_estimates[:,0] = X_k_0 + x_hat.T
             covariance_estimates[:,:,0] = P
-            ekf_start = 0
+            ekf_start = 1
         elif start_mode == 'warm':
             print("Starting EKF in warm start mode.")
             # Run LKF on initial measurements to get initial state correction
             lkf = LKF(self.integrator, self.measurement_mgrs, initial_earth_spin_angle=self.coordinate_mgr.initial_earth_spin_angle)
             [lkf_x_history, lkf_P_history] = lkf.run(initial_state, initial_x_correction, initial_covariance, measurement_data.iloc[0:start_length], Q=Q, R=R)
-            
+                    
             P = lkf_P_history[:,:,-1]
             X_k_0 = lkf_x_history[:,-1]
-            x_hat = np.zeros((6,1))  # No additional correction after warm start
+            x_hat = np.zeros(6)  # No additional correction after warm start
 
             # Save initial LKF output as first state estimates
             state_estimates[:,0:start_length] = lkf_x_history
@@ -128,8 +128,9 @@ class EKF:
             ekf_start = start_length
 
             # Remove first start_length measurements from measurement data for EKF run
-            measurement_data = measurement_data.iloc[start_length:].reset_index(drop=True)
+            measurement_data = measurement_data.iloc[start_length-1:].reset_index(drop=True)
             time_vector = measurement_data['time'].values
+            
         else:
             raise ValueError("Invalid start_mode. Choose 'cold' or 'warm'.")
 
@@ -143,13 +144,12 @@ class EKF:
                 measurement_matrix[:,:,i,j] = np.vstack(truth_measurements[:,j])
 
         # Perform EKF estimation process
-
         for k, time in enumerate(time_vector[1:], start=1):
-            print(f"EKF Time Step {k}/{len(time_vector)-1}", end='\r')
+            
+            print(f"EKF Time Step {k}/{len(time_vector)-1}         ", end='\r')
             # Integrate from previous time to current time
             previous_time = time_vector[k-1]
             integration_state = np.append(X_k_0, initial_state[6])
-            
             [_, augmented_state_history] = self.integrator.integrate_stm(time, integration_state, teval=[previous_time, time], initial_time=previous_time)
 
             # Separate state and STM
@@ -203,14 +203,12 @@ class EKF:
 
                     # Update step
                     x_hat, P = self.update(predict_P, stacked_residuals, stacked_H, stacked_R)
-                    
-
+            
             # Store estimates
-            state_estimates[:,k+ekf_start] = X_k + x_hat.T
-            covariance_estimates[:,:,k+ekf_start] = P
+            state_estimates[:,k+ekf_start-1] = X_k + x_hat.T
+            covariance_estimates[:,:,k+ekf_start-1] = P
             if np.isnan(x_hat).any():
                 print("NaN detected in state estimate!")
             X_k_0 = X_k + x_hat.T
-
         return state_estimates, covariance_estimates
             

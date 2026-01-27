@@ -74,6 +74,7 @@ class BatchLLSEstimator:
             # Initialize measurement residuals and design matrix
             residuals_matrix = np.empty((len(self.measurement_mgrs), len(time_vector)), dtype=object)  # Assuming 2 measurements per station
             H_matrix = np.empty((len(self.measurement_mgrs), len(time_vector)), dtype=object)
+
             for i, mgr in enumerate(self.measurement_mgrs):
                 station_name = mgr.station_name
 
@@ -111,9 +112,11 @@ class BatchLLSEstimator:
             # Compute state correction
             x_hat = np.linalg.inv(Lambda) @ N
             estimated_state[0:6] += x_hat
+
             if np.linalg.norm(x_hat) < tol:
                 print(f"Converged in {iteration+1} iterations.")
                 P_0 = np.linalg.inv(Lambda)
+                breakpoint()
                 return estimated_state, P_0
             else:
                 print(f"Iteration {iteration+1}: State correction norm = {np.linalg.norm(x_correction)}")

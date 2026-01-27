@@ -108,7 +108,6 @@ output_phi = np.array(test_data['outputs']['Phidot']['values']).reshape((state_l
 # Percent difference in state and STM derivatives
 state_diff = state_dot - output_state
 phi_diff = phi_dot - output_phi
-
 percent_state_diff = state_diff / output_state * 100
 percent_phi_diff = phi_diff / output_phi * 100
 np.set_printoptions(linewidth=200)
