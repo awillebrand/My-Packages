@@ -117,8 +117,9 @@ class EKF:
             # Run LKF on initial measurements to get initial state correction
             lkf = LKF(self.integrator, self.measurement_mgrs, initial_earth_spin_angle=self.coordinate_mgr.initial_earth_spin_angle)
             [lkf_x_history, lkf_P_history] = lkf.run(initial_state, initial_x_correction, initial_covariance, measurement_data.iloc[0:start_length], Q=Q, R=R)
+            
             P = lkf_P_history[:,:,-1]
-            X_k_0 = lkf_x_history[-1,:]
+            X_k_0 = lkf_x_history[:,-1]
             x_hat = np.zeros((6,1))  # No additional correction after warm start
 
             # Save initial LKF output as first state estimates
@@ -129,7 +130,6 @@ class EKF:
             # Remove first start_length measurements from measurement data for EKF run
             measurement_data = measurement_data.iloc[start_length:].reset_index(drop=True)
             time_vector = measurement_data['time'].values
-            breakpoint()
         else:
             raise ValueError("Invalid start_mode. Choose 'cold' or 'warm'.")
 
