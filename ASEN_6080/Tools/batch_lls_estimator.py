@@ -116,7 +116,6 @@ class BatchLLSEstimator:
             if np.linalg.norm(x_hat) < tol:
                 print(f"Converged in {iteration+1} iterations.")
                 P_0 = np.linalg.inv(Lambda)
-                breakpoint()
                 return estimated_state, P_0
             else:
                 print(f"Iteration {iteration+1}: State correction norm = {np.linalg.norm(x_correction)}")

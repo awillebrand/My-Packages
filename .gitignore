@@ -1,12 +1,9 @@
-<<<<<<< HEAD
-./ASEN_6080/HW1/figures/
-./ASEN_6080/HW2/figures/
-=======
 ASEN_6080/HW1/figures/*
 ASEN_6080/HW2/figures/simulated_measurements.html
 ASEN_6080/HW2/figures/batch_lls_results/*
 ASEN_6080/HW2/figures/lkf_results/*
 ASEN_6080/HW2/figures/ekf_results/*
+ASEN_6080/HW2/figures/pngs/*
 
 !ASEN_6080/HW1/figures/.gitkeep
 !ASEN_6080/HW2/figures/.gitkeep
@@ -14,4 +11,4 @@ ASEN_6080/HW2/figures/ekf_results/*
 !ASEN_6080/HW2/figures/batch_lls_results/.gitkeep
 !ASEN_6080/HW2/figures/lkf_results/.gitkeep
 !ASEN_6080/HW2/figures/ekf_results/.gitkeep
->>>>>>> adf92b959aa19da1687953c8796606b9c4c5cba6
+!ASEN_6080/HW2/figures/pngs/.gitkeep
