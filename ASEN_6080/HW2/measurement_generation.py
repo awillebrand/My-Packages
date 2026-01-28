@@ -20,15 +20,15 @@ f = np.deg2rad(0)
 period = 2 * np.pi * np.sqrt(a**3 / mu)
 
 # Set integration and measurement settings
-mode = 'J2'
+mode = 'Full'
 noise_std = np.array([1e-3, 1e-6]) # [range noise = 1 m, range rate noise = 1 mm/s]
 #noise_std = np.zeros(2)  # No noise for initial testing
 # Integrate orbit trajectory
 integrator = Integrator(mu, R_e, mode)
 r_vec, v_vec = integrator.keplerian_to_cartesian(a, e, i, LoN, AoP, f)
-initial_state = np.hstack((r_vec, v_vec, J2))
-time_list = np.arange(0, 25 * period, 10)
-time_vector, state_history = integrator.integrate_eom(25*period, initial_state, teval=time_list)
+initial_state = np.hstack((r_vec, v_vec, J2, J3))
+time_list = np.arange(0, 15 * period, 10)
+time_vector, state_history = integrator.integrate_eom(15*period, initial_state, teval=time_list)
 
 # Initialize Measurement Manager with ground station parameters
 station_1_mgr = MeasurementMgr("station_1", station_lat=-35.398333, station_lon=148.981944, initial_earth_spin_angle=np.deg2rad(122))
@@ -67,7 +67,7 @@ measurement_data_frame = pd.DataFrame({
     'station_3_measurements': list(station_3_measurements.T)
 })
 
-measurement_data_frame.to_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements_long.pkl")
+measurement_data_frame.to_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements_J3.pkl")
 
 # Integrate STM for future use
 [_, augmented_state_history] = integrator.integrate_stm(time_vector[-1], initial_state, teval=time_vector)
@@ -79,4 +79,4 @@ truth_data_frame = pd.DataFrame({
     'initial_state': [initial_state for _ in time_vector]
 })
 
-truth_data_frame.to_pickle("ASEN_6080/HW2/measurement_data/truth_data_long.pkl")
+truth_data_frame.to_pickle("ASEN_6080/HW2/measurement_data/truth_data_J3.pkl")
