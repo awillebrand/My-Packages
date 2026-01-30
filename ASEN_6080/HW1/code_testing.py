@@ -44,11 +44,12 @@ f = np.deg2rad(0)
 mu = 3.986004415E5
 period = 2 * np.pi * np.sqrt(a**3 / mu)
 J2 = 0.0010826269
-mode = 'J2'
+mode = ['J2']
+parameter_indices = [6]
 state_length = 7 # <--- Change this depending on mode
 
 # Create an Integrator instance and convert state to Cartesian
-integrator = Integrator(mu, R_e, mode)
+integrator = Integrator(mu, R_e, mode, parameter_indices)
 r_vec, v_vec = integrator.keplerian_to_cartesian(a, e, i, LoN, AoP, f)
 
 initial_state = np.hstack((r_vec, v_vec, J2)) # <--- Change this depending on mode
