@@ -113,7 +113,7 @@ class LKF:
 
         return updated_state, updated_covariance
     
-    def run(self, initial_state : np.ndarray, initial_x_correction : np.ndarray, initial_covariance : np.ndarray, measurement_data : pd.DataFrame, Q : np.ndarray = 0, R : np.ndarray = 0, max_iterations : int = 1):
+    def run(self, initial_state : np.ndarray, initial_x_correction : np.ndarray, initial_covariance : np.ndarray, measurement_data : pd.DataFrame, Q : np.ndarray = 0, R : np.ndarray = 0, max_iterations : int = 1, convergence_threshold : float = 1e-5):
         """
         Run the Linearized Kalman Filter over a series of measurements.
         Parameters:
@@ -129,6 +129,10 @@ class LKF:
             The process noise covariance matrix.
         R : np.ndarray
             The measurement noise covariance matrix.
+        max_iterations : int, optional
+            The maximum number of iterations for the LKF. Default is 1.
+        convergence_threshold : float, optional
+            The convergence threshold for stopping criteria, linked to mean of residuals. Default is 1e-5 (1 cm).
         Returns:
         state_estimates : list
             A list of state estimates at each measurement time.
@@ -142,7 +146,7 @@ class LKF:
         time_vector = measurement_data['time'].values
         # Begin iteration loop
         for iteration in range(max_iterations):
-            print(f"Starting LKF iteration {iteration+1} of {max_iterations}")
+            print(f"Starting LKF iteration {iteration+1} of {max_iterations}                           ")
 
             # Integrate over measurement times
             [_, augmented_state_history] = self.integrator.integrate_stm(time_vector[-1], x_0, teval=time_vector)
@@ -227,5 +231,12 @@ class LKF:
             x_hat = np.linalg.inv(stm_history[:,:,-1]) @ x_hat
             x_0[0:6] += x_hat.flatten()
             P = initial_covariance.copy()  # Reset covariance for next iteration
+
+            # Determine if another iteration is needed based on residual behavior (detect if residuals are centered around zero)
+            mean_residual = np.nanmean(measurement_residuals_matrix, axis=(0,1,3))
+            if np.all(np.abs(mean_residual) < convergence_threshold):
+                print("Convergence achieved based on measurement residuals.")
+                break
+            
 
         return state_estimates, covariance_estimates
