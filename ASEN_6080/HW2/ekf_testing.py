@@ -7,8 +7,8 @@ from plotly.subplots import make_subplots
 import warnings
 warnings.simplefilter('error', RuntimeWarning)
 
-measurement_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements_J3.pkl")
-truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data_J3.pkl")
+measurement_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements.pkl")
+truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data.pkl")
 
 # # Set second half of measurements to nan for testing
 # midpoint = len(measurement_data)//2
@@ -19,7 +19,7 @@ truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data_J3.pkl")
 mu = 3.986004415E5
 R_e = 6378
 J2 = 0.0010826269
-raw_state_length = 8
+raw_state_length = 7
 noise_var = np.array([1e-3, 1e-6])**2 # [range noise = 1 m, range rate noise = 1 mm/s]
 
 integrator = Integrator(mu, R_e, mode='J2')
@@ -35,7 +35,7 @@ large_P_0 = np.diag([1000, 1000, 1000, 1, 1, 1])**2
 ekf = EKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
 Q = np.diag([1e-14, 1e-14, 1e-14, 1e-14, 1e-14, 1e-14])
 
-estimated_state_history, covariance_history = ekf.run(initial_state_guess, np.zeros(6), P_0, measurement_data, R=np.diag(noise_var), start_mode='warm', start_length=100)
+estimated_state_history, covariance_history = ekf.run(initial_state_guess, np.zeros(6), large_P_0, measurement_data, R=np.diag(noise_var), start_mode='warm', start_length=1000)
 
 # Verify against truth data
 augmented_truth_state = truth_data['augmented_state_history'].values
@@ -111,7 +111,7 @@ fig.update_layout(title_text="Estimated State Position Errors Over Time",
                               x=0.87))
 fig.update_annotations(font=dict(size=20))
 fig.write_html('ASEN_6080/HW2/figures/ekf_results/estimated_state_position_errors.html')
-fig.write_image('ASEN_6080/HW2/figures/pngs/ekf_J3_estimated_state_position_errors.png')
+fig.write_image('ASEN_6080/HW2/figures/pngs/ekf_P0_estimated_state_position_errors.png')
 
 fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=("X Velocity Error", "Y Velocity Error", "Z Velocity Error"))
 for i in range(3):
@@ -131,7 +131,7 @@ fig.update_layout(title_text="Estimated State Velocity Errors Over Time",
                               xanchor="left",
                               x=0.87))
 fig.write_html('ASEN_6080/HW2/figures/ekf_results/estimated_state_velocity_errors.html')
-fig.write_image('ASEN_6080/HW2/figures/pngs/ekf_J3_estimated_state_velocity_errors.png')
+fig.write_image('ASEN_6080/HW2/figures/pngs/ekf_P0_estimated_state_velocity_errors.png')
 
 # Plot measurement residuals
 
@@ -152,7 +152,7 @@ fig.update_layout(title_text="Range Measurement Residuals Over Time",
                               xanchor="left",
                               x=0.87))
 fig.write_html('ASEN_6080/HW2/figures/ekf_results/measurement_range_residuals.html')
-fig.write_image('ASEN_6080/HW2/figures/pngs/ekf_J3_measurement_range_residuals.png')
+fig.write_image('ASEN_6080/HW2/figures/pngs/ekf_P0_measurement_range_residuals.png')
 
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=station_1_residuals[1,1:]*10**6, mode='markers', name='Station 1', line=dict(color='red')))
@@ -171,7 +171,7 @@ fig.update_layout(title_text="Range Rate Measurement Residuals Over Time",
                               xanchor="left",
                               x=0.87))
 fig.write_html('ASEN_6080/HW2/figures/ekf_results/measurement_range_rate_residuals.html')
-fig.write_image('ASEN_6080/HW2/figures/pngs/ekf_J3_measurement_range_rate_residuals.png')
+fig.write_image('ASEN_6080/HW2/figures/pngs/ekf_P0_measurement_range_rate_residuals.png')
 
 # Measurement histograms
 fig = make_subplots(rows=2, cols=1, subplot_titles=("Range Residuals Histogram", "Range Rate Residuals Histogram"))
@@ -197,7 +197,7 @@ fig.update_layout(title_text="Measurement Residuals Histograms",
                   bargap=0.2)
 fig.update_annotations(font=dict(size=20))
 fig.write_html('ASEN_6080/HW2/figures/ekf_results/measurement_residuals_histograms.html')
-fig.write_image('ASEN_6080/HW2/figures/pngs/ekf_J3_measurement_residuals_histograms.png')
+fig.write_image('ASEN_6080/HW2/figures/pngs/ekf_P0_measurement_residuals_histograms.png')
 
 # Plot difference between trajectories
 [_, perturbed_trajectory] = integrator.integrate_eom(measurement_data['time'].values[-1], initial_state_guess, measurement_data['time'].values)

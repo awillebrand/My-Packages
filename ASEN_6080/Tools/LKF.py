@@ -113,7 +113,7 @@ class LKF:
 
         return updated_state, updated_covariance
     
-    def run(self, initial_state : np.ndarray, initial_x_correction : np.ndarray, initial_covariance : np.ndarray, measurement_data : pd.DataFrame, Q : np.ndarray = 0, R : np.ndarray = 0):
+    def run(self, initial_state : np.ndarray, initial_x_correction : np.ndarray, initial_covariance : np.ndarray, measurement_data : pd.DataFrame, Q : np.ndarray = 0, R : np.ndarray = 0, max_iterations : int = 1):
         """
         Run the Linearized Kalman Filter over a series of measurements.
         Parameters:
@@ -135,87 +135,97 @@ class LKF:
         covariance_estimates : list
             A list of covariance estimates at each measurement time.
         """
-        x_hat = initial_x_correction
-        P = initial_covariance
+        x_hat = initial_x_correction.copy()
+        P = initial_covariance.copy() 
         raw_state_length = len(initial_state)
+        x_0 = np.append(initial_state[0:6]+x_hat.flatten(), initial_state[6:])  # Augmented initial state with STM identity
         time_vector = measurement_data['time'].values
-        # Integrate over measurement times
-        [_, augmented_state_history] = self.integrator.integrate_stm(time_vector[-1], initial_state, teval=time_vector)
+        # Begin iteration loop
+        for iteration in range(max_iterations):
+            print(f"Starting LKF iteration {iteration+1} of {max_iterations}")
 
-        # Separate state and STM history
-        reference_state_history = augmented_state_history[0:6, :]
-        stm_history = np.zeros((6, 6, len(time_vector)))
-        for i, raw_state in enumerate(augmented_state_history.T):
-            state = raw_state[0:6]
-            reference_state_history[:,i] = state
+            # Integrate over measurement times
+            [_, augmented_state_history] = self.integrator.integrate_stm(time_vector[-1], x_0, teval=time_vector)
 
-            raw_stm = raw_state[raw_state_length:].reshape((raw_state_length, raw_state_length))
-            stm = raw_stm[0:6,0:6]
-            stm_history[:,:,i] = stm
+            # Separate state and STM history
+            reference_state_history = augmented_state_history[0:6, :]
+            stm_history = np.zeros((6, 6, len(time_vector)))
+            for i, raw_state in enumerate(augmented_state_history.T):
+                state = raw_state[0:6]
+                reference_state_history[:,i] = state
 
-        # Compute measurement residuals and associated H matrices for each station and measurement time
-        measurement_residuals_matrix = np.zeros((2,1,len(self.measurement_mgrs),len(time_vector)))  # Assuming 2 measurements per station
-        H_matrix = np.zeros((2,6,len(self.measurement_mgrs),len(time_vector)))
+                raw_stm = raw_state[raw_state_length:].reshape((raw_state_length, raw_state_length))
+                stm = raw_stm[0:6,0:6]
+                stm_history[:,:,i] = stm
 
-        for i, mgr in enumerate(self.measurement_mgrs):
-            station_name = mgr.station_name
-            truth_measurements = np.vstack(measurement_data[f"{station_name}_measurements"].values).T
-            simulated_measurements = mgr.simulate_measurements(reference_state_history, time_vector, 'ECI', noise=False)
+            # Compute measurement residuals and associated H matrices for each station and measurement time
+            measurement_residuals_matrix = np.zeros((2,1,len(self.measurement_mgrs),len(time_vector)))  # Assuming 2 measurements per station
+            H_matrix = np.zeros((2,6,len(self.measurement_mgrs),len(time_vector)))
 
-            for j, time in enumerate(time_vector):
-                # Compute measurement residual
-                residual = truth_measurements[:,j] - simulated_measurements[:,j]
+            for i, mgr in enumerate(self.measurement_mgrs):
+                station_name = mgr.station_name
+                truth_measurements = np.vstack(measurement_data[f"{station_name}_measurements"].values).T
+                simulated_measurements = mgr.simulate_measurements(reference_state_history, time_vector, 'ECI', noise=False)
 
-                # Compute measurement Jacobian
-                station_state_eci = self.coordinate_mgr.GCS_to_ECI(mgr.lat, mgr.lon, time)
-                [H, _] = measurement_jacobian(reference_state_history[:,j], station_state_eci)
-                measurement_residuals_matrix[:,:,i,j] = np.vstack(residual)
-                H_matrix[:,:,i,j] = H
-        # Perform LKF estimation process
-        state_estimates = np.zeros((6, len(time_vector)))
-        covariance_estimates = np.zeros((6, 6, len(time_vector)))
+                for j, time in enumerate(time_vector):
+                    # Compute measurement residual
+                    residual = truth_measurements[:,j] - simulated_measurements[:,j]
 
-        for k, time in enumerate(time_vector):
-            print(f"Processing time step {k+1} of {len(time_vector)}", end='\r')
-            # Check if measurements are available at this time
-            current_measurement_residuals = measurement_residuals_matrix[:,:,:,k]
-            if k == 0:
-                phi = stm_history[:,:,k]
-            else:
-                phi = stm_history[:,:,k] @ np.linalg.inv(stm_history[:,:,k-1])
-            if np.isnan(current_measurement_residuals).all():
-                # No measurements available, propagate state and covariance
-                x_hat, P, _ = self.predict(x_hat, P, phi, np.zeros((2,6)), Q, R)
-            else:
-                # Determine which stations are visible
-                visible_station_indices = []
-                for i in range(len(self.measurement_mgrs)):
-                    if ~np.isnan(current_measurement_residuals[:,:,i]).any():
-                        visible_station_indices.append(i)
+                    # Compute measurement Jacobian
+                    station_state_eci = self.coordinate_mgr.GCS_to_ECI(mgr.lat, mgr.lon, time)
+                    [H, _] = measurement_jacobian(reference_state_history[:,j], station_state_eci)
+                    measurement_residuals_matrix[:,:,i,j] = np.vstack(residual)
+                    H_matrix[:,:,i,j] = H
+            # Perform LKF estimation process
+            state_estimates = np.zeros((6, len(time_vector)))
+            covariance_estimates = np.zeros((6, 6, len(time_vector)))
 
-                # Stack measurement residuals and H matrices for visible stations
-                visible_residuals = []
-                visible_H = []
-                visible_R = []
+            for k, time in enumerate(time_vector):
+                print(f"Processing time step {k+1} of {len(time_vector)}", end='\r')
+                # Check if measurements are available at this time
+                current_measurement_residuals = measurement_residuals_matrix[:,:,:,k]
+                if k == 0:
+                    phi = stm_history[:,:,k]
+                else:
+                    phi = stm_history[:,:,k] @ np.linalg.inv(stm_history[:,:,k-1])
+                if np.isnan(current_measurement_residuals).all():
+                    # No measurements available, propagate state and covariance
+                    x_hat, P, _ = self.predict(x_hat, P, phi, np.zeros((2,6)), Q, R)
+                else:
+                    # Determine which stations are visible
+                    visible_station_indices = []
+                    for i in range(len(self.measurement_mgrs)):
+                        if ~np.isnan(current_measurement_residuals[:,:,i]).any():
+                            visible_station_indices.append(i)
 
-                for i in visible_station_indices:
-                    visible_residuals.append(current_measurement_residuals[:,:,i])
-                    visible_H.append(H_matrix[:,:,i,k])
-                    visible_R.append(R)
+                    # Stack measurement residuals and H matrices for visible stations
+                    visible_residuals = []
+                    visible_H = []
+                    visible_R = []
+
+                    for i in visible_station_indices:
+                        visible_residuals.append(current_measurement_residuals[:,:,i])
+                        visible_H.append(H_matrix[:,:,i,k])
+                        visible_R.append(R)
+                
+                    stacked_residuals = np.vstack(visible_residuals)
+                    stacked_H = np.vstack(visible_H)
+                    stacked_R = block_diag(*visible_R)
+
+                    # Predict and update steps
+                    predict_x_hat, predict_P, K = self.predict(x_hat, P, phi, stacked_H, Q, stacked_R)
+                    x_hat, P = self.update(predict_x_hat, predict_P, K, stacked_residuals, stacked_H, stacked_R)
+
+                # Store estimates
+
+                state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
+                if np.any(np.diag(P) < 0):
+                    raise ValueError("Covariance matrix has negative diagonal elements.")
+                covariance_estimates[:,:,k] = P
             
-                stacked_residuals = np.vstack(visible_residuals)
-                stacked_H = np.vstack(visible_H)
-                stacked_R = block_diag(*visible_R)
+            # Propagate x_hat back to initial using STM
+            x_hat = np.linalg.inv(stm_history[:,:,-1]) @ x_hat
+            x_0[0:6] += x_hat.flatten()
+            P = initial_covariance.copy()  # Reset covariance for next iteration
 
-                # Predict and update steps
-                predict_x_hat, predict_P, K = self.predict(x_hat, P, phi, stacked_H, Q, stacked_R)
-                x_hat, P = self.update(predict_x_hat, predict_P, K, stacked_residuals, stacked_H, stacked_R)
-
-            # Store estimates
-
-            state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
-            if np.any(np.diag(P) < 0):
-                breakpoint()
-            covariance_estimates[:,:,k] = P
-        
         return state_estimates, covariance_estimates
