@@ -1,5 +1,8 @@
 ASEN_6080/HW1/figures/*
 ASEN_6080/HW2/figures/simulated_measurements.html
+ASEN_6080/HW2/figures/j3_j2_measurement_differences.html
+ASEN_6080/HW2/figures/j3_j2_position_differences.html
+ASEN_6080/HW2/figures/j3_j2_velocity_differences.html
 ASEN_6080/HW2/figures/batch_lls_results/*
 ASEN_6080/HW2/figures/lkf_results/*
 ASEN_6080/HW2/figures/ekf_results/*

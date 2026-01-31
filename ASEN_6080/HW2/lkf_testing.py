@@ -15,17 +15,11 @@ truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data_no_noise.
 # for col in ['station_1_measurements', 'station_2_measurements', 'station_3_measurements']:
 #     measurement_data.loc[midpoint:, col] = measurement_data.loc[midpoint:, col].apply(lambda x: nan_array.copy())
 
-# Set first data pass to nan for testing, measurements from t=0 to t=1560 s
-# first_pass_end_time = 1560.0
-# nan_array = np.array([np.nan, np.nan])
-# for col in ['station_1_measurements', 'station_2_measurements', 'station_3_measurements']:
-#     measurement_data.loc[measurement_data['time'] <= first_pass_end_time, col] = measurement_data.loc[measurement_data['time'] <= first_pass_end_time, col].apply(lambda x: nan_array.copy())
-
 mu = 3.986004415E5
 R_e = 6378
 J2 = 0.0010826269
 
-raw_state_length = 7
+raw_state_length = 8
 noise_var = np.array([1e-3, 1e-6])**2 # [range noise = 1 m, range rate noise = 1 mm/s]
 #noise_var = np.zeros(2)  # No noise for testing
 integrator = Integrator(mu, R_e, mode='J2')
@@ -35,13 +29,14 @@ station_3_mgr = MeasurementMgr("station_3", station_lat=35.247163, station_lon=2
 station_mgr_list = [station_1_mgr, station_2_mgr, station_3_mgr]
 
 initial_state_deviation = np.array([1.010e-02, -1.218e-01, -1.484e-01,  3.204e-05, -8.320e-05, 1.740e-04,  0.000e+00])
-initial_state_guess = truth_data['initial_state'].values[0][0:7]# + initial_state_deviation
+initial_state_deviation = np.array([1, 1, 1, 1e-3, 1e-3, 1e-3,  0.000e+00])
+initial_state_guess = truth_data['initial_state'].values[0][0:7] + initial_state_deviation
 P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3])**2
 large_P_0 = np.diag([1000, 1000, 1000, 1, 1, 1])**2
 
 lkf = LKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
 
-estimated_state_history, covariance_history = lkf.run(initial_state_guess, np.zeros(6), P_0, measurement_data, R=np.diag(noise_var))
+estimated_state_history, covariance_history = lkf.run(initial_state_guess, np.zeros(6), P_0, measurement_data, R=np.diag(noise_var), max_iterations=4)
 
 # Verify against truth data
 augmented_truth_state = truth_data['augmented_state_history'].values
@@ -117,14 +112,14 @@ fig.update_layout(title_text="Estimated State Position Errors Over Time",
                               x=0.87))
 fig.update_annotations(font=dict(size=20))
 fig.write_html('ASEN_6080/HW2/figures/lkf_results/estimated_state_position_errors.html')
-fig.write_image('ASEN_6080/HW2/figures/pngs/lkf_estimated_state_position_errors.png')
+# fig.write_image('ASEN_6080/HW2/figures/pngs/lkf_estimated_state_position_errors.png')
 
 fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=("X Velocity Error", "Y Velocity Error", "Z Velocity Error"))
 for i in range(3):
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=state_errors[i+3,:], mode='lines', name='State Error', line=dict(color='blue'), showlegend=False if i>0 else True), row=i+1, col=1)
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=3*np.sqrt(np.abs(covariance_history[i+3,i+3,:])), mode='lines', name="3\u03C3 Bounds", line=dict(color='red', dash='dash'), showlegend=False if i>0 else True), row=i+1, col=1)
     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=-3*np.sqrt(np.abs(covariance_history[i+3,i+3,:])), mode='lines', name="3\u03C3 Bounds", line=dict(color='red', dash='dash'), showlegend=False), row=i+1, col=1)
-    fig.update_yaxes(title_text="Velocity Error (km)", showexponent="all", exponentformat="e", range=[-4e-7, 4e-7], row=i+1, col=1) # range=[-4e-7, 4e-7]
+    fig.update_yaxes(title_text="Velocity Error (km/s)", showexponent="all", exponentformat="e", range=[-4e-7, 4e-7], row=i+1, col=1) # range=[-4e-7, 4e-7]
 fig.update_annotations(font=dict(size=20))
 fig.update_xaxes(title_text="Time (s)", row=3, col=1)
 fig.update_layout(title_text="Estimated State Velocity Errors Over Time",
@@ -137,7 +132,7 @@ fig.update_layout(title_text="Estimated State Velocity Errors Over Time",
                               xanchor="left",
                               x=0.87))
 fig.write_html('ASEN_6080/HW2/figures/lkf_results/estimated_state_velocity_errors.html')
-fig.write_image('ASEN_6080/HW2/figures/pngs/lkf_estimated_state_velocity_errors.png')
+# fig.write_image('ASEN_6080/HW2/figures/pngs/lkf_estimated_state_velocity_errors.png')
 
 # Plot measurement residuals
 
@@ -158,7 +153,7 @@ fig.update_layout(title_text="Range Measurement Residuals Over Time",
                               xanchor="left",
                               x=0.87))
 fig.write_html('ASEN_6080/HW2/figures/lkf_results/measurement_range_residuals.html')
-fig.write_image('ASEN_6080/HW2/figures/pngs/lkf_measurement_range_residuals.png')
+# fig.write_image('ASEN_6080/HW2/figures/pngs/lkf_measurement_range_residuals.png')
 
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=station_1_residuals[1,1:]*10**6, mode='markers', name='Station 1', line=dict(color='red')))
@@ -177,7 +172,7 @@ fig.update_layout(title_text="Range Rate Measurement Residuals Over Time",
                               xanchor="left",
                               x=0.87))
 fig.write_html('ASEN_6080/HW2/figures/lkf_results/measurement_range_rate_residuals.html')
-fig.write_image('ASEN_6080/HW2/figures/pngs/lkf_measurement_range_rate_residuals.png')
+# fig.write_image('ASEN_6080/HW2/figures/pngs/lkf_measurement_range_rate_residuals.png')
 
 # Measurement histograms
 fig = make_subplots(rows=2, cols=1, subplot_titles=("Range Residuals Histogram", "Range Rate Residuals Histogram"))
@@ -203,7 +198,7 @@ fig.update_layout(title_text="Measurement Residuals Histograms",
                   bargap=0.2)
 fig.update_annotations(font=dict(size=20))
 fig.write_html('ASEN_6080/HW2/figures/lkf_results/measurement_residuals_histograms.html')
-#fig.write_image('ASEN_6080/HW2/figures/pngs/lkf_measurement_residuals_histograms.png')
+# fig.write_image('ASEN_6080/HW2/figures/pngs/lkf_measurement_residuals_histograms.png')
 
 # Plot difference between trajectories
 [_, perturbed_trajectory] = integrator.integrate_eom(measurement_data['time'].values[-1], initial_state_guess, measurement_data['time'].values)
