@@ -161,9 +161,10 @@ class LKF:
             station_name = mgr.station_name
             truth_measurements = np.vstack(measurement_data[f"{station_name}_measurements"].values).T
             simulated_measurements = mgr.simulate_measurements(reference_state_history, time_vector, 'ECI', noise=False)
-
             for j, time in enumerate(time_vector):
                 # Compute measurement residual
+                if i == 1:
+                    breakpoint()
                 residual = truth_measurements[:,j] - simulated_measurements[:,j]
 
                 # Compute measurement Jacobian
@@ -171,10 +172,11 @@ class LKF:
                 [H, _] = measurement_jacobian(reference_state_history[:,j], station_state_eci)
                 measurement_residuals_matrix[:,:,i,j] = np.vstack(residual)
                 H_matrix[:,:,i,j] = H
+
         # Perform LKF estimation process
         state_estimates = np.zeros((6, len(time_vector)))
         covariance_estimates = np.zeros((6, 6, len(time_vector)))
-
+        
         for k, time in enumerate(time_vector):
             print(f"Processing time step {k+1} of {len(time_vector)}", end='\r')
             # Check if measurements are available at this time
@@ -202,7 +204,6 @@ class LKF:
                     visible_residuals.append(current_measurement_residuals[:,:,i])
                     visible_H.append(H_matrix[:,:,i,k])
                     visible_R.append(R)
-            
                 stacked_residuals = np.vstack(visible_residuals)
                 stacked_H = np.vstack(visible_H)
                 stacked_R = block_diag(*visible_R)
@@ -214,8 +215,6 @@ class LKF:
             # Store estimates
 
             state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
-            if np.any(np.diag(P) < 0):
-                breakpoint()
             covariance_estimates[:,:,k] = P
         
         return state_estimates, covariance_estimates
