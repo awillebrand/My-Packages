@@ -1,6 +1,6 @@
 import numpy as np
 
-def state_jacobian(r : np.array, v : np.array, mu : float, J2 : float, J3 : float, R_e : float, mode : str = 'BaseMat'):
+def state_jacobian(r : np.array, v : np.array, mu : float, J2 : float, J3 : float, R_e : float, mode : list = ['BaseMat']):
     """
     This function computes the partial derivatives of the acceleration associated with the J2 and J3 perturbations in a gravitational field and outputs the associated Jacobian.
 
@@ -16,8 +16,8 @@ def state_jacobian(r : np.array, v : np.array, mu : float, J2 : float, J3 : floa
     J3 : float
         J3 coefficient.
     """
-    if mode != 'PointMass' and mode != 'J2' and mode != 'J3' and mode != 'Full' and mode != 'BaseMat':
-        raise ValueError("Invalid mode. Choose from 'PointMass', 'J2', 'J3', 'Full', or 'BaseMat'.")
+    if set(mode).isdisjoint({'BaseMat', 'J2', 'J3', 'Drag'}):
+        raise ValueError("Invalid mode specified. Choose from 'Basemat', 'J2', 'J3', and/or 'Drag'.")
 
     x, y, z = r
     r_norm = np.linalg.norm(r)
@@ -86,19 +86,24 @@ def state_jacobian(r : np.array, v : np.array, mu : float, J2 : float, J3 : floa
                   [0, 0, 0, 0, 0, 0, 0, 0, 0],
                   [0, 0, 0, 0, 0, 0, 0, 0, 0]])
     
-    if mode == 'PointMass':
-        A = A[0:6, 0:6]
-    elif mode == 'J2':
-        # Keep initial 6x6 and J2 partials in the 8th column and row
-        A = A[np.ix_([0,1,2,3,4,5,7],[0,1,2,3,4,5,7])]
-    elif mode == 'J3':
-        # Keep initial 6x6 and J3 partials in the 9th column and row
-        A = A[np.ix_([0,1,2,3,4,5,8],[0,1,2,3,4,5,8])]
-    elif mode == 'Full':
-        A = A[np.ix_([0,1,2,3,4,5,7,8],[0,1,2,3,4,5,7,8])]
-    else:
-        pass
-    return A
+    if 'BaseMat' in mode:
+        return A
+
+    temp_A = A[0:6, 0:6]
+    if 'J2' in mode:
+        # Append J2 partials to A. Needs to be done this way to maintain correct order
+        
+        temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
+        needed_column = A[0:temp_A.shape[0], 7].reshape((temp_A.shape[0],1))
+        temp_A[:, -1] = needed_column.flatten()
+        #A = A[np.ix_([0,1,2,3,4,5,7],[0,1,2,3,4,5,7])]
+    if 'J3' in mode:
+        # Append J3 partials to A
+        temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
+        needed_column = A[0:temp_A.shape[0], 8].reshape((A.shape[0],1))
+        A[:, -1] = needed_column.flatten()
+        # A = A[np.ix_([0,1,2,3,4,5,8],[0,1,2,3,4,5,8])]
+    return temp_A
 
 def compute_DCM(i, LoN, AoP):
     # Compute direction cosine matrix from perifocal to inertial frame
