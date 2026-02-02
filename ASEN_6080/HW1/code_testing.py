@@ -23,7 +23,7 @@ R_e = 6378
 
 # Call the perturbation_partials function
 
-A = state_jacobian(r, v, mu, J2, J3, R_e)
+A = state_jacobian(r, v, mu, J2, J3, 0.0, [], R_e)
 
 # Compare the computed Jacobian to the truth Jacobian
 diff = A - truth_jacobian

@@ -35,7 +35,7 @@ large_P_0 = np.diag([1000, 1000, 1000, 1, 1, 1])**2
 ekf = EKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
 #Q = np.diag([1e-14, 1e-14, 1e-14, 1e-14, 1e-14, 1e-14])
 
-estimated_state_history, covariance_history = ekf.run(initial_state_guess, np.zeros(6), large_P_0, measurement_data, R=np.diag(noise_var), start_mode='warm', start_length=1000)
+estimated_state_history, covariance_history = ekf.run(initial_state_guess, np.zeros(6), P_0, measurement_data, R=np.diag(noise_var), start_mode='warm', start_length=1000)
 
 # Verify against truth data
 augmented_truth_state = truth_data['augmented_state_history'].values

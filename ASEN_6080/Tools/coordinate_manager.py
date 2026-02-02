@@ -153,3 +153,28 @@ class CoordinateMgr:
         v_vec = np.zeros(3)
 
         return np.hstack((r_vec, v_vec))
+    
+    def ECEF_to_GCS(self, state_ecef : np.array):
+        """
+        Convert ECEF state to Geocentric Spherical Coordinates (latitude, longitude, altitude).
+        Parameters:
+        state_ecef : np.array
+            ECEF state vector [x, y, z, u, v, w] in kilometers.
+        Returns:
+        lat : float
+            Latitude in degrees.
+        lon : float
+            Longitude in degrees.
+        """
+        x = state_ecef[0]
+        y = state_ecef[1]
+        z = state_ecef[2]
+
+        r_mag = np.sqrt(x**2 + y**2 + z**2)
+        lat_rad = np.arcsin(z / r_mag)
+        lon_rad = np.arctan2(y, x)
+
+        lat = np.rad2deg(lat_rad)
+        lon = np.rad2deg(lon_rad)
+
+        return lat, lon

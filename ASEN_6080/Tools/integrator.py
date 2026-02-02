@@ -1,8 +1,8 @@
 import numpy as np
-from .generic_functions import state_jacobian
+from .generic_functions import state_jacobian, compute_density
 from scipy.integrate import solve_ivp
 class Integrator:
-    def __init__(self, mu : float, R_e : float, mode : list = [], parameter_indices : list = []):
+    def __init__(self, mu : float, R_e : float, mode : list = [], parameter_indices : list = [], spacecraft_area : float = None, spacecraft_mass : float = None):
         """
         Initializes the Integrator class for spacecraft orbit propagation.
         Parameters:
@@ -11,17 +11,19 @@ class Integrator:
         R_e : float
             Radius of the central body (e.g., Earth) in km.
         mode : list, optional
-            List of perturbation modes to include in the integration. Options are 'PointMass', 'J2', 'J3', and 'Drag'. Default is an empty list.
+            List of perturbation modes to include in the integration. Options are 'PointMass', 'J2', 'J3', 'Drag', and 'Stations'. Default is an empty list.
         parameter_indices : list, optional
-            List of indices for parameters to be estimated during integration. Default is an empty list.
+            List of indices for parameters to be estimated during integration. The entry for station parameters is a list of the indices in the state vector. Default is an empty list.
         """
         self.mu = mu
         self.R_e = R_e
         self.mode = mode
         self.parameter_indices = parameter_indices
+        self.spacecraft_area = spacecraft_area
+        self.spacecraft_mass = spacecraft_mass
 
-        if set(mode).isdisjoint({'J2', 'J3', 'Drag'}):
-            raise ValueError("Invalid mode specified. Choose from 'J2', 'J3', and/or 'Drag'.")
+        if set(mode).isdisjoint({'mu', 'J2', 'J3', 'Drag', 'Stations'}):
+            raise ValueError("Invalid mode specified. Choose from 'mu', 'J2', 'J3', 'Drag', and/or 'Stations'.")
         if len(mode) != len(parameter_indices):
             raise ValueError("Length of mode and parameter_indices must be the same.")
 
@@ -77,37 +79,20 @@ class Integrator:
 
         return a, e, i, LoN, AoP, f
     
-    def compute_density(self, r_norm : float, rho_0 : float = 3.614e-13, r_0 : float = 700000.0 + 6678.0, H : float = 88667.0):
-        """Compute atmospheric density at the satellite's position using an exponential model.
-        Inputs:
-        r_norm : float
-            Magnitude of the satellite's position vector in km.
-        rho_0 : float, optional
-            Reference atmospheric density at reference altitude in kg/m^3. Default is 3.614e-13 kg/m^3 (approx. 700 km).
-        r_0 : float, optional
-            Reference radius from Earth's center in km. Default is 700 km altitude + Earth's radius (6678 km).
-        H : float, optional
-            Scale height in km. Default is 88667 m (88.667 km).
-        Returns:
-        density : float
-            Atmospheric density at the satellite's position in kg/m^3.
-        """
-        r = r_norm*1000  # Convert km to m
-
-        rho = rho_0 * np.exp(-(r-r_0)/ H)
-
-        return rho
-    
     def equations_of_motion(self, t, state):
+        mu = self.mu
         x, y, z = state[0:3]
         u, v, w = state[3:6]
         r = np.sqrt(x**2 + y**2 + z**2)
         J2 = 0
         J3 = 0
         Cd = 0
-        rho = self.compute_density(r)
+        rho = compute_density(r)
 
         # Determine J2, J3, and Cd based on mode
+        if 'mu' in self.mode:
+            param_index = self.parameter_indices[self.mode.index('mu')]
+            mu = state[param_index]
         if 'J2' in self.mode:
             param_index = self.parameter_indices[self.mode.index('J2')]
             J2 = state[param_index]
@@ -115,16 +100,31 @@ class Integrator:
             param_index = self.parameter_indices[self.mode.index('J3')]
             J3 = state[param_index]
         if 'Drag' in self.mode:
+            if self.spacecraft_area is None or self.spacecraft_mass is None:
+                raise ValueError("Area and mass must be provided for drag calculation.")
             param_index = self.parameter_indices[self.mode.index('Drag')]
             Cd = state[param_index]
+        if 'Stations' in self.mode:
+            # Determine number of station variables, this is stored in the parameter_indices value for stations as a list
+            param_index = self.parameter_indices[self.mode.index('Stations')]
+            num_station_vars = len(state[param_index])
             
         x_dot = u
         y_dot = v
         z_dot = w
-        u_dot = -self.mu * x / r**3 + (3 / 2) * (self.mu * J2 * self.R_e**2 * x / r**5) * (5 * (z**2 / r**2) - 1) + (5 / 2) * self.mu * J3 * self.R_e**3 * x * z / r**7 * (7 * z**2 / r**2 - 3)
-        v_dot = -self.mu * y / r**3 + (3 / 2) * (self.mu * J2 * self.R_e**2 * y / r**5) * (5 * (z**2 / r**2) - 1) + (5 / 2) * self.mu * J3 * self.R_e**3 * y * z / r**7 * (7 * z**2 / r**2 - 3)
-        w_dot = -self.mu * z / r**3 + (3 / 2) * (self.mu * J2 * self.R_e**2 * z / r**5) * (5 * (z**2 / r**2) - 3) + (5 / 2) * self.mu * J3 * self.R_e**3 / r**5 * (7 * z**4 / r**4 - 6 * z**2 / r**2 + 3 / 5)
+        u_dot = -mu * x / r**3 + (3 / 2) * (mu * J2 * self.R_e**2 * x / r**5) * (5 * (z**2 / r**2) - 1) + (5 / 2) * mu * J3 * self.R_e**3 * x * z / r**7 * (7 * z**2 / r**2 - 3)
+        v_dot = -mu * y / r**3 + (3 / 2) * (mu * J2 * self.R_e**2 * y / r**5) * (5 * (z**2 / r**2) - 1) + (5 / 2) * mu * J3 * self.R_e**3 * y * z / r**7 * (7 * z**2 / r**2 - 3)
+        w_dot = -mu * z / r**3 + (3 / 2) * (mu * J2 * self.R_e**2 * z / r**5) * (5 * (z**2 / r**2) - 3) + (5 / 2) * mu * J3 * self.R_e**3 / r**5 * (7 * z**4 / r**4 - 6 * z**2 / r**2 + 3 / 5)
 
+        if 'Drag' in self.mode:
+            V_norm = np.linalg.norm(np.array([u, v, w]))
+            u_dot_drag = -(rho * Cd * self.spacecraft_area * V_norm * u) / (2 * self.spacecraft_mass)
+            v_dot_drag = -(rho * Cd * self.spacecraft_area * V_norm * v) / (2 * self.spacecraft_mass)
+            w_dot_drag = -(rho * Cd * self.spacecraft_area * V_norm * w) / (2 * self.spacecraft_mass)
+            u_dot += u_dot_drag
+            v_dot += v_dot_drag
+            w_dot += w_dot_drag
+        
         output = np.array([x_dot, y_dot, z_dot, u_dot, v_dot, w_dot])
         if 'J2' in self.mode:
             output = np.append(output, 0)
@@ -132,6 +132,9 @@ class Integrator:
             output = np.append(output, 0)
         if 'Drag' in self.mode:
             output = np.append(output, 0)
+        if 'Stations' in self.mode:
+            for _ in range(num_station_vars):
+                output = np.append(output, 0)
 
         return output
     
@@ -139,13 +142,18 @@ class Integrator:
         # This function is passed through the integrator when the initial state is augmented by the STM
 
         # Determine state length based on mode and assign J2 and J3 according to mode
+        mu = self.mu
         J2 = 0
         J3 = 0
         Cd = 0
-        
+        station_positions_ecef = np.array([])
         state_length = 6
 
         # Determine J2, J3, and Cd based on mode
+        if 'mu' in self.mode:
+            state_length += 1
+            param_index = self.parameter_indices[self.mode.index('mu')]
+            mu = augmented_state[param_index]
         if 'J2' in self.mode:
             state_length += 1
             param_index = self.parameter_indices[self.mode.index('J2')]
@@ -158,6 +166,15 @@ class Integrator:
             state_length += 1
             param_index = self.parameter_indices[self.mode.index('Drag')]
             Cd = augmented_state[param_index]
+        if 'Stations' in self.mode:
+            # Determine number of station variables, this is stored in the parameter_indices value for stations
+            param_index = self.parameter_indices[self.mode.index('Stations')]
+            station_positions_vector = augmented_state[param_index]
+            num_station_vars = len(station_positions_vector)
+            state_length += num_station_vars
+            # For consistency sake, pull out station variables but they are not used in dynamics
+            for i in range(num_station_vars // 3):
+                station_positions_ecef.append(station_positions_vector[3*i:3*i+3])
             
         state = augmented_state[0:state_length]
         phi_flat = augmented_state[state_length:]
@@ -167,7 +184,7 @@ class Integrator:
         state_dot = self.equations_of_motion(t, state)
 
         # Compute STM derivative
-        A = state_jacobian(state[0:3], state[3:6], self.mu, J2, J3, self.R_e, mode=self.mode)
+        A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, station_positions_ecef, self.R_e, mode=self.mode)
         phi_dot = A @ phi
         phi_dot_flat = phi_dot.flatten()
 
@@ -197,12 +214,18 @@ class Integrator:
         state_length = 6
 
         # Determine J2, J3, and Cd based on mode
+        if 'mu' in self.mode:
+            state_length += 1
         if 'J2' in self.mode:
             state_length += 1
         if 'J3' in self.mode:
             state_length += 1
         if 'Drag' in self.mode:
             state_length += 1
+        if 'Stations' in self.mode:
+            param_index = self.parameter_indices[self.mode.index('Stations')]
+            num_station_vars = len(initial_state[param_index])
+            state_length += num_station_vars
 
         # Initialize STM as identity matrix
         if phi_0 is None:

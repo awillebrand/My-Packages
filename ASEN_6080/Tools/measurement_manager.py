@@ -2,26 +2,32 @@ import numpy as np
 from .coordinate_manager import CoordinateMgr
 
 class MeasurementMgr:
-    def __init__(self, station_name : str, station_lat : float, station_lon : float, initial_earth_spin_angle : float = 0.0):
+    def __init__(self, station_name : str, station_lat : float = None, station_lon : float = None, station_state_ecef : np.ndarray = None, initial_earth_spin_angle : float = 0.0):
         """This class manages measurement simulations for a station at the inputted GCS coordinates.
         Parameters:
         station_name : str
             Name of the ground station.
-        station_lat : float
-            Latitude of the ground station in degrees.
-        station_lon : float
-            Longitude of the ground station in degrees.
+        station_lat : float, optional
+            Latitude of the ground station in degrees. If None, it will be computed from station_state_ecef.
+        station_lon : float, optional
+            Longitude of the ground station in degrees. If None, it will be computed from station_state_ecef.
+        station_state_ecef : np.ndarray, optional
+            6x1 array of ground station state in ECEF coordinates. If None, it will be computed from lat/lon.
         initial_earth_spin_angle : float, optional
             Initial Earth spin angle in radians. Default is 0.0.
-        station_alt : float, optional
-            Altitude of the ground station above Earth's surface in kilometers. Default is 0.0 km.
         """
         self.station_name = station_name
         self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle)
-        self.lat = station_lat
-        self.lon = station_lon
-        self.station_state_ecef = self.coordinate_mgr.GCS_to_ECEF(station_lat, station_lon)
-
+        if station_lat != None and station_lon != None:
+            self.lat = station_lat
+            self.lon = station_lon
+            self.station_state_ecef = self.coordinate_mgr.GCS_to_ECEF(station_lat, station_lon)
+        elif station_state_ecef is not None:
+            self.station_state_ecef = station_state_ecef
+            self.lat, self.lon = self.coordinate_mgr.ECEF_to_GCS(station_state_ecef)
+        else:
+            raise ValueError("Either station_lat and station_lon or station_state_ecef must be provided.")
+        
     def get_elevation_angle(self, sc_position_ecef : np.array):
         """Compute the elevation angle of the spacecraft from the ground station.
         Parameters:

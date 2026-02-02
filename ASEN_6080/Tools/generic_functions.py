@@ -1,6 +1,27 @@
 import numpy as np
 
-def state_jacobian(r : np.array, v : np.array, mu : float, J2 : float, J3 : float, R_e : float, mode : list = ['BaseMat']):
+def compute_density(r_norm : float, rho_0 : float = 3.614e-13, r_0 : float = 700000.0 + 6678.0, H : float = 88667.0):
+    """Compute atmospheric density at the satellite's position using an exponential model.
+    Inputs:
+    r_norm : float
+        Magnitude of the satellite's position vector in km.
+    rho_0 : float, optional
+        Reference atmospheric density at reference altitude in kg/m^3. Default is 3.614e-13 kg/m^3 (approx. 700 km).
+    r_0 : float, optional
+        Reference radius from Earth's center in km. Default is 700 km altitude + Earth's radius (6678 km).
+    H : float, optional
+        Scale height in km. Default is 88667 m (88.667 km).
+    Returns:
+    density : float
+        Atmospheric density at the satellite's position in kg/m^3.
+    """
+    r = r_norm*1000  # Convert km to m
+
+    rho = rho_0 * np.exp(-(r-r_0)/ H)
+
+    return rho
+
+def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : float, C_d : float, station_positions_ecef : np.array, R_e, mode : list = ['BaseMat'], area : float = 3.0, spacecraft_mass : float = 970.0):
     """
     This function computes the partial derivatives of the acceleration associated with the J2 and J3 perturbations in a gravitational field and outputs the associated Jacobian.
 
@@ -15,12 +36,40 @@ def state_jacobian(r : np.array, v : np.array, mu : float, J2 : float, J3 : floa
         J2 coefficient.
     J3 : float
         J3 coefficient.
+    C_d : float
+        Drag coefficient.
+    station_positions_ecef : np.array
+        3xN array of ground station positions in ECEF coordinates, where N is the number of stations.
+    R_e : float
+        Earth's radius.
+    mode : list
+        List of strings specifying which partials to include in the Jacobian. Options are 'BaseMat', 'J2', 'J3', and/or 'Drag'.
+    area : float
+        Cross-sectional area of the spacecraft in m^2. Default is 3.0 m^2.
+    spacecraft_mass : float
+        Mass of the spacecraft in kg. Default is 970.0 kg.
+    Returns:
+    A : np.Array
+        State Jacobian matrix.
     """
-    if set(mode).isdisjoint({'BaseMat', 'J2', 'J3', 'Drag'}):
-        raise ValueError("Invalid mode specified. Choose from 'Basemat', 'J2', 'J3', and/or 'Drag'.")
+
+    if set(mode).isdisjoint({'BaseMat', 'J2', 'J3', 'Drag', 'Stations'}):
+        raise ValueError("Invalid mode specified. Choose from 'Basemat', 'mu', 'J2', 'J3', 'Drag', and/or 'Stations'.")
+    if mu == 0:
+        raise ValueError("mu must be non-zero!")
+    if 'J2' in mode and J2 == 0:
+        raise ValueError("J2 must be non-zero to include J2 partials.")
+    if 'J3' in mode and J3 == 0:
+        raise ValueError("J3 must be non-zero to include J3 partials.")
+    if 'Drag' in mode and C_d == 0:
+        raise ValueError("C_d must be non-zero to include drag partials.")
+    if 'Stations' in mode and len(station_positions_ecef) == 0:
+        raise ValueError("Station positions must be provided to include station partials.")
 
     x, y, z = r
     r_norm = np.linalg.norm(r)
+    u, v, w = V
+    V_norm = np.linalg.norm(V)
 
     # Compute position partials
     # Point mass partials
@@ -48,13 +97,22 @@ def state_jacobian(r : np.array, v : np.array, mu : float, J2 : float, J3 : floa
     a_xz_J3 = (5 / 2) * mu * J3 * R_e**3 * x / r_norm**9 * (42 * z**2 - 63 * z**4 / r_norm**2 - 3 * r_norm**2)
     a_yz_J3 = (5 / 2) * mu * J3 * R_e**3 * y / r_norm**9 * (42 * z**2 - 63 * z**4 / r_norm**2 - 3 * r_norm**2)
 
+    # Drag partials
+    rho = compute_density(r_norm)
+    a_xx_drag = -(rho * C_d * area) / (2*spacecraft_mass) * (u**2 / V_norm + V_norm)
+    a_yy_drag = -(rho * C_d * area) / (2*spacecraft_mass) * (v**2 / V_norm + V_norm)
+    a_zz_drag = -(rho * C_d * area) / (2*spacecraft_mass) * (w**2 / V_norm + V_norm)
+    a_xy_drag = -(rho * C_d * area) / (2*spacecraft_mass) * (u * v / V_norm)
+    a_xz_drag = -(rho * C_d * area) / (2*spacecraft_mass) * (u * w / V_norm)
+    a_yz_drag = -(rho * C_d * area) / (2*spacecraft_mass) * (v * w / V_norm)
+
     # Combine all partials
-    a_xx = a_xx_pm + a_xx_J2 + a_xx_J3
-    a_yy = a_yy_pm + a_yy_J2 + a_yy_J3
-    a_zz = a_zz_pm + a_zz_J2 + a_zz_J3
-    a_xy = a_xy_pm + a_xy_J2 + a_xy_J3
-    a_xz = a_xz_pm + a_xz_J2 + a_xz_J3
-    a_yz = a_yz_pm + a_yz_J2 + a_yz_J3
+    a_xx = a_xx_pm + a_xx_J2 + a_xx_J3 + a_xx_drag
+    a_yy = a_yy_pm + a_yy_J2 + a_yy_J3 + a_yy_drag
+    a_zz = a_zz_pm + a_zz_J2 + a_zz_J3 + a_zz_drag
+    a_xy = a_xy_pm + a_xy_J2 + a_xy_J3 + a_xy_drag
+    a_xz = a_xz_pm + a_xz_J2 + a_xz_J3 + a_xz_drag
+    a_yz = a_yz_pm + a_yz_J2 + a_yz_J3 + a_yz_drag
     a_yx = a_xy
     a_zx = a_xz
     a_zy = a_yz
@@ -90,19 +148,40 @@ def state_jacobian(r : np.array, v : np.array, mu : float, J2 : float, J3 : floa
         return A
 
     temp_A = A[0:6, 0:6]
-    if 'J2' in mode:
-        # Append J2 partials to A. Needs to be done this way to maintain correct order
-        
-        temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
-        needed_column = A[0:temp_A.shape[0], 7].reshape((temp_A.shape[0],1))
-        temp_A[:, -1] = needed_column.flatten()
-        #A = A[np.ix_([0,1,2,3,4,5,7],[0,1,2,3,4,5,7])]
-    if 'J3' in mode:
-        # Append J3 partials to A
-        temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
-        needed_column = A[0:temp_A.shape[0], 8].reshape((A.shape[0],1))
-        A[:, -1] = needed_column.flatten()
-        # A = A[np.ix_([0,1,2,3,4,5,8],[0,1,2,3,4,5,8])]
+    for value in mode:
+        if 'mu' in value:
+            # Append mu partials to A
+            temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
+            needed_column = A[0:temp_A.shape[0], 6].reshape((A.shape[0],1))
+            A[:, -1] = needed_column.flatten()
+            # A = A[np.ix_([0,1,2,3,4,5,6],[0,1,2,3,4,5,6])]
+        if 'J2' in value:
+            # Append J2 partials to A. Needs to be done this way to maintain correct order
+            temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
+            needed_column = A[0:temp_A.shape[0], 7].reshape((temp_A.shape[0],1))
+            temp_A[:, -1] = needed_column.flatten()
+            #A = A[np.ix_([0,1,2,3,4,5,7],[0,1,2,3,4,5,7])]
+        if 'J3' in value:
+            # Append J3 partials to A
+            temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
+            needed_column = A[0:temp_A.shape[0], 8].reshape((A.shape[0],1))
+            A[:, -1] = needed_column.flatten()
+            # A = A[np.ix_([0,1,2,3,4,5,8],[0,1,2,3,4,5,8])]
+        if 'Drag' in value:
+            # Compute needed drag partials and append to A
+            temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
+            a_xCd = -(rho * area * V_norm * u) / (2*spacecraft_mass)
+            a_yCd = -(rho * area * V_norm * v) / (2*spacecraft_mass)
+            a_zCd = -(rho * area * V_norm * w) / (2*spacecraft_mass)
+            # Set appropriate rows in last column
+            temp_A[3, -1] = a_xCd
+            temp_A[4, -1] = a_yCd
+            temp_A[5, -1] = a_zCd
+        if 'Stations' in value:
+            # Append station partials to A, just adding 3 zero rows and columns per station
+            for station_pos in station_positions_ecef:
+                temp_A = np.pad(temp_A, ((0,3),(0,3)), 'constant')
+            
     return temp_A
 
 def compute_DCM(i, LoN, AoP):
