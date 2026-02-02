@@ -2,7 +2,7 @@ import numpy as np
 from .coordinate_manager import CoordinateMgr
 
 class MeasurementMgr:
-    def __init__(self, station_name : str, station_lat : float = None, station_lon : float = None, station_state_ecef : np.ndarray = None, initial_earth_spin_angle : float = 0.0):
+    def __init__(self, station_name : str, station_lat : float = None, station_lon : float = None, station_state_ecef : np.ndarray = None, initial_earth_spin_angle : float = 0.0, R_e : float = 6378):
         """This class manages measurement simulations for a station at the inputted GCS coordinates.
         Parameters:
         station_name : str
@@ -17,7 +17,7 @@ class MeasurementMgr:
             Initial Earth spin angle in radians. Default is 0.0.
         """
         self.station_name = station_name
-        self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle)
+        self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle, R_e=R_e)
         if station_lat != None and station_lon != None:
             self.lat = station_lat
             self.lon = station_lon

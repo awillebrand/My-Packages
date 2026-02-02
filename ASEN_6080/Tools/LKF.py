@@ -19,7 +19,7 @@ class LKF:
         """
         self.integrator = integrator
         self.measurement_mgrs = measurement_mgr_list
-        self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle=initial_earth_spin_angle)
+        self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle=initial_earth_spin_angle, R_e = integrator.R_e)
 
     def ensure_positive_definite(self, P : np.ndarray, min_eigenvalue: float = 1e-13):
         """

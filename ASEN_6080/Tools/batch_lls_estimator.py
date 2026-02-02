@@ -17,7 +17,7 @@ class BatchLLSEstimator:
         """
         self.integrator = integrator
         self.measurement_mgrs = measurement_mgr_list
-        self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle=initial_earth_spin_angle)
+        self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle=initial_earth_spin_angle, R_e=integrator.R_e)
 
     def estimate_initial_state(self, a_priori_state : np.ndarray, measurement_data : pd.DataFrame, R : np.array, a_priori_covariance : np.ndarray = None, a_priori_state_correction : np.ndarray = None, max_iterations : int = 20, tol : float = 1e-5):
         """

@@ -19,7 +19,7 @@ class EKF:
 
         self.integrator = integrator
         self.measurement_mgrs = measurement_mgr_list
-        self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle=initial_earth_spin_angle)
+        self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle=initial_earth_spin_angle, R_e = integrator.R_e)
 
     def predict(self, P : np.ndarray, phi : np.ndarray, Q : np.ndarray):
         """

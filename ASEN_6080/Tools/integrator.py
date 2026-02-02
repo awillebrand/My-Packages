@@ -26,6 +26,8 @@ class Integrator:
             raise ValueError("Invalid mode specified. Choose from 'mu', 'J2', 'J3', 'Drag', and/or 'Stations'.")
         if len(mode) != len(parameter_indices):
             raise ValueError("Length of mode and parameter_indices must be the same.")
+        if 'Drag' in mode and (spacecraft_area is None or spacecraft_mass is None):
+            raise ValueError("Spacecraft area and mass must be provided for drag calculations.")
 
     def keplerian_to_cartesian(self, a, e, i, LoN, AoP, f):
         # Compute perifocal radius magnitude
@@ -88,7 +90,6 @@ class Integrator:
         J3 = 0
         Cd = 0
         rho = compute_density(r)
-
         # Determine J2, J3, and Cd based on mode
         if 'mu' in self.mode:
             param_index = self.parameter_indices[self.mode.index('mu')]
@@ -107,7 +108,7 @@ class Integrator:
         if 'Stations' in self.mode:
             # Determine number of station variables, this is stored in the parameter_indices value for stations as a list
             param_index = self.parameter_indices[self.mode.index('Stations')]
-            num_station_vars = len(state[param_index])
+            num_station_vars = len(state[param_index:])
             
         x_dot = u
         y_dot = v
@@ -148,7 +149,7 @@ class Integrator:
         Cd = 0
         station_positions_ecef = np.array([])
         state_length = 6
-
+        breakpoint()
         # Determine J2, J3, and Cd based on mode
         if 'mu' in self.mode:
             state_length += 1
@@ -169,13 +170,13 @@ class Integrator:
         if 'Stations' in self.mode:
             # Determine number of station variables, this is stored in the parameter_indices value for stations
             param_index = self.parameter_indices[self.mode.index('Stations')]
-            station_positions_vector = augmented_state[param_index]
+            station_positions_vector = augmented_state[param_index:]
             num_station_vars = len(station_positions_vector)
             state_length += num_station_vars
             # For consistency sake, pull out station variables but they are not used in dynamics
             for i in range(num_station_vars // 3):
                 station_positions_ecef.append(station_positions_vector[3*i:3*i+3])
-            
+
         state = augmented_state[0:state_length]
         phi_flat = augmented_state[state_length:]
         phi = phi_flat.reshape((state_length, state_length))
@@ -224,7 +225,7 @@ class Integrator:
             state_length += 1
         if 'Stations' in self.mode:
             param_index = self.parameter_indices[self.mode.index('Stations')]
-            num_station_vars = len(initial_state[param_index])
+            num_station_vars = len(initial_state[param_index:])
             state_length += num_station_vars
 
         # Initialize STM as identity matrix

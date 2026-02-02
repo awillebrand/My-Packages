@@ -39,7 +39,7 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
     C_d : float
         Drag coefficient.
     station_positions_ecef : np.array
-        3xN array of ground station positions in ECEF coordinates, where N is the number of stations.
+        Nx3 array of ground station positions in ECEF coordinates, where N is the number of stations.
     R_e : float
         Earth's radius.
     mode : list
@@ -152,8 +152,8 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
         if 'mu' in value:
             # Append mu partials to A
             temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
-            needed_column = A[0:temp_A.shape[0], 6].reshape((A.shape[0],1))
-            A[:, -1] = needed_column.flatten()
+            needed_column = A[0:temp_A.shape[0], 6].reshape((temp_A.shape[0],1))
+            temp_A[:, -1] = needed_column.flatten()
             # A = A[np.ix_([0,1,2,3,4,5,6],[0,1,2,3,4,5,6])]
         if 'J2' in value:
             # Append J2 partials to A. Needs to be done this way to maintain correct order
@@ -164,8 +164,8 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
         if 'J3' in value:
             # Append J3 partials to A
             temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
-            needed_column = A[0:temp_A.shape[0], 8].reshape((A.shape[0],1))
-            A[:, -1] = needed_column.flatten()
+            needed_column = A[0:temp_A.shape[0], 8].reshape((temp_A.shape[0],1))
+            temp_A[:, -1] = needed_column.flatten()
             # A = A[np.ix_([0,1,2,3,4,5,8],[0,1,2,3,4,5,8])]
         if 'Drag' in value:
             # Compute needed drag partials and append to A
@@ -179,7 +179,7 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
             temp_A[5, -1] = a_zCd
         if 'Stations' in value:
             # Append station partials to A, just adding 3 zero rows and columns per station
-            for station_pos in station_positions_ecef:
+            for _ in range(station_positions_ecef.shape[0]):
                 temp_A = np.pad(temp_A, ((0,3),(0,3)), 'constant')
             
     return temp_A

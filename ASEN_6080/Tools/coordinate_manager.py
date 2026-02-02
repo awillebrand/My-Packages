@@ -2,10 +2,17 @@ import numpy as np
 from .integrator import Integrator
 
 class CoordinateMgr:
-    def __init__(self, initial_earth_spin_angle : float = 0.0):
-        """This class manages coordinate frame transformations."""
+    def __init__(self, initial_earth_spin_angle : float = 0.0, R_e : float = 6378):
+        """This class manages coordinate frame transformations.
+        Parameters:
+        initial_earth_spin_angle : float, optional
+            Initial Earth spin angle in radians. Default is 0.0.
+        R_e : float, optional
+            Earth's radius in kilometers. Default is 6378 km.
+        """
         self.earth_rotation_rate = 2*np.pi/86164.0905  # rad/s
         self.initial_earth_spin_angle = initial_earth_spin_angle
+        self.earth_radius = R_e
 
     def compute_DCM(self, coordinate_frame_1 : str, coordinate_frame_2 : str, time : float = None, orbit_state : np.array = None):
         """Compute direction cosine matrix between two coordinate frames. Outputted DCM converts from frame 1 to frame 2.
@@ -46,7 +53,7 @@ class CoordinateMgr:
             if len(orbit_state) == 6:
                 r_vec = orbit_state[0:3]
                 v_vec = orbit_state[3:6]
-                integrator = Integrator(mu=398600.4418, R_e=6378)
+                integrator = Integrator(mu=398600.4418, R_e=self.earth_radius) # HARD CODED BEWARE
                 i, LoN, AoP, _, _, _ = integrator.cartesian_to_keplerian(r_vec, v_vec)
             else:
                 i, LoN, AoP = orbit_state
@@ -61,7 +68,7 @@ class CoordinateMgr:
             if len(orbit_state) == 6:
                 r_vec = orbit_state[0:3]
                 v_vec = orbit_state[3:6]
-                integrator = Integrator(mu=398600.4418, R_e=6378)
+                integrator = Integrator(mu=398600.4418, R_e=self.earth_radius) # HARD CODED BEWARE
                 i, LoN, AoP, _, _, _ = integrator.cartesian_to_keplerian(r_vec, v_vec)
             else:
                 i, LoN, AoP = orbit_state
@@ -90,7 +97,7 @@ class CoordinateMgr:
         else:
             raise ValueError("Invalid coordinate frame transformation requested.")
         
-    def GCS_to_ECI(self, lat : float, lon : float, time : float, R_e : float = 6378):
+    def GCS_to_ECI(self, lat : float, lon : float, time : float):
         """"""
         """
         Convert Geocentric Spherical Coordinates (latitude, longitude, altitude) to ECI state.
@@ -101,12 +108,12 @@ class CoordinateMgr:
             Longitude in degrees.
         time : float
             Time in seconds since initial epoch.
-        R_e : float, optional
-            Earth's radius in kilometers. Default is 6378 km.
         Returns:
         state : np.array
             ECI state vector [x, y, z, u, v, w] in kilometers.
         """
+        R_e = self.earth_radius
+
         lat_rad = np.deg2rad(lat)
         lon_rad = np.deg2rad(lon)
 
@@ -125,7 +132,7 @@ class CoordinateMgr:
 
         return np.hstack((r_vec, v_vec))
     
-    def GCS_to_ECEF(self, lat : float, lon : float, R_e : float = 6378):
+    def GCS_to_ECEF(self, lat : float, lon : float):
         """"""
         """
         Convert Geocentric Spherical Coordinates (latitude, longitude, altitude) to ECEF state.
@@ -134,12 +141,12 @@ class CoordinateMgr:
             Latitude in degrees.
         lon : float
             Longitude in degrees.
-        R_e : float, optional
-            Earth's radius in kilometers. Default is 6378 km.
         Returns:
         state : np.array
             ECEF state vector [x, y, z, u, v, w] in kilometers.
         """
+        R_e = self.earth_radius
+
         lat_rad = np.deg2rad(lat)
         lon_rad = np.deg2rad(lon)
 
