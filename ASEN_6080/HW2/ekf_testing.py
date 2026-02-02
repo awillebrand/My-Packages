@@ -22,7 +22,7 @@ J2 = 0.0010826269
 raw_state_length = 7
 noise_var = np.array([1e-3, 1e-6])**2 # [range noise = 1 m, range rate noise = 1 mm/s]
 
-integrator = Integrator(mu, R_e, mode='J2')
+integrator = Integrator(mu, R_e, mode=['J2'], parameter_indices=[6])
 station_1_mgr = MeasurementMgr("station_1", station_lat=-35.398333, station_lon=148.981944, initial_earth_spin_angle=np.deg2rad(122))
 station_2_mgr = MeasurementMgr("station_2", station_lat=40.427222, station_lon=355.749444, initial_earth_spin_angle=np.deg2rad(122))
 station_3_mgr = MeasurementMgr("station_3", station_lat=35.247163, station_lon=243.205, initial_earth_spin_angle=np.deg2rad(122))
@@ -33,7 +33,7 @@ initial_state_guess = truth_data['initial_state'].values[0][0:7] + initial_state
 P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3])**2
 large_P_0 = np.diag([1000, 1000, 1000, 1, 1, 1])**2
 ekf = EKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
-Q = np.diag([1e-14, 1e-14, 1e-14, 1e-14, 1e-14, 1e-14])
+#Q = np.diag([1e-14, 1e-14, 1e-14, 1e-14, 1e-14, 1e-14])
 
 estimated_state_history, covariance_history = ekf.run(initial_state_guess, np.zeros(6), large_P_0, measurement_data, R=np.diag(noise_var), start_mode='warm', start_length=1000)
 

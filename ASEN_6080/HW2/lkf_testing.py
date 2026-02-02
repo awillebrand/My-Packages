@@ -6,8 +6,8 @@ from ASEN_6080.Tools import Integrator, MeasurementMgr, CoordinateMgr, LKF
 from plotly.subplots import make_subplots
 import warnings
 warnings.simplefilter('error', RuntimeWarning)
-measurement_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements_no_noise.pkl")
-truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data_no_noise.pkl")
+measurement_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements.pkl")
+truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data.pkl")
 
 # # Set second half of measurements to nan for testing
 # midpoint = len(measurement_data)//2
@@ -19,10 +19,10 @@ mu = 3.986004415E5
 R_e = 6378
 J2 = 0.0010826269
 
-raw_state_length = 8
+raw_state_length = 7
 noise_var = np.array([1e-3, 1e-6])**2 # [range noise = 1 m, range rate noise = 1 mm/s]
 #noise_var = np.zeros(2)  # No noise for testing
-integrator = Integrator(mu, R_e, mode='J2')
+integrator = Integrator(mu, R_e, mode=['J2'], parameter_indices=[6])
 station_1_mgr = MeasurementMgr("station_1", station_lat=-35.398333, station_lon=148.981944, initial_earth_spin_angle=np.deg2rad(122))
 station_2_mgr = MeasurementMgr("station_2", station_lat=40.427222, station_lon=355.749444, initial_earth_spin_angle=np.deg2rad(122))
 station_3_mgr = MeasurementMgr("station_3", station_lat=35.247163, station_lon=243.205, initial_earth_spin_angle=np.deg2rad(122))
@@ -35,8 +35,7 @@ P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3])**2
 large_P_0 = np.diag([1000, 1000, 1000, 1, 1, 1])**2
 
 lkf = LKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
-
-estimated_state_history, covariance_history = lkf.run(initial_state_guess, np.zeros(6), P_0, measurement_data, R=np.diag(noise_var), max_iterations=4)
+estimated_state_history, covariance_history = lkf.run(initial_state_guess, np.zeros(6), P_0, measurement_data, R=np.diag(noise_var), max_iterations=6)
 
 # Verify against truth data
 augmented_truth_state = truth_data['augmented_state_history'].values

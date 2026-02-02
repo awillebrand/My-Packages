@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from ASEN_6080.Tools import Integrator, MeasurementMgr, CoordinateMgr, measurement_jacobian
 from scipy.linalg import block_diag
+import warnings
 
 class LKF:
     def __init__(self, integrator : Integrator, measurement_mgr_list : list, initial_earth_spin_angle : float):
@@ -233,7 +234,11 @@ class LKF:
             P = initial_covariance.copy()  # Reset covariance for next iteration
 
             # Determine if another iteration is needed based on residual behavior (detect if residuals are centered around zero)
-            mean_residual = np.nanmean(measurement_residuals_matrix, axis=(0,1,3))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=RuntimeWarning)
+                mean_residual = np.nanmean(measurement_residuals_matrix, axis=(0,1,3))
+
+            np.nan_to_num(mean_residual, nan=0.0)
             if np.all(np.abs(mean_residual) < convergence_threshold):
                 print("Convergence achieved based on measurement residuals.")
                 break
