@@ -50,7 +50,7 @@ class MeasurementMgr:
 
         return np.rad2deg(elevation_angle)
 
-    def is_visible(self, sc_position_ecef : np.array, visibility_elevation_angle : float = 0.0):
+    def is_visible(self, sc_position_ecef : np.array, visibility_elevation_angle : float = 10.0):
         """Determine if the spacecraft is visible from the ground station.
         Parameters:
         sc_position_ecef : np.array

@@ -34,7 +34,7 @@ station_mgr_list = [station_1_mgr, station_2_mgr, station_3_mgr]
 
 integrator = Integrator(mu, R_e, mode=['mu','J2','Drag','Stations'], parameter_indices=[6,7,8,9], spacecraft_area=spacecraft_area, spacecraft_mass=spacecraft_mass, number_of_stations=3)
 
-a_priori_covariance = np.diag([1, 1, 1, 1, 1, 1, 1, 1E4, 1E4, 1E-16, 1E-16, 1E-16, 1, 1, 1, 1, 1, 1])  # Initial covariance matrix
+a_priori_covariance = np.diag([1, 1, 1, 1, 1, 1, 1, 1E6, 1E6, 1E-16, 1E-16, 1E-16, 1, 1, 1, 1, 1, 1])  # Initial covariance matrix
 # a_priori_covariance = np.diag([1, 1, 1, 1, 1, 1, 1E2, 1E6, 1E6, 1E-16, 1E-16, 1E-16, 1, 1, 1, 1, 1, 1])  # Given
 batch_estimator = BatchLLSEstimator(integrator, station_mgr_list, initial_earth_spin_angle=0.0, earth_rotation_rate=earth_spin_rate)
 
@@ -43,7 +43,7 @@ estimated_initial_state, estimated_covariance = batch_estimator.estimate_initial
     a_priori_covariance=a_priori_covariance,
     measurement_data=measurements,
     R=R,
-    max_iterations=20,
-    tol=0.1)
+    max_iterations=40,
+    tol=1E-2)
 
 breakpoint()

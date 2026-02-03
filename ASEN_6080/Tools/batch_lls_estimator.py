@@ -80,7 +80,7 @@ class BatchLLSEstimator:
 
                 truth_measurements = np.vstack(measurement_data[f"{station_name}_measurements"].values).T
                 simulated_measurements = mgr.simulate_measurements(augmented_state_history[0:6,:], time_vector, 'ECI', noise=False)
-                breakpoint()
+
                 # Compute measurement residuals
                 residuals = truth_measurements - simulated_measurements
                 for j, residual in enumerate(residuals.T):
@@ -134,6 +134,7 @@ class BatchLLSEstimator:
             if np.max(np.abs(x_hat) / (np.abs(estimated_state) + 1e-10)) < tol:
                 print(f"Converged in {iteration+1} iterations.")
                 P_0 = np.linalg.inv(Lambda)
+                breakpoint()
                 return estimated_state, P_0
             else:
                 print(f"Iteration {iteration+1}: State correction norm = {np.linalg.norm(x_correction)}")
