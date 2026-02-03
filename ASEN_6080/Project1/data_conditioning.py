@@ -32,7 +32,7 @@ for j, station_data in enumerate(station_list):
             full_station_measurements[i, 1] = station_data.loc[idx, 'range_rate'] / 1000  # Convert to km/s
     # Check if time t exists in station 1 measurements
     station_list[j] = full_station_measurements
-
+breakpoint()
 measurement_data_frame = pd.DataFrame({
     'time': time_vector,
     'station_101_measurements': list(station_list[0]),

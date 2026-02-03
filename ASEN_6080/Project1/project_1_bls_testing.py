@@ -43,7 +43,5 @@ estimated_initial_state, estimated_covariance = batch_estimator.estimate_initial
     a_priori_covariance=a_priori_covariance,
     measurement_data=measurements,
     R=R,
-    max_iterations=40,
+    max_iterations=10,
     tol=1E-2)
-
-breakpoint()

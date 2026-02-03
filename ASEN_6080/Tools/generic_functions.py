@@ -21,7 +21,7 @@ def compute_density(r_norm : float, rho_0 : float = 3.614e-13, r_0 : float = 700
 
     return rho
 
-def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : float, C_d : float, station_positions_ecef : np.array, R_e, mode : list = ['BaseMat'], area : float = 3.0, spacecraft_mass : float = 970.0):
+def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : float, C_d : float, station_positions_ecef : np.array, R_e, mode : list = ['BaseMat'], spacecraft_area : float = 3.0E-6, spacecraft_mass : float = 970.0):
     """
     This function computes the partial derivatives of the acceleration associated with the J2 and J3 perturbations in a gravitational field and outputs the associated Jacobian.
 
@@ -100,23 +100,23 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
     # Drag partials
     rho = compute_density(r_norm) * 1e9 # Convert from kg/m^3 to kg/km^3 <---- DOUBLE CHECK THIS CONVERSION
 
-    # Convert area from m^2 to km^2 for consistency
-    area = area * 1e-6 # <---- DOUBLE CHECK THIS CONVERSION
-
-    a_xx_drag = -(rho * C_d * area) / (2*spacecraft_mass) * (u**2 / V_norm + V_norm)
-    a_yy_drag = -(rho * C_d * area) / (2*spacecraft_mass) * (v**2 / V_norm + V_norm)
-    a_zz_drag = -(rho * C_d * area) / (2*spacecraft_mass) * (w**2 / V_norm + V_norm)
-    a_xy_drag = -(rho * C_d * area) / (2*spacecraft_mass) * (u * v / V_norm)
-    a_xz_drag = -(rho * C_d * area) / (2*spacecraft_mass) * (u * w / V_norm)
-    a_yz_drag = -(rho * C_d * area) / (2*spacecraft_mass) * (v * w / V_norm)
+    a_xu_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (u**2 / V_norm + V_norm)
+    a_yv_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (v**2 / V_norm + V_norm)
+    a_zw_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (w**2 / V_norm + V_norm)
+    a_xv_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (u * v / V_norm)
+    a_xw_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (u * w / V_norm)
+    a_yw_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (v * w / V_norm)
+    a_yu_drag = a_xv_drag
+    a_zu_drag = a_xw_drag
+    a_zv_drag = a_yw_drag
 
     # Combine all partials
-    a_xx = a_xx_pm + a_xx_J2 + a_xx_J3 + a_xx_drag
-    a_yy = a_yy_pm + a_yy_J2 + a_yy_J3 + a_yy_drag
-    a_zz = a_zz_pm + a_zz_J2 + a_zz_J3 + a_zz_drag
-    a_xy = a_xy_pm + a_xy_J2 + a_xy_J3 + a_xy_drag
-    a_xz = a_xz_pm + a_xz_J2 + a_xz_J3 + a_xz_drag
-    a_yz = a_yz_pm + a_yz_J2 + a_yz_J3 + a_yz_drag
+    a_xx = a_xx_pm + a_xx_J2 + a_xx_J3
+    a_yy = a_yy_pm + a_yy_J2 + a_yy_J3
+    a_zz = a_zz_pm + a_zz_J2 + a_zz_J3
+    a_xy = a_xy_pm + a_xy_J2 + a_xy_J3
+    a_xz = a_xz_pm + a_xz_J2 + a_xz_J3
+    a_yz = a_yz_pm + a_yz_J2 + a_yz_J3
     a_yx = a_xy
     a_zx = a_xz
     a_zy = a_yz
@@ -141,9 +141,9 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
     A = np.array([[0, 0, 0, 1, 0, 0, 0, 0, 0],
                   [0, 0, 0, 0, 1, 0, 0, 0, 0],
                   [0, 0, 0, 0, 0, 1, 0, 0, 0],
-                  [a_xx, a_xy, a_xz, 0, 0, 0, a_xmu, a_xJ2, a_xJ3],
-                  [a_yx, a_yy, a_yz, 0, 0, 0, a_ymu, a_yJ2, a_yJ3],
-                  [a_zx, a_zy, a_zz, 0, 0, 0, a_zmu, a_zJ2, a_zJ3],
+                  [a_xx, a_xy, a_xz, a_xu_drag, a_xv_drag, a_xw_drag, a_xmu, a_xJ2, a_xJ3],
+                  [a_yx, a_yy, a_yz, a_yu_drag, a_yv_drag, a_yw_drag, a_ymu, a_yJ2, a_yJ3],
+                  [a_zx, a_zy, a_zz, a_zu_drag, a_zv_drag, a_zw_drag, a_zmu, a_zJ2, a_zJ3],
                   [0, 0, 0, 0, 0, 0, 0, 0, 0],
                   [0, 0, 0, 0, 0, 0, 0, 0, 0],
                   [0, 0, 0, 0, 0, 0, 0, 0, 0]])
@@ -174,9 +174,9 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
         if 'Drag' in value:
             # Compute needed drag partials and append to A
             temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
-            a_xCd = -(rho * area * V_norm * u) / (2*spacecraft_mass)
-            a_yCd = -(rho * area * V_norm * v) / (2*spacecraft_mass)
-            a_zCd = -(rho * area * V_norm * w) / (2*spacecraft_mass)
+            a_xCd = -(rho * spacecraft_area * V_norm * u) / (2*spacecraft_mass)
+            a_yCd = -(rho * spacecraft_area * V_norm * v) / (2*spacecraft_mass)
+            a_zCd = -(rho * spacecraft_area * V_norm * w) / (2*spacecraft_mass)
             # Set appropriate rows in last column
             temp_A[3, -1] = a_xCd
             temp_A[4, -1] = a_yCd
