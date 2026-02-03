@@ -62,7 +62,6 @@ class MeasurementMgr:
             True if the spacecraft is visible from the ground station, False otherwise.
         """
         elevation_angle = self.get_elevation_angle(sc_position_ecef)
-
         return elevation_angle > visibility_elevation_angle
 
     def simulate_measurements(self, inputted_state_history : np.array, time_vector : np.array, coordinate_frame : str, noise : bool = False, noise_sigma : np.array = np.array([0.0, 0.0])):
@@ -115,7 +114,7 @@ class MeasurementMgr:
             if self.is_visible(ecef_sc_pos) == True:
                 # Convert station to ECI at the current time
                 time = time_vector[i]
-                station_state_eci = self.coordinate_mgr.GCS_to_ECI(self.lat, self.lon, time)
+                station_state_eci = self.coordinate_mgr.ECEF_to_ECI(self.station_state_ecef, time)
 
                 eci_sc_vel = eci_sc_state_history[3:6, i]
                 

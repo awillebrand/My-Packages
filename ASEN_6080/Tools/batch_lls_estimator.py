@@ -80,6 +80,8 @@ class BatchLLSEstimator:
 
                 truth_measurements = np.vstack(measurement_data[f"{station_name}_measurements"].values).T
                 simulated_measurements = mgr.simulate_measurements(augmented_state_history[0:6,:], time_vector, 'ECI', noise=False)
+                if i == 1:
+                    breakpoint()
                 # Compute measurement residuals
                 residuals = truth_measurements - simulated_measurements
                 for j, residual in enumerate(residuals.T):
@@ -104,7 +106,7 @@ class BatchLLSEstimator:
 
                     H = H_tilde @ stm
                     H_matrix[i, j] = H
-            
+        
             # Accumulate observations
             for i, time in enumerate(time_vector):
                 residuals_i = residuals_matrix[:, i]
@@ -127,17 +129,17 @@ class BatchLLSEstimator:
                 for s in range(num_stations):
                     station_index = first_station_index + s * 3
                     new_station_position = estimated_state[station_index:station_index+3]
-                    breakpoint()
-                    self.measurement_mgrs[s].station_state_ecef = new_station_position
+                    self.measurement_mgrs[s].station_state_ecef[0:3] = new_station_position
                     self.measurement_mgrs[s].lat, self.measurement_mgrs[s].lon = self.coordinate_mgr.ECEF_to_GCS(new_station_position)
                 
-            if np.linalg.norm(x_hat) < tol:
+            if np.max(np.abs(x_hat) / (np.abs(estimated_state) + 1e-10)) < tol:
                 print(f"Converged in {iteration+1} iterations.")
                 P_0 = np.linalg.inv(Lambda)
                 return estimated_state, P_0
             else:
                 print(f"Iteration {iteration+1}: State correction norm = {np.linalg.norm(x_correction)}")
                 print(f"x_hat = {np.linalg.norm(x_hat)}")
+                print(f"Max relative correction = {np.max(np.abs(x_hat) / (np.abs(estimated_state) + 1e-10))}")
                 x_correction = x_correction - x_hat
         print("Maximum iterations reached without convergence.")
         P_0 = np.linalg.inv(Lambda)

@@ -188,3 +188,28 @@ class CoordinateMgr:
         lon = np.rad2deg(lon_rad)
 
         return lat, lon
+    
+    def ECEF_to_ECI(self, state_ecef : np.array, time : float):
+        """
+        Convert ECEF state to ECI state.
+        Parameters:
+        state_ecef : np.array
+            ECEF state vector [x, y, z, u, v, w] in kilometers.
+        time : float
+            Time in seconds since initial epoch.
+        Returns:
+        state_eci : np.array
+            ECI state vector [x, y, z, u, v, w] in kilometers.
+        """
+        r_ecef = state_ecef[0:3]
+        v_ecef = state_ecef[3:6]
+
+        # Position transformation
+        ecef_to_eci_dcm = self.compute_DCM('ECEF', 'ECI', time=time)
+        r_eci = ecef_to_eci_dcm @ r_ecef
+
+        # Velocity transformation
+        omega_earth = np.array([0, 0, self.earth_rotation_rate])
+        v_eci = ecef_to_eci_dcm @ (v_ecef + np.cross(omega_earth, r_ecef))
+
+        return np.hstack((r_eci, v_eci))

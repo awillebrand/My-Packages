@@ -25,7 +25,7 @@ class Integrator:
         self.R_e = R_e
         self.mode = mode
         self.parameter_indices = parameter_indices
-        self.spacecraft_area = spacecraft_area
+        self.spacecraft_area = spacecraft_area * 1e-6 if spacecraft_area is not None else None  # Convert from m^2 to km^2 <---- DOUBLE CHECK THIS CONVERSION
         self.spacecraft_mass = spacecraft_mass
         self.number_of_stations = number_of_stations
 
@@ -98,7 +98,7 @@ class Integrator:
         J2 = 0
         J3 = 0
         Cd = 0
-        rho = compute_density(r)
+        rho = compute_density(r)* 1e9 # Convert from kg/m^3 to kg/km^3 <---- DOUBLE CHECK THIS CONVERSION
         # Determine J2, J3, and Cd based on mode
         if 'mu' in self.mode:
             param_index = self.parameter_indices[self.mode.index('mu')]

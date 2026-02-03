@@ -1,6 +1,6 @@
 import numpy as np
 
-def compute_density(r_norm : float, rho_0 : float = 3.614e-13, r_0 : float = 700000.0 + 6678.0, H : float = 88667.0):
+def compute_density(r_norm : float, rho_0 : float = 3.614e-13, r_0 : float = 700000.0 + 6378136.3, H : float = 88667.0):
     """Compute atmospheric density at the satellite's position using an exponential model.
     Inputs:
     r_norm : float
@@ -8,7 +8,7 @@ def compute_density(r_norm : float, rho_0 : float = 3.614e-13, r_0 : float = 700
     rho_0 : float, optional
         Reference atmospheric density at reference altitude in kg/m^3. Default is 3.614e-13 kg/m^3 (approx. 700 km).
     r_0 : float, optional
-        Reference radius from Earth's center in km. Default is 700 km altitude + Earth's radius (6678 km).
+        Reference radius from Earth's center in m. Default is 700 km altitude + Earth's radius (6378136.3 m).
     H : float, optional
         Scale height in km. Default is 88667 m (88.667 km).
     Returns:
@@ -98,7 +98,11 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
     a_yz_J3 = (5 / 2) * mu * J3 * R_e**3 * y / r_norm**9 * (42 * z**2 - 63 * z**4 / r_norm**2 - 3 * r_norm**2)
 
     # Drag partials
-    rho = compute_density(r_norm)
+    rho = compute_density(r_norm) * 1e9 # Convert from kg/m^3 to kg/km^3 <---- DOUBLE CHECK THIS CONVERSION
+
+    # Convert area from m^2 to km^2 for consistency
+    area = area * 1e-6 # <---- DOUBLE CHECK THIS CONVERSION
+
     a_xx_drag = -(rho * C_d * area) / (2*spacecraft_mass) * (u**2 / V_norm + V_norm)
     a_yy_drag = -(rho * C_d * area) / (2*spacecraft_mass) * (v**2 / V_norm + V_norm)
     a_zz_drag = -(rho * C_d * area) / (2*spacecraft_mass) * (w**2 / V_norm + V_norm)

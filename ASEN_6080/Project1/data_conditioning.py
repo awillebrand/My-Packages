@@ -39,5 +39,5 @@ measurement_data_frame = pd.DataFrame({
     'station_337_measurements': list(station_list[1]),
     'station_394_measurements': list(station_list[2])
 })
-
+breakpoint()
 measurement_data_frame.to_pickle("ASEN_6080/Project1/data/conditioned_measurements.pkl")
