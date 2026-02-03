@@ -80,8 +80,7 @@ class BatchLLSEstimator:
 
                 truth_measurements = np.vstack(measurement_data[f"{station_name}_measurements"].values).T
                 simulated_measurements = mgr.simulate_measurements(augmented_state_history[0:6,:], time_vector, 'ECI', noise=False)
-                if i == 1:
-                    breakpoint()
+                breakpoint()
                 # Compute measurement residuals
                 residuals = truth_measurements - simulated_measurements
                 for j, residual in enumerate(residuals.T):
