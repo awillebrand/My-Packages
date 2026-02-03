@@ -3,7 +3,7 @@ import pandas as pd
 from ASEN_6080.Tools import Integrator, MeasurementMgr, CoordinateMgr, measurement_jacobian
 
 class BatchLLSEstimator:
-    def __init__(self, integrator : Integrator, measurement_mgr_list : list, initial_earth_spin_angle : float):
+    def __init__(self, integrator : Integrator, measurement_mgr_list : list, initial_earth_spin_angle : float, earth_rotation_rate : float = 2*np.pi/86164.0905):
         """
         Initialize the Batch Least Squares Estimator.
 
@@ -17,7 +17,7 @@ class BatchLLSEstimator:
         """
         self.integrator = integrator
         self.measurement_mgrs = measurement_mgr_list
-        self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle=initial_earth_spin_angle, R_e=integrator.R_e)
+        self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle=initial_earth_spin_angle, earth_rotation_rate=earth_rotation_rate, R_e=integrator.R_e)
 
     def estimate_initial_state(self, a_priori_state : np.ndarray, measurement_data : pd.DataFrame, R : np.array, a_priori_covariance : np.ndarray = None, a_priori_state_correction : np.ndarray = None, max_iterations : int = 20, tol : float = 1e-5):
         """
@@ -48,7 +48,7 @@ class BatchLLSEstimator:
         if a_priori_state_correction is not None:
             x_correction = a_priori_state_correction.copy()
         else:
-            x_correction = np.zeros_like(estimated_state[0:6])
+            x_correction = np.zeros_like(estimated_state)
         if a_priori_covariance is not None:
             P_0 = a_priori_covariance.copy()
         else:
@@ -80,7 +80,8 @@ class BatchLLSEstimator:
 
                 truth_measurements = np.vstack(measurement_data[f"{station_name}_measurements"].values).T
                 simulated_measurements = mgr.simulate_measurements(augmented_state_history[0:6,:], time_vector, 'ECI', noise=False)
-
+                if i == 2:
+                    breakpoint()
                 # Compute measurement residuals
                 residuals = truth_measurements - simulated_measurements
                 for j, residual in enumerate(residuals.T):
@@ -88,13 +89,21 @@ class BatchLLSEstimator:
 
                 # Compute H_tilde matrix
                 for j, raw_state in enumerate(augmented_state_history.T):
-                    state = raw_state[0:6]
-                    raw_stm = raw_state[raw_state_length:].reshape((raw_state_length, raw_state_length))
-                    stm = raw_stm[0:6,0:6]
+                    sc_state = raw_state[0:6]
+                    stm = raw_state[raw_state_length:].reshape((raw_state_length, raw_state_length))
 
                     station_state_eci = self.coordinate_mgr.GCS_to_ECI(mgr.lat, mgr.lon, time_vector[j]) # Double check conversion if things arent working
 
-                    [H_tilde, _] = measurement_jacobian(state, station_state_eci)
+                    [H_sc_tilde, H_station_tilde] = measurement_jacobian(sc_state, station_state_eci)
+                    H_tilde = np.concatenate((H_sc_tilde, np.zeros((2, raw_state_length - 6))), axis=1)  # Augment H_tilde to match full state size
+
+                    # Add station position partials if estimating station positions
+                    if 'Stations' in self.integrator.mode:
+                        num_stations = self.integrator.number_of_stations
+                        first_station_partial_index = raw_state_length - 3 * num_stations # Assumes 3 position states per station and they are at the end of the state vector
+                        station_partial_index = first_station_partial_index + i * 3
+                        H_tilde[:, station_partial_index:station_partial_index+3] = H_station_tilde
+
                     H = H_tilde @ stm
                     H_matrix[i, j] = H
             
@@ -110,8 +119,9 @@ class BatchLLSEstimator:
                         N += H.T @ R_inv @ res
                 
             # Compute state correction
+
             x_hat = np.linalg.inv(Lambda) @ N
-            estimated_state[0:6] += x_hat
+            estimated_state += x_hat
 
             if np.linalg.norm(x_hat) < tol:
                 print(f"Converged in {iteration+1} iterations.")

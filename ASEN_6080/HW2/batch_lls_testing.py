@@ -28,12 +28,12 @@ station_mgr_list = [station_1_mgr, station_2_mgr, station_3_mgr]
 
 initial_state_deviation = np.array([1.010e-02, -1.218e-01, -1.484e-01,  3.204e-05, -8.320e-05, 1.740e-04,  0.000e+00])
 initial_state_guess = truth_data['initial_state'].values[0][0:7] + initial_state_deviation
-P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3])**2
-large_P_0 = np.diag([1000, 1000, 1000, 1, 1, 1])**2
+P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3, 1e-10])**2
+large_P_0 = np.diag([1000, 1000, 1000, 1, 1, 1, 1e-10])**2
 
 batch_estimator = BatchLLSEstimator(integrator, station_mgr_list, np.deg2rad(122.0))
 
-estimated_state, estimated_covariance = batch_estimator.estimate_initial_state(initial_state_guess, measurement_data, np.diag(noise_var), tol=1e-9, a_priori_covariance=P_0)
+estimated_state, estimated_covariance = batch_estimator.estimate_initial_state(initial_state_guess, measurement_data, np.diag(noise_var), tol=2e-9, a_priori_covariance=P_0)
 
 # Verify against truth data
 augmented_truth_state = truth_data['augmented_state_history'].values
@@ -44,10 +44,10 @@ covariance_history = np.zeros((6, 6, augmented_truth_state.shape[0]))
 for i, state in enumerate(augmented_truth_state):
     truth_state = state[0:7]
     raw_stm = state[raw_state_length:].reshape((raw_state_length,raw_state_length))
-    stm = raw_stm[0:6,0:6]
+    stm = raw_stm[0:7,0:7]
     P = stm @ estimated_covariance @ stm.T
     truth_state_history[:, i] = truth_state
-    covariance_history[:,:,i] = P
+    covariance_history[:,:,i] = P[0:6,0:6]
 
 # Integrate estimated state to compare against truth
 [_, estimated_state_history] = integrator.integrate_eom(measurement_data['time'].values[-1], estimated_state, teval=measurement_data['time'].values)

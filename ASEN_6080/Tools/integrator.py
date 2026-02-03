@@ -2,7 +2,7 @@ import numpy as np
 from .generic_functions import state_jacobian, compute_density
 from scipy.integrate import solve_ivp
 class Integrator:
-    def __init__(self, mu : float, R_e : float, mode : list = [], parameter_indices : list = [], spacecraft_area : float = None, spacecraft_mass : float = None):
+    def __init__(self, mu : float, R_e : float, mode : list = [], parameter_indices : list = [], spacecraft_area : float = None, spacecraft_mass : float = None, number_of_stations : int = 0):
         """
         Initializes the Integrator class for spacecraft orbit propagation.
         Parameters:
@@ -14,6 +14,12 @@ class Integrator:
             List of perturbation modes to include in the integration. Options are 'PointMass', 'J2', 'J3', 'Drag', and 'Stations'. Default is an empty list.
         parameter_indices : list, optional
             List of indices for parameters to be estimated during integration. The entry for station parameters is a list of the indices in the state vector. Default is an empty list.
+        spacecraft_area : float, optional
+            Cross-sectional area of the spacecraft in m^2, required if 'Drag' is included in mode. Default is None.
+        spacecraft_mass : float, optional
+            Mass of the spacecraft in kg, required if 'Drag' is included in mode. Default is None.
+        number_of_stations : int, optional
+            Number of ground stations being used, required if 'Stations' is included in mode. Default is 0.
         """
         self.mu = mu
         self.R_e = R_e
@@ -21,6 +27,7 @@ class Integrator:
         self.parameter_indices = parameter_indices
         self.spacecraft_area = spacecraft_area
         self.spacecraft_mass = spacecraft_mass
+        self.number_of_stations = number_of_stations
 
         if set(mode).isdisjoint({'mu', 'J2', 'J3', 'Drag', 'Stations'}):
             raise ValueError("Invalid mode specified. Choose from 'mu', 'J2', 'J3', 'Drag', and/or 'Stations'.")
@@ -28,6 +35,8 @@ class Integrator:
             raise ValueError("Length of mode and parameter_indices must be the same.")
         if 'Drag' in mode and (spacecraft_area is None or spacecraft_mass is None):
             raise ValueError("Spacecraft area and mass must be provided for drag calculations.")
+        if 'Stations' in mode and number_of_stations <= 0:
+            raise ValueError("Number of stations must be greater than zero when 'Stations' mode is selected.")
 
     def keplerian_to_cartesian(self, a, e, i, LoN, AoP, f):
         # Compute perifocal radius magnitude
@@ -107,8 +116,7 @@ class Integrator:
             Cd = state[param_index]
         if 'Stations' in self.mode:
             # Determine number of station variables, this is stored in the parameter_indices value for stations as a list
-            param_index = self.parameter_indices[self.mode.index('Stations')]
-            num_station_vars = len(state[param_index:])
+            num_station_vars = self.number_of_stations * 3
             
         x_dot = u
         y_dot = v
@@ -127,6 +135,8 @@ class Integrator:
             w_dot += w_dot_drag
         
         output = np.array([x_dot, y_dot, z_dot, u_dot, v_dot, w_dot])
+        if 'mu' in self.mode:
+            output = np.append(output, 0)
         if 'J2' in self.mode:
             output = np.append(output, 0)
         if 'J3' in self.mode:
@@ -149,7 +159,6 @@ class Integrator:
         Cd = 0
         station_positions_ecef = np.array([])
         state_length = 6
-        breakpoint()
         # Determine J2, J3, and Cd based on mode
         if 'mu' in self.mode:
             state_length += 1
@@ -170,12 +179,13 @@ class Integrator:
         if 'Stations' in self.mode:
             # Determine number of station variables, this is stored in the parameter_indices value for stations
             param_index = self.parameter_indices[self.mode.index('Stations')]
-            station_positions_vector = augmented_state[param_index:]
-            num_station_vars = len(station_positions_vector)
+            num_station_vars = self.number_of_stations * 3
+            station_positions_vector = augmented_state[param_index:param_index+num_station_vars]
             state_length += num_station_vars
             # For consistency sake, pull out station variables but they are not used in dynamics
-            for i in range(num_station_vars // 3):
-                station_positions_ecef.append(station_positions_vector[3*i:3*i+3])
+            station_positions_ecef = np.zeros((self.number_of_stations, 3))
+            for i in range(self.number_of_stations):
+                station_positions_ecef[i, :] = station_positions_vector[3*i:3*i+3]
 
         state = augmented_state[0:state_length]
         phi_flat = augmented_state[state_length:]

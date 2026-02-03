@@ -5,7 +5,7 @@ from scipy.linalg import block_diag
 import warnings
 
 class LKF:
-    def __init__(self, integrator : Integrator, measurement_mgr_list : list, initial_earth_spin_angle : float):
+    def __init__(self, integrator : Integrator, measurement_mgr_list : list, initial_earth_spin_angle : float, earth_rotation_rate : float = 2*np.pi/86164.0905):
         """
         Initialize the Linearized Kalman Filter.
 
@@ -16,11 +16,12 @@ class LKF:
             A list of MeasurementMgr instances for different ground stations.
         initial_earth_spin_angle : float
             Initial Earth spin angle in radians.
+        earth_spin_rate : float, optional
+            Earth's rotation rate in radians per second. Default is 2*pi/86164.0905 rad/s.
         """
         self.integrator = integrator
         self.measurement_mgrs = measurement_mgr_list
-        self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle=initial_earth_spin_angle, R_e = integrator.R_e)
-
+        self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle=initial_earth_spin_angle, earth_rotation_rate=earth_rotation_rate, R_e = integrator.R_e)
     def ensure_positive_definite(self, P : np.ndarray, min_eigenvalue: float = 1e-13):
         """
         Ensure covariance matrix is symmetric positive definite.

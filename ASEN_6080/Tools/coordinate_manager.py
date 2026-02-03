@@ -2,16 +2,19 @@ import numpy as np
 from .integrator import Integrator
 
 class CoordinateMgr:
-    def __init__(self, initial_earth_spin_angle : float = 0.0, R_e : float = 6378):
+    def __init__(self, initial_earth_spin_angle : float = 0.0, earth_rotation_rate = 2*np.pi/86164.0905, R_e : float = 6378):
         """This class manages coordinate frame transformations.
         Parameters:
         initial_earth_spin_angle : float, optional
             Initial Earth spin angle in radians. Default is 0.0.
+        earth_rotation_rate : float, optional
+            Earth's rotation rate in radians per second. Default is 2*pi/86164.0905 rad/s.
         R_e : float, optional
             Earth's radius in kilometers. Default is 6378 km.
         """
-        self.earth_rotation_rate = 2*np.pi/86164.0905  # rad/s
+        
         self.initial_earth_spin_angle = initial_earth_spin_angle
+        self.earth_rotation_rate = earth_rotation_rate  # rad/s
         self.earth_radius = R_e
 
     def compute_DCM(self, coordinate_frame_1 : str, coordinate_frame_2 : str, time : float = None, orbit_state : np.array = None):

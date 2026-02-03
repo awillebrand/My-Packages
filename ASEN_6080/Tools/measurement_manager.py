@@ -2,7 +2,7 @@ import numpy as np
 from .coordinate_manager import CoordinateMgr
 
 class MeasurementMgr:
-    def __init__(self, station_name : str, station_lat : float = None, station_lon : float = None, station_state_ecef : np.ndarray = None, initial_earth_spin_angle : float = 0.0, R_e : float = 6378):
+    def __init__(self, station_name : str, station_lat : float = None, station_lon : float = None, station_state_ecef : np.ndarray = None, initial_earth_spin_angle : float = 0.0, earth_spin_rate : float = 2*np.pi/86164.0905, R_e : float = 6378):
         """This class manages measurement simulations for a station at the inputted GCS coordinates.
         Parameters:
         station_name : str
@@ -15,9 +15,13 @@ class MeasurementMgr:
             6x1 array of ground station state in ECEF coordinates. If None, it will be computed from lat/lon.
         initial_earth_spin_angle : float, optional
             Initial Earth spin angle in radians. Default is 0.0.
+        earth_spin_rate : float, optional
+            Earth's rotation rate in radians per second. Default is 2*pi/86164.0905 rad/s.
+        R_e : float, optional
+            Earth's radius in kilometers. Default is 6378 km.
         """
         self.station_name = station_name
-        self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle, R_e=R_e)
+        self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle, earth_rotation_rate=earth_spin_rate, R_e=R_e)
         if station_lat != None and station_lon != None:
             self.lat = station_lat
             self.lon = station_lon
