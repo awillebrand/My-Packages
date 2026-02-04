@@ -37,6 +37,6 @@ integrator = Integrator(mu, R_e, mode=['mu','J2','Drag','Stations'], parameter_i
 a_priori_covariance = np.diag([1, 1, 1, 1, 1, 1, 1E2, 1E6, 1E6, 1E-16, 1E-16, 1E-16, 1, 1, 1, 1, 1, 1])  # Given
 
 lkf = LKF(integrator, station_mgr_list, initial_earth_spin_angle=0.0, earth_rotation_rate=earth_spin_rate)
-state_history, covariance_history = lkf.run(initial_state_estimate, np.zeros_like(initial_state_estimate), a_priori_covariance, measurements, R=R, max_iterations=10, convergence_threshold=1e-6)
+state_history, covariance_history = lkf.run(initial_state_estimate, np.zeros_like(initial_state_estimate), a_priori_covariance, measurements, R=R, max_iterations=10, convergence_threshold=1e-7)
 
 breakpoint()
