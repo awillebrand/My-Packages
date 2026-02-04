@@ -92,17 +92,20 @@ class BatchLLSEstimator:
                     sc_state = raw_state[0:6]
                     stm = raw_state[raw_state_length:].reshape((raw_state_length, raw_state_length))
 
-                    station_state_eci = self.coordinate_mgr.GCS_to_ECI(mgr.lat, mgr.lon, time_vector[j]) # Double check conversion if things arent working
+                    station_state_eci = self.coordinate_mgr.ECEF_to_ECI(mgr.station_state_ecef, time_vector[j]) # Double check conversion if things arent working
 
                     [H_sc_tilde, H_station_tilde] = measurement_jacobian(sc_state, station_state_eci)
                     H_tilde = np.concatenate((H_sc_tilde, np.zeros((2, raw_state_length - 6))), axis=1)  # Augment H_tilde to match full state size
                     
                     # Add station position partials if estimating station positions
                     if 'Stations' in self.integrator.mode:
+                        ecef_to_eci = self.coordinate_mgr.compute_DCM('ECEF', 'ECI', time=time_vector[j])
+                        H_station_tilde_ecef = H_station_tilde @ ecef_to_eci[0:3,0:3]  # Transform partials to ECEF frame
+
                         num_stations = self.integrator.number_of_stations
                         first_station_partial_index = raw_state_length - 3 * num_stations # Assumes 3 position states per station and they are at the end of the state vector
                         station_partial_index = first_station_partial_index + i * 3
-                        H_tilde[:, station_partial_index:station_partial_index+3] = H_station_tilde
+                        H_tilde[:, station_partial_index:station_partial_index+3] = H_station_tilde_ecef
                     
                     H = H_tilde @ stm
                     
@@ -142,14 +145,14 @@ class BatchLLSEstimator:
                 print(f"Iteration {iteration+1}: State correction norm = {np.linalg.norm(x_correction)}")
                 print(f"x_hat = {np.linalg.norm(x_hat)}")
                 print(f"Max relative correction = {np.max(np.abs(x_hat) / (np.abs(estimated_state) + 1e-10))}")
-                np.set_printoptions(linewidth=200)
-                print(f"  Position correction: {x_hat[0:3]} km")
-                print(f"  Velocity correction: {x_hat[3:6]} km/s")
-                print(f"  μ correction: {x_hat[6]}")
-                print(f"  J2 correction: {x_hat[7]}")
-                print(f"  Cd correction: {x_hat[8]}")
-                print(f"  Station corrections: {x_hat[9:18]}")
-                print(f"Condition number of Lambda: {np.linalg.cond(Lambda)}")
+                # np.set_printoptions(linewidth=200)
+                # print(f"  Position correction: {x_hat[0:3]} km")
+                # print(f"  Velocity correction: {x_hat[3:6]} km/s")
+                # print(f"  μ correction: {x_hat[6]}")
+                # print(f"  J2 correction: {x_hat[7]}")
+                # print(f"  Cd correction: {x_hat[8]}")
+                # print(f"  Station corrections: {x_hat[9:18]}")
+                # print(f"Condition number of Lambda: {np.linalg.cond(Lambda)}")
                 x_correction = x_correction - x_hat
         print("Maximum iterations reached without convergence.")
         P_0 = np.linalg.inv(Lambda)
