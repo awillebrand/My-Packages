@@ -242,6 +242,7 @@ class LKF:
             x_hat[0:6] = best_initial_spacecraft_state
             x_0 += x_hat.flatten()
             P = initial_covariance.copy()  # Reset covariance for next iteration
+            x_hat = np.zeros_like(x_0)  # Reset state correction for next iteration
 
             # Update station positions in measurement managers if estimating station position
             if 'Stations' in self.integrator.mode:
