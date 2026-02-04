@@ -242,7 +242,7 @@ class LKF:
             improved_initial_covariance = final_stm_inv @ P @ final_stm_inv.T
             P = improved_initial_covariance
             #P = initial_covariance.copy()  # Reset covariance for next iteration
-
+            x_hat = np.zeros_like(x_hat)  # Reset state correction for next iteration
             # Update station positions in measurement managers if estimating station position
             if 'Stations' in self.integrator.mode:
                 num_stations = self.integrator.number_of_stations

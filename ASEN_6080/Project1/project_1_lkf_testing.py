@@ -15,7 +15,7 @@ J3 = 0.0 # Earth's J3 coefficient
 R_e = 6378.1363  # Earth's radius in km
 C_d = 2.0 # Drag coefficient
 spacecraft_mass = 970.0  # Spacecraft mass in kg
-spacecraft_area = 3.0  # Spacecraft cross-sectional area in m^2
+spacecraft_area = 3.0  # Spacecraft cross-sectional area in m^2Q
 earth_spin_rate = 7.2921158553E-5  # Earth's rotation rate in rad/s
 
 station_1_state = np.array([-5127510.0E-3, -3794160.0E-3,  0.0, 0.0, 0.0, 0.0])
