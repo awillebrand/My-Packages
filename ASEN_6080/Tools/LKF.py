@@ -238,10 +238,10 @@ class LKF:
                 covariance_estimates[:,:,k] = P
             
             # Propagate x_hat back to initial using STM
-            x_hat = np.linalg.inv(stm_history[:,:,-1]) @ x_hat
+            best_initial_spacecraft_state = np.linalg.inv(stm_history[0:6,0:6,-1]) @ x_hat[0:6]
+            x_hat[0:6] = best_initial_spacecraft_state
             x_0 += x_hat.flatten()
             P = initial_covariance.copy()  # Reset covariance for next iteration
-            x_hat = initial_x_correction.copy() # Reset correction for next iteration
 
             # Update station positions in measurement managers if estimating station position
             if 'Stations' in self.integrator.mode:
@@ -259,7 +259,10 @@ class LKF:
                 mean_residual = np.nanmean(measurement_residuals_matrix, axis=(0,1,3))
 
             np.nan_to_num(mean_residual, nan=0.0)
-            print(f"Mean measurement residuals after iteration {iteration+1}: {mean_residual.flatten()} meters")
+            np.set_printoptions(linewidth=200)
+            # print(f"Mean measurement residuals after iteration {iteration+1}: {mean_residual.flatten()} meters")
+            print(f"Current Cd estimate : {x_0[8]}")
+            print(f"STM condition number: {np.linalg.cond(stm_history[0:6,0:6,-1])}")
             if np.all(np.abs(mean_residual) < convergence_threshold):
                 print("Convergence achieved based on measurement residuals.")
                 break
