@@ -168,7 +168,7 @@ class LKF:
             for i, mgr in enumerate(self.measurement_mgrs):
                 station_name = mgr.station_name
                 truth_measurements = np.vstack(measurement_data[f"{station_name}_measurements"].values).T
-                simulated_measurements = mgr.simulate_measurements(reference_state_history, time_vector, 'ECI', noise=False, ignore_visibility=True)
+                simulated_measurements = mgr.simulate_measurements(reference_state_history[0:6,:], time_vector, 'ECI', noise=False, ignore_visibility=True)
 
                 for j, time in enumerate(time_vector):
                     # Compute measurement residual
@@ -201,6 +201,7 @@ class LKF:
                     phi = stm_history[:,:,k]
                 else:
                     phi = stm_history[:,:,k] @ np.linalg.inv(stm_history[:,:,k-1])
+
                 if np.isnan(current_measurement_residuals).all():
                     # No measurements available, propagate state and covariance
                     x_hat, P, _ = self.predict(x_hat, P, phi, np.zeros((2,raw_state_length)), Q, R)
@@ -240,6 +241,7 @@ class LKF:
             x_hat = np.linalg.inv(stm_history[:,:,-1]) @ x_hat
             x_0 += x_hat.flatten()
             P = initial_covariance.copy()  # Reset covariance for next iteration
+            x_hat = initial_x_correction.copy() # Reset correction for next iteration
 
             # Update station positions in measurement managers if estimating station position
             if 'Stations' in self.integrator.mode:
