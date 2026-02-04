@@ -144,7 +144,8 @@ class LKF:
         x_hat = initial_x_correction.copy()
         P = initial_covariance.copy() 
         raw_state_length = len(initial_state)
-        x_0 = np.append(initial_state[0:6]+x_hat.flatten(), initial_state[6:])  # Augmented initial state with STM identity
+        # x_0 = np.append(initial_state+x_hat.flatten(), initial_state[raw_state_length:])  # Augmented initial state with STM identity
+        x_0 = initial_state+x_hat.flatten()
         time_vector = measurement_data['time'].values
         # Begin iteration loop
         for iteration in range(max_iterations):
@@ -154,37 +155,43 @@ class LKF:
             [_, augmented_state_history] = self.integrator.integrate_stm(time_vector[-1], x_0, teval=time_vector)
 
             # Separate state and STM history
-            reference_state_history = augmented_state_history[0:6, :]
-            stm_history = np.zeros((6, 6, len(time_vector)))
+            reference_state_history = augmented_state_history[0:raw_state_length, :]
+            stm_history = np.zeros((raw_state_length, raw_state_length, len(time_vector)))
             for i, raw_state in enumerate(augmented_state_history.T):
-                state = raw_state[0:6]
-                reference_state_history[:,i] = state
-
-                raw_stm = raw_state[raw_state_length:].reshape((raw_state_length, raw_state_length))
-                stm = raw_stm[0:6,0:6]
+                stm = raw_state[raw_state_length:].reshape((raw_state_length, raw_state_length))
                 stm_history[:,:,i] = stm
 
             # Compute measurement residuals and associated H matrices for each station and measurement time
             measurement_residuals_matrix = np.zeros((2,1,len(self.measurement_mgrs),len(time_vector)))  # Assuming 2 measurements per station
-            H_matrix = np.zeros((2,6,len(self.measurement_mgrs),len(time_vector)))
+            H_matrix = np.zeros((2,raw_state_length,len(self.measurement_mgrs),len(time_vector)))
 
             for i, mgr in enumerate(self.measurement_mgrs):
                 station_name = mgr.station_name
                 truth_measurements = np.vstack(measurement_data[f"{station_name}_measurements"].values).T
-                simulated_measurements = mgr.simulate_measurements(reference_state_history, time_vector, 'ECI', noise=False)
+                simulated_measurements = mgr.simulate_measurements(reference_state_history, time_vector, 'ECI', noise=False, ignore_visibility=True)
 
                 for j, time in enumerate(time_vector):
                     # Compute measurement residual
                     residual = truth_measurements[:,j] - simulated_measurements[:,j]
 
                     # Compute measurement Jacobian
-                    station_state_eci = self.coordinate_mgr.GCS_to_ECI(mgr.lat, mgr.lon, time)
-                    [H, _] = measurement_jacobian(reference_state_history[:,j], station_state_eci)
+                    station_state_eci = self.coordinate_mgr.ECEF_to_ECI(mgr.station_state_ecef, time)
+                    [H_sc, H_station] = measurement_jacobian(reference_state_history[:6,j], station_state_eci)
                     measurement_residuals_matrix[:,:,i,j] = np.vstack(residual)
-                    H_matrix[:,:,i,j] = H
+                    H_total = np.concatenate((H_sc, np.zeros((2, raw_state_length - 6))), axis = 1)  # Pad H_sc to match full state size
+                    if 'Stations' in self.integrator.mode:
+                        ecef_to_eci = self.coordinate_mgr.compute_DCM('ECEF', 'ECI', time=time_vector[j])
+                        H_station_eci = H_station @ ecef_to_eci
+
+                        num_stations = self.integrator.number_of_stations
+                        first_station_partial_index = raw_state_length - 3 * num_stations # Assumes 3 position states per station and they are at the end of the state vector
+                        station_partial_index = first_station_partial_index + i * 3
+                        H_total[:, station_partial_index:station_partial_index+3] = H_station_eci
+
+                    H_matrix[:,:,i,j] = H_total
             # Perform LKF estimation process
-            state_estimates = np.zeros((6, len(time_vector)))
-            covariance_estimates = np.zeros((6, 6, len(time_vector)))
+            state_estimates = np.zeros((raw_state_length, len(time_vector)))
+            covariance_estimates = np.zeros((raw_state_length, raw_state_length, len(time_vector)))
 
             for k, time in enumerate(time_vector):
                 print(f"Processing time step {k+1} of {len(time_vector)}", end='\r')
@@ -196,7 +203,7 @@ class LKF:
                     phi = stm_history[:,:,k] @ np.linalg.inv(stm_history[:,:,k-1])
                 if np.isnan(current_measurement_residuals).all():
                     # No measurements available, propagate state and covariance
-                    x_hat, P, _ = self.predict(x_hat, P, phi, np.zeros((2,6)), Q, R)
+                    x_hat, P, _ = self.predict(x_hat, P, phi, np.zeros((2,raw_state_length)), Q, R)
                 else:
                     # Determine which stations are visible
                     visible_station_indices = []
@@ -231,15 +238,26 @@ class LKF:
             
             # Propagate x_hat back to initial using STM
             x_hat = np.linalg.inv(stm_history[:,:,-1]) @ x_hat
-            x_0[0:6] += x_hat.flatten()
+            x_0 += x_hat.flatten()
             P = initial_covariance.copy()  # Reset covariance for next iteration
 
+            # Update station positions in measurement managers if estimating station position
+            if 'Stations' in self.integrator.mode:
+                num_stations = self.integrator.number_of_stations
+                first_station_index = raw_state_length - 3 * num_stations
+                for s in range(num_stations):
+                    station_index = first_station_index + s * 3
+                    new_station_position = x_0[station_index:station_index+3]
+                    self.measurement_mgrs[s].station_state_ecef[0:3] = new_station_position
+                    self.measurement_mgrs[s].lat, self.measurement_mgrs[s].lon = self.coordinate_mgr.ECEF_to_GCS(new_station_position)
+            
             # Determine if another iteration is needed based on residual behavior (detect if residuals are centered around zero)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=RuntimeWarning)
                 mean_residual = np.nanmean(measurement_residuals_matrix, axis=(0,1,3))
 
             np.nan_to_num(mean_residual, nan=0.0)
+            print(f"Mean measurement residuals after iteration {iteration+1}: {mean_residual.flatten()} meters")
             if np.all(np.abs(mean_residual) < convergence_threshold):
                 print("Convergence achieved based on measurement residuals.")
                 break

@@ -100,7 +100,7 @@ class BatchLLSEstimator:
                     # Add station position partials if estimating station positions
                     if 'Stations' in self.integrator.mode:
                         ecef_to_eci = self.coordinate_mgr.compute_DCM('ECEF', 'ECI', time=time_vector[j])
-                        H_station_tilde_ecef = H_station_tilde @ ecef_to_eci[0:3,0:3]  # Transform partials to ECEF frame
+                        H_station_tilde_ecef = H_station_tilde @ ecef_to_eci  # Transform partials to ECEF frame
 
                         num_stations = self.integrator.number_of_stations
                         first_station_partial_index = raw_state_length - 3 * num_stations # Assumes 3 position states per station and they are at the end of the state vector

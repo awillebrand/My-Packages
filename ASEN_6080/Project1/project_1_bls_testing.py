@@ -5,7 +5,7 @@ import pandas as pd
 from ASEN_6080.Tools import Integrator, MeasurementMgr, CoordinateMgr, BatchLLSEstimator
 from plotly.subplots import make_subplots
 
-measurements = pd.read_pickle("ASEN_6080/Project1/data/conditioned_measurements.pkl")
+measurements = pd.read_pickle(".\ASEN_6080\Project1\data\conditioned_measurements.pkl")
 R = np.diag([1E-5**2, 1E-6**2])  # Noise covariance matrix for range and range rate. Corresponds to 1 cm range noise and 1 mm/s range rate noise.
 
 sat_state = np.array([757700.0E-3, 5222607.0E-3, 4851500.0E-3, 2213.21E-3, 4678.34E-3, -5371.30E-3])  # Example satellite state in km and km/s
@@ -34,8 +34,8 @@ station_mgr_list = [station_1_mgr, station_2_mgr, station_3_mgr]
 
 integrator = Integrator(mu, R_e, mode=['mu','J2','Drag','Stations'], parameter_indices=[6,7,8,9], spacecraft_area=spacecraft_area, spacecraft_mass=spacecraft_mass, number_of_stations=3)
 
-# a_priori_covariance = np.diag([1, 1, 1, 1, 1, 1, 1, 1E-6, 10, 1E-3, 1E-3, 1E-3, 1, 1, 1, 1, 1, 1])  # Initial covariance matrix
 a_priori_covariance = np.diag([1, 1, 1, 1, 1, 1, 1E2, 1E6, 1E6, 1E-16, 1E-16, 1E-16, 1, 1, 1, 1, 1, 1])  # Given
+
 batch_estimator = BatchLLSEstimator(integrator, station_mgr_list, initial_earth_spin_angle=0.0, earth_rotation_rate=earth_spin_rate)
 
 estimated_initial_state, estimated_covariance = batch_estimator.estimate_initial_state(
@@ -81,7 +81,7 @@ color_list = ['red', 'green', 'blue', 'red', 'green', 'blue']
 for i, mgr in enumerate(station_mgr_list):
     station_name = mgr.station_name
     fig.add_trace(go.Scatter(x=time_vector, y=residuals_matrix[i,:,0]*1E5, mode='markers', name=f"{station_name} Residuals", marker=dict(color=color_list[i]), showlegend=True), row=1, col=1)
-    fig.add_trace(go.Scatter(x=time_vector, y=residuals_matrix[i,:,1]*1E6, mode='markers', name=f"{station_name} Residuals", showlegend=False), row=2, col=1)
+    fig.add_trace(go.Scatter(x=time_vector, y=residuals_matrix[i,:,1]*1E6, mode='markers', name=f"{station_name} Residuals", marker=dict(color=color_list[i]), showlegend=False), row=2, col=1)
 fig.update_xaxes(title_text="Time (s)", row=2, col=1)
 fig.update_yaxes(title_text="Range Residuals (cm)", row=1, col=1)
 fig.update_yaxes(title_text="Range Rate Residuals (mm/s)", row=2, col=1)
