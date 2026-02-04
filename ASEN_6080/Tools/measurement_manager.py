@@ -50,7 +50,7 @@ class MeasurementMgr:
 
         return np.rad2deg(elevation_angle)
 
-    def is_visible(self, sc_position_ecef : np.array, visibility_elevation_angle : float = 10.0):
+    def is_visible(self, sc_position_ecef : np.array, visibility_elevation_angle : float = 0.0):
         """Determine if the spacecraft is visible from the ground station.
         Parameters:
         sc_position_ecef : np.array
@@ -65,7 +65,7 @@ class MeasurementMgr:
         elevation_angle = self.get_elevation_angle(sc_position_ecef)
         return elevation_angle > visibility_elevation_angle
 
-    def simulate_measurements(self, inputted_state_history : np.array, time_vector : np.array, coordinate_frame : str, noise : bool = False, noise_sigma : np.array = np.array([0.0, 0.0])):
+    def simulate_measurements(self, inputted_state_history : np.array, time_vector : np.array, coordinate_frame : str, noise : bool = False, noise_sigma : np.array = np.array([0.0, 0.0]), ignore_visibility :bool = False):
         """Simulate range measurements from the ground station to the spacecraft over time.
         Parameters:
         sc_state_history : np.array
@@ -78,6 +78,8 @@ class MeasurementMgr:
             Whether to add noise to the measurements. Default is False.
         noise_sigma : np.array, optional
             2x1 array of standard deviations for range and range rate noise. Default is [0.0, 0.0].
+        ignore_visibility : bool, optional
+            If True, measurements will be simulated regardless of visibility. Default is False.
         Returns:
         measurement_history : np.array
             2xN array of range and range rate measurements in kilometers.
@@ -112,7 +114,7 @@ class MeasurementMgr:
             eci_sc_pos = eci_sc_state_history[0:3, i]
             ecef_sc_pos = ecef_sc_state_history[0:3, i]
             # Check visibility
-            if self.is_visible(ecef_sc_pos) == True:
+            if self.is_visible(ecef_sc_pos) == True or ignore_visibility:
                 # Convert station to ECI at the current time
                 time = time_vector[i]
                 station_state_eci = self.coordinate_mgr.ECEF_to_ECI(self.station_state_ecef, time)

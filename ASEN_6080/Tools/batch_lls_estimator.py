@@ -43,7 +43,7 @@ class BatchLLSEstimator:
         dict
             A dictionary containing the estimated state, covariance, and residuals.
         """
-
+        # Define scaling factors based on expected parameter magnitudes
         estimated_state = a_priori_state.copy()
         if a_priori_state_correction is not None:
             x_correction = a_priori_state_correction.copy()
@@ -67,8 +67,8 @@ class BatchLLSEstimator:
                 Lambda = 0
                 N = 0
                 print("Insufficient a priori information provided. Setting initial Lambda and N to zero.")
-            
             # Propagate state and STM
+    
             [_, augmented_state_history] = self.integrator.integrate_stm(time_vector[-1], estimated_state, teval=time_vector)
 
             # Initialize measurement residuals and design matrix
@@ -79,13 +79,14 @@ class BatchLLSEstimator:
                 station_name = mgr.station_name
 
                 truth_measurements = np.vstack(measurement_data[f"{station_name}_measurements"].values).T
-                simulated_measurements = mgr.simulate_measurements(augmented_state_history[0:6,:], time_vector, 'ECI', noise=False)
+                simulated_measurements = mgr.simulate_measurements(augmented_state_history[0:6,:], time_vector, 'ECI', noise=False, ignore_visibility=True)
 
                 # Compute measurement residuals
                 residuals = truth_measurements - simulated_measurements
+                
                 for j, residual in enumerate(residuals.T):
                     residuals_matrix[i, j] = residual
-
+                
                 # Compute H_tilde matrix
                 for j, raw_state in enumerate(augmented_state_history.T):
                     sc_state = raw_state[0:6]
@@ -95,7 +96,7 @@ class BatchLLSEstimator:
 
                     [H_sc_tilde, H_station_tilde] = measurement_jacobian(sc_state, station_state_eci)
                     H_tilde = np.concatenate((H_sc_tilde, np.zeros((2, raw_state_length - 6))), axis=1)  # Augment H_tilde to match full state size
-
+                    
                     # Add station position partials if estimating station positions
                     if 'Stations' in self.integrator.mode:
                         num_stations = self.integrator.number_of_stations
@@ -104,8 +105,9 @@ class BatchLLSEstimator:
                         H_tilde[:, station_partial_index:station_partial_index+3] = H_station_tilde
 
                     H = H_tilde @ stm
+                    
                     H_matrix[i, j] = H
-        
+
             # Accumulate observations
             for i, time in enumerate(time_vector):
                 residuals_i = residuals_matrix[:, i]
@@ -116,9 +118,10 @@ class BatchLLSEstimator:
                     if ~np.isnan(res).any():
                         Lambda += H.T @ R_inv @ H
                         N += H.T @ R_inv @ res
-                
+                        breakpoint()
+
             # Compute state correction
-            x_hat = np.linalg.inv(Lambda) @ N
+            x_hat = np.linalg.solve(Lambda, N)
             estimated_state += x_hat
 
             # Update station positions in measurement managers if estimating station positions
@@ -139,7 +142,14 @@ class BatchLLSEstimator:
                 print(f"Iteration {iteration+1}: State correction norm = {np.linalg.norm(x_correction)}")
                 print(f"x_hat = {np.linalg.norm(x_hat)}")
                 print(f"Max relative correction = {np.max(np.abs(x_hat) / (np.abs(estimated_state) + 1e-10))}")
-                breakpoint()
+                np.set_printoptions(linewidth=200)
+                print(f"  Position correction: {x_hat[0:3]} km")
+                print(f"  Velocity correction: {x_hat[3:6]} km/s")
+                print(f"  μ correction: {x_hat[6]}")
+                print(f"  J2 correction: {x_hat[7]}")
+                print(f"  Cd correction: {x_hat[8]}")
+                print(f"  Station corrections: {x_hat[9:18]}")
+                print(f"Condition number of Lambda: {np.linalg.cond(Lambda)}")
                 x_correction = x_correction - x_hat
         print("Maximum iterations reached without convergence.")
         P_0 = np.linalg.inv(Lambda)
