@@ -99,6 +99,20 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
 
     # Drag partials
     rho = compute_density(r_norm) * 1e9 # Convert from kg/m^3 to kg/km^3 <---- DOUBLE CHECK THIS CONVERSION
+    H = 88.6670 # Scale height in km
+
+    a_xx_drag = u * (x * rho * V_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
+    a_xy_drag = u * (y * rho * V_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
+    a_xz_drag = u * (z * rho * V_norm * C_d * spacecraft_area) / (2 *spacecraft_mass * H * r_norm)
+
+    a_yx_drag = v * (x * rho * V_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
+    a_yy_drag = v * (y * rho * V_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
+    a_yz_drag = v * (z * rho * V_norm * C_d * spacecraft_area) / (2 *spacecraft_mass * H * r_norm)
+
+    a_zx_drag = w * (x * rho * V_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
+    a_zy_drag = w * (y * rho * V_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
+    a_zz_drag = w * (z * rho * V_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
+    
 
     a_xu_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (u**2 / V_norm + V_norm)
     a_yv_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (v**2 / V_norm + V_norm)
@@ -111,15 +125,17 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
     a_zv_drag = a_yw_drag
 
     # Combine all partials
-    a_xx = a_xx_pm + a_xx_J2 + a_xx_J3
-    a_yy = a_yy_pm + a_yy_J2 + a_yy_J3
-    a_zz = a_zz_pm + a_zz_J2 + a_zz_J3
-    a_xy = a_xy_pm + a_xy_J2 + a_xy_J3
-    a_xz = a_xz_pm + a_xz_J2 + a_xz_J3
-    a_yz = a_yz_pm + a_yz_J2 + a_yz_J3
-    a_yx = a_xy
-    a_zx = a_xz
-    a_zy = a_yz
+    a_xx = a_xx_pm + a_xx_J2 + a_xx_J3 + a_xx_drag
+    a_xy = a_xy_pm + a_xy_J2 + a_xy_J3 + a_xy_drag
+    a_xz = a_xz_pm + a_xz_J2 + a_xz_J3 + a_xz_drag
+
+    a_yx = a_xy_pm + a_xy_J2 + a_xy_J3 + a_yx_drag
+    a_yy = a_yy_pm + a_yy_J2 + a_yy_J3 + a_yy_drag
+    a_yz = a_yz_pm + a_yz_J2 + a_yz_J3 + a_yz_drag
+
+    a_zx = a_xz_pm + a_xz_J2 + a_xz_J3 + a_zx_drag
+    a_zy = a_yz_pm + a_yz_J2 + a_yz_J3 + a_zy_drag
+    a_zz = a_zz_pm + a_zz_J2 + a_zz_J3 + a_zz_drag
 
     # Compute velocity partials (all zeros)
     vel_partials = np.zeros((3, 3))

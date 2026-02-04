@@ -17,7 +17,7 @@ station_positions_ecef = np.array([[-5127510.0E-3, -3794160.0E-3,  0.0],
                                     [3860910.0E-3, 3238490.0E-3,  3898094.0E-3],
                                     [549505.0E-3, -1380872.0E-3,  6182197.0E-3]])  # Example ground station positions in ECEF coordinates
 
-integrator = Integrator(mu, R_e, mode=['mu','J2','Drag','Stations'], parameter_indices=[6,7,8,9], spacecraft_area=spacecraft_area, spacecraft_mass=spacecraft_mass)
+integrator = Integrator(mu, R_e, mode=['mu','J2','Drag','Stations'], parameter_indices=[6,7,8,9], number_of_stations=3, spacecraft_area=spacecraft_area, spacecraft_mass=spacecraft_mass)
 
 t_final = 3600.0 * 8 # 8 hour in seconds
 augmented_state = np.hstack((sat_state, mu, J2, C_d, station_positions_ecef.flatten()))

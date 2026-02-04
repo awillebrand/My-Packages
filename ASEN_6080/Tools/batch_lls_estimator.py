@@ -103,7 +103,7 @@ class BatchLLSEstimator:
                         first_station_partial_index = raw_state_length - 3 * num_stations # Assumes 3 position states per station and they are at the end of the state vector
                         station_partial_index = first_station_partial_index + i * 3
                         H_tilde[:, station_partial_index:station_partial_index+3] = H_station_tilde
-
+                    
                     H = H_tilde @ stm
                     
                     H_matrix[i, j] = H
@@ -118,7 +118,7 @@ class BatchLLSEstimator:
                     if ~np.isnan(res).any():
                         Lambda += H.T @ R_inv @ H
                         N += H.T @ R_inv @ res
-                        breakpoint()
+
 
             # Compute state correction
             x_hat = np.linalg.solve(Lambda, N)
