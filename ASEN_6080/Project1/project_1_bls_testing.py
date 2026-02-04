@@ -43,7 +43,47 @@ estimated_initial_state, estimated_covariance = batch_estimator.estimate_initial
     a_priori_covariance=a_priori_covariance,
     measurement_data=measurements,
     R=R,
-    max_iterations=20,
-    tol=1E-2)
+    max_iterations=10,
+    tol=1E-6)
 
-breakpoint()
+print("Estimated Initial State:")
+np.set_printoptions(linewidth=200)
+print(estimated_initial_state)
+
+# Analyze validity of estimate by propagating estimated state and comparing to measurements
+time_vector = measurements['time'].values
+_, augmented_state_history = integrator.integrate_stm(time_vector[-1], estimated_initial_state, teval=time_vector)
+residuals_matrix = np.empty((len(station_mgr_list), len(time_vector), 2))  # 2 for range and range rate
+for i, mgr in enumerate(station_mgr_list):
+    station_name = mgr.station_name
+
+    truth_measurements = np.vstack(measurements[f"{station_name}_measurements"].values).T
+
+    # Station position updated inside batch estimator
+    simulated_measurements = mgr.simulate_measurements(augmented_state_history[0:6,:], time_vector, 'ECI', noise=False, ignore_visibility=True)
+
+    # Compute measurement residuals
+    residuals = truth_measurements - simulated_measurements
+    residuals_matrix[i, :, :] = residuals.T
+
+# Get residuals stats
+for i, mgr in enumerate(station_mgr_list):
+    station_name = mgr.station_name
+    range_residuals = residuals_matrix[i,:,0]
+    range_rate_residuals = residuals_matrix[i,:,1]
+    print(f"{station_name} Residuals:")
+    print(f"  Range Residuals: Mean = {np.nanmean(range_residuals)*1E5:.3f} cm, Std Dev = {np.nanstd(range_residuals)*1E5:.3f} cm")
+    print(f"  Range Rate Residuals: Mean = {np.nanmean(range_rate_residuals)*1E6:.3f} mm/s, Std Dev = {np.nanstd(range_rate_residuals)*1E6:.3f} mm/s")
+
+# Plot residuals
+fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=("Range Residuals", "Range Rate Residuals"))
+color_list = ['red', 'green', 'blue', 'red', 'green', 'blue']
+for i, mgr in enumerate(station_mgr_list):
+    station_name = mgr.station_name
+    fig.add_trace(go.Scatter(x=time_vector, y=residuals_matrix[i,:,0]*1E5, mode='markers', name=f"{station_name} Residuals", marker=dict(color=color_list[i]), showlegend=True), row=1, col=1)
+    fig.add_trace(go.Scatter(x=time_vector, y=residuals_matrix[i,:,1]*1E6, mode='markers', name=f"{station_name} Residuals", showlegend=False), row=2, col=1)
+fig.update_xaxes(title_text="Time (s)", row=2, col=1)
+fig.update_yaxes(title_text="Range Residuals (cm)", row=1, col=1)
+fig.update_yaxes(title_text="Range Rate Residuals (mm/s)", row=2, col=1)
+fig.update_layout(height=800, width=1200, title_text="Measurement Residuals After Batch LLS Estimation")
+fig.write_html("ASEN_6080/Project1/figures/batch_lls_measurement_residuals.html")
