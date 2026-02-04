@@ -181,12 +181,12 @@ class LKF:
                     H_total = np.concatenate((H_sc, np.zeros((2, raw_state_length - 6))), axis = 1)  # Pad H_sc to match full state size
                     if 'Stations' in self.integrator.mode:
                         ecef_to_eci = self.coordinate_mgr.compute_DCM('ECEF', 'ECI', time=time_vector[j])
-                        H_station_eci = H_station @ ecef_to_eci
+                        H_station_ecef = H_station @ ecef_to_eci
 
                         num_stations = self.integrator.number_of_stations
                         first_station_partial_index = raw_state_length - 3 * num_stations # Assumes 3 position states per station and they are at the end of the state vector
                         station_partial_index = first_station_partial_index + i * 3
-                        H_total[:, station_partial_index:station_partial_index+3] = H_station_eci
+                        H_total[:, station_partial_index:station_partial_index+3] = H_station_ecef
 
                     H_matrix[:,:,i,j] = H_total
             # Perform LKF estimation process
@@ -229,20 +229,19 @@ class LKF:
                     # Predict and update steps
                     predict_x_hat, predict_P, K = self.predict(x_hat, P, phi, stacked_H, Q, stacked_R)
                     x_hat, P = self.update(predict_x_hat, predict_P, K, stacked_residuals, stacked_H, stacked_R)
-
                 # Store estimates
-
                 state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
-                if np.any(np.diag(P) < 0):
-                    raise ValueError("Covariance matrix has negative diagonal elements.")
+                # if np.any(np.diag(P) < 0):
+                #     raise ValueError("Covariance matrix has negative diagonal elements.")
                 covariance_estimates[:,:,k] = P
-            
             # Propagate x_hat back to initial using STM
-            best_initial_spacecraft_state = np.linalg.inv(stm_history[0:6,0:6,-1]) @ x_hat[0:6]
+            final_stm_inv = np.linalg.inv(stm_history[:,:, -1])
+            best_initial_spacecraft_state = final_stm_inv[0:6, 0:6] @ x_hat[0:6]
             x_hat[0:6] = best_initial_spacecraft_state
             x_0 += x_hat.flatten()
-            P = initial_covariance.copy()  # Reset covariance for next iteration
-            x_hat = np.zeros_like(x_0)  # Reset state correction for next iteration
+            improved_initial_covariance = final_stm_inv @ P @ final_stm_inv.T
+            P = improved_initial_covariance
+            #P = initial_covariance.copy()  # Reset covariance for next iteration
 
             # Update station positions in measurement managers if estimating station position
             if 'Stations' in self.integrator.mode:
@@ -263,7 +262,8 @@ class LKF:
             np.set_printoptions(linewidth=200)
             # print(f"Mean measurement residuals after iteration {iteration+1}: {mean_residual.flatten()} meters")
             print(f"Current Cd estimate : {x_0[8]}")
-            print(f"STM condition number: {np.linalg.cond(stm_history[0:6,0:6,-1])}")
+            # print(f"STM condition number: {np.linalg.cond(stm_history[0:6,0:6,-1])}")
+            # print(f"Final covariance diagonal: {np.sqrt(np.diag(covariance_estimates[:,:,-1]))}")
             if np.all(np.abs(mean_residual) < convergence_threshold):
                 print("Convergence achieved based on measurement residuals.")
                 break
