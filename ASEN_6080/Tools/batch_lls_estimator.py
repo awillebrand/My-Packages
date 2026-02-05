@@ -68,7 +68,7 @@ class BatchLLSEstimator:
                 N = 0
                 print("Insufficient a priori information provided. Setting initial Lambda and N to zero.")
             # Propagate state and STM
-    
+        
             [_, augmented_state_history] = self.integrator.integrate_stm(time_vector[-1], estimated_state, teval=time_vector)
 
             # Initialize measurement residuals and design matrix

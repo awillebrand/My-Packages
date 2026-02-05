@@ -52,6 +52,13 @@ print(estimated_initial_state)
 # Analyze validity of estimate by propagating estimated state and comparing to measurements
 time_vector = measurements['time'].values
 _, augmented_state_history = integrator.integrate_stm(time_vector[-1], estimated_initial_state, teval=time_vector)
+
+stm_time_history = augmented_state_history[len(estimated_initial_state):, :].reshape((len(estimated_initial_state), len(estimated_initial_state), len(time_vector)), order='F')
+covariance_time_history = np.empty((len(estimated_initial_state), len(estimated_initial_state), len(time_vector)))
+for k in range(len(time_vector)):
+    phi_t = stm_time_history[:, :, k]
+    covariance_time_history[:, :, k] = phi_t @ estimated_covariance @ phi_t.T
+
 residuals_matrix = np.empty((len(station_mgr_list), len(time_vector), 2))  # 2 for range and range rate
 for i, mgr in enumerate(station_mgr_list):
     station_name = mgr.station_name

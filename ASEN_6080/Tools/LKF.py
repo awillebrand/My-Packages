@@ -141,11 +141,12 @@ class LKF:
         covariance_estimates : list
             A list of covariance estimates at each measurement time.
         """
-        x_hat = initial_x_correction.copy()
+        x_bar0 = initial_x_correction.copy()
+        x_hat = x_bar0.copy()
         P = initial_covariance.copy() 
         raw_state_length = len(initial_state)
         # x_0 = np.append(initial_state+x_hat.flatten(), initial_state[raw_state_length:])  # Augmented initial state with STM identity
-        x_0 = initial_state+x_hat.flatten()
+        x_0 = initial_state+x_bar0.flatten()
         time_vector = measurement_data['time'].values
         # Begin iteration loop
         for iteration in range(max_iterations):
@@ -227,21 +228,25 @@ class LKF:
                     stacked_R = block_diag(*visible_R)
 
                     # Predict and update steps
-                    predict_x_hat, predict_P, K = self.predict(x_hat, P, phi, stacked_H, Q, stacked_R)
-                    x_hat, P = self.update(predict_x_hat, predict_P, K, stacked_residuals, stacked_H, stacked_R)
+                    x_bar, predict_P, K = self.predict(x_hat, P, phi, stacked_H, Q, stacked_R)
+                    x_hat, P = self.update(x_bar, predict_P, K, stacked_residuals, stacked_H, stacked_R)
                 # Store estimates
                 state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
                 if np.any(np.diag(P) < 0):
                     raise ValueError("Covariance matrix has negative diagonal elements.")
                 covariance_estimates[:,:,k] = P
+
             # Propagate x_hat back to initial using STM
             final_stm_inv = np.linalg.inv(stm_history[:,:, -1])
-            x_hat = final_stm_inv @ x_hat
-            x_0 += x_hat.flatten()
+            x_hat0 = final_stm_inv @ x_hat
+            x_0 += x_hat0.flatten()
             improved_initial_covariance = final_stm_inv @ P @ final_stm_inv.T
-            P = improved_initial_covariance*10
-            #P = initial_covariance.copy()  # Reset covariance for next iteration
-            x_hat = np.zeros_like(x_hat)  # Reset state correction for next iteration
+            # P = improved_initial_covariance*10
+            P = initial_covariance.copy()  # Reset covariance for next iteration
+
+            x_bar0 -= x_hat0.flatten()
+            x_hat = x_bar0.copy()
+            # x_hat = np.zeros_like(x_hat)  # Reset state correction for next iteration
             # Update station positions in measurement managers if estimating station position
             if 'Stations' in self.integrator.mode:
                 num_stations = self.integrator.number_of_stations
@@ -259,9 +264,9 @@ class LKF:
 
             np.nan_to_num(mean_residual, nan=0.0)
             np.set_printoptions(linewidth=200)
-            print(f"Mean measurement residuals after iteration {iteration+1}: {mean_residual.flatten()} meters")
-            # print(f"Current Cd estimate : {x_0[8]}")
-            # print(f"Current Cd covariance : {P[8,8]}")
+            # print(f"Mean measurement residuals after iteration {iteration+1}: {mean_residual.flatten()} meters")
+            print(f"Current Cd estimate : {x_0[8]}")
+            print(f"Current Cd covariance : {covariance_estimates[8,8,-1]}")
             # print(f"STM condition number: {np.linalg.cond(stm_history[0:6,0:6,-1])}")
             # print(f"Final covariance diagonal: {np.sqrt(np.diag(covariance_estimates[:,:,-1]))}")
             if np.all(np.abs(mean_residual) < convergence_threshold):
