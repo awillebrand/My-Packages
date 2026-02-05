@@ -231,8 +231,8 @@ class LKF:
                     x_hat, P = self.update(predict_x_hat, predict_P, K, stacked_residuals, stacked_H, stacked_R)
                 # Store estimates
                 state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
-                # if np.any(np.diag(P) < 0):
-                #     raise ValueError("Covariance matrix has negative diagonal elements.")
+                if np.any(np.diag(P) < 0):
+                    raise ValueError("Covariance matrix has negative diagonal elements.")
                 covariance_estimates[:,:,k] = P
             # Propagate x_hat back to initial using STM
             final_stm_inv = np.linalg.inv(stm_history[:,:, -1])
