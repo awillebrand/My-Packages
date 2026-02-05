@@ -141,7 +141,7 @@ class LKF:
         covariance_estimates : list
             A list of covariance estimates at each measurement time.
         """
-        x_bar0 = initial_x_correction.copy()
+        x_bar0 = np.zeros_like(initial_state)
         x_hat = x_bar0.copy()
         P = initial_covariance.copy() 
         raw_state_length = len(initial_state)
