@@ -138,7 +138,7 @@ class Integrator:
             u_dot += u_dot_drag
             v_dot += v_dot_drag
             w_dot += w_dot_drag
-        
+
         output = np.array([x_dot, y_dot, z_dot, u_dot, v_dot, w_dot])
         if 'mu' in self.mode:
             output = np.append(output, 0)

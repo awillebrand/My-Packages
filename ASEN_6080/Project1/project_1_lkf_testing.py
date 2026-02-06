@@ -7,7 +7,7 @@ from plotly.subplots import make_subplots
 
 measurements = pd.read_pickle(".\ASEN_6080\Project1\data\conditioned_measurements.pkl")
 R = np.diag([1E-5**2, 1E-6**2])  # Noise covariance matrix for range and range rate. Corresponds to 1 cm range noise and 1 mm/s range rate noise.
-
+breakpoint()
 sat_state = np.array([757700.0E-3, 5222607.0E-3, 4851500.0E-3, 2213.21E-3, 4678.34E-3, -5371.30E-3])  # Example satellite state in km and km/s
 mu = 3.986004415E5  # Earth's gravitational parameter in km^3/s^2
 J2 = 1.082626925638815E-3 # Earth's J2 coefficient
@@ -37,6 +37,15 @@ integrator = Integrator(mu, R_e, mode=['mu','J2','Drag','Stations'], parameter_i
 a_priori_covariance = np.diag([1, 1, 1, 1, 1, 1, 1E2, 1E6, 1E6, 1E-16, 1E-16, 1E-16, 1, 1, 1, 1, 1, 1])  # Given
 
 lkf = LKF(integrator, station_mgr_list, initial_earth_spin_angle=0.0, earth_rotation_rate=earth_spin_rate)
-state_history, covariance_history = lkf.run(initial_state_estimate, np.zeros_like(initial_state_estimate), a_priori_covariance, measurements, R=R, max_iterations=10, convergence_threshold=1e-7)
+state_history, covariance_history = lkf.run(initial_state_estimate, np.zeros_like(initial_state_estimate), a_priori_covariance, measurements, R=R, max_iterations=3, convergence_threshold=1e-7)
 
-breakpoint()
+# Plot cd over time
+
+cd_history = state_history[8, :]
+cd_covariance = covariance_history[8,8,:]
+fig = go.Figure()
+fig.add_trace(go.Scatter(x=measurements['time'], y=cd_history, mode='lines+markers', name='Cd Estimate'))
+fig.add_trace(go.Scatter(x=measurements['time'], y=cd_history + 2*np.sqrt(cd_covariance), mode='lines', name='Cd + 2σ', line=dict(dash='dash')))
+fig.add_trace(go.Scatter(x=measurements['time'], y=cd_history - 2*np.sqrt(cd_covariance), mode='lines', name='Cd - 2σ', line=dict(dash='dash')))
+fig.update_layout(title='Cd Estimate Over Time', xaxis_title='Time (s)', yaxis_title='Cd Estimate')
+fig.show()

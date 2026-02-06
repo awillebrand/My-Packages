@@ -264,9 +264,13 @@ class LKF:
 
             np.nan_to_num(mean_residual, nan=0.0)
             np.set_printoptions(linewidth=200)
+            print(f"Current mu estimate : {x_0[6]}")
             # print(f"Mean measurement residuals after iteration {iteration+1}: {mean_residual.flatten()} meters")
             print(f"Current Cd estimate : {x_0[8]}")
             print(f"Current Cd covariance : {covariance_estimates[8,8,-1]}")
+            print(f"Current J2 estimate : {x_0[7]}")
+            print(f"Current J2 covariance : {covariance_estimates[7,7,-1]}")
+
             # print(f"STM condition number: {np.linalg.cond(stm_history[0:6,0:6,-1])}")
             # print(f"Final covariance diagonal: {np.sqrt(np.diag(covariance_estimates[:,:,-1]))}")
             if np.all(np.abs(mean_residual) < convergence_threshold):
