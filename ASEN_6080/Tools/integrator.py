@@ -191,7 +191,7 @@ class Integrator:
             station_positions_ecef = np.zeros((self.number_of_stations, 3))
             for i in range(self.number_of_stations):
                 station_positions_ecef[i, :] = station_positions_vector[3*i:3*i+3]
-
+                
         state = augmented_state[0:state_length]
         phi_flat = augmented_state[state_length:]
         phi = phi_flat.reshape((state_length, state_length))

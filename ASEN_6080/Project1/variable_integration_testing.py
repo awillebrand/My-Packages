@@ -35,3 +35,9 @@ fig.update_layout(scene=dict(xaxis_title='X (km)',
                     title='Satellite Trajectory over 8 Hour Integration')
 fig.write_html('ASEN_6080/Project1/figures/variable_integration_trajectory.html')
 
+# Plot Cd over time to verify drag effects
+cd_history = state_history[8, :]
+fig_cd = go.Figure()
+fig_cd.add_trace(go.Scatter(x=time, y=cd_history, mode='lines+markers', name='Cd Estimate'))
+fig_cd.update_layout(title='Cd Estimate Over Time', xaxis_title='Time (s)', yaxis_title='Cd Estimate')
+fig_cd.write_html('ASEN_6080/Project1/figures/variable_integration_cd.html')

@@ -112,7 +112,7 @@ class LKF:
         I = np.eye(predicted_covariance.shape[0])
         #updated_covariance = (I - kalman_gain @ H) @ predicted_covariance
         updated_covariance = (I - kalman_gain @ H) @ predicted_covariance @ (I - kalman_gain @ H).T + kalman_gain @ R @ kalman_gain.T
-
+        
         return updated_state, updated_covariance
     
     def run(self, initial_state : np.ndarray, initial_x_correction : np.ndarray, initial_covariance : np.ndarray, measurement_data : pd.DataFrame, Q : np.ndarray = 0, R : np.ndarray = 0, max_iterations : int = 1, convergence_threshold : float = 1e-5):
@@ -151,7 +151,6 @@ class LKF:
         # Begin iteration loop
         for iteration in range(max_iterations):
             print(f"Starting LKF iteration {iteration+1} of {max_iterations}                           ")
-
             # Integrate over measurement times
             [_, augmented_state_history] = self.integrator.integrate_stm(time_vector[-1], x_0, teval=time_vector)
 
@@ -202,7 +201,7 @@ class LKF:
                     phi = stm_history[:,:,k]
                 else:
                     phi = stm_history[:,:,k] @ np.linalg.inv(stm_history[:,:,k-1])
-
+                
                 if np.isnan(current_measurement_residuals).all():
                     # No measurements available, propagate state and covariance
                     x_hat, P, _ = self.predict(x_hat, P, phi, np.zeros((2,raw_state_length)), Q, R)
@@ -235,16 +234,17 @@ class LKF:
                 if np.any(np.diag(P) < 0):
                     raise ValueError("Covariance matrix has negative diagonal elements.")
                 covariance_estimates[:,:,k] = P
+            # Right before line 281
 
-            # Propagate x_hat back to initial using STM
-            final_stm_inv = np.linalg.inv(stm_history[:,:, -1])
-            x_hat0 = final_stm_inv @ x_hat
+            x_hat0, _, _, _ = np.linalg.lstsq(stm_history[:,:, -1], x_hat, rcond=None)
+            # After line 282
             x_0 += x_hat0.flatten()
-            improved_initial_covariance = final_stm_inv @ P @ final_stm_inv.T
+
+            # improved_initial_covariance = np.linalg.inv(stm_history[:,:, -1]) @ P @ np.linalg.inv(stm_history[:,:, -1]).T
             # P = improved_initial_covariance*10
             P = initial_covariance.copy()  # Reset covariance for next iteration
-
-            x_bar0 -= x_hat0.flatten()
+            
+            x_bar0 = x_bar0 - x_hat0.flatten()  # Update x_bar0 for next iteration  
             x_hat = x_bar0.copy()
             # x_hat = np.zeros_like(x_hat)  # Reset state correction for next iteration
             # Update station positions in measurement managers if estimating station position
@@ -264,12 +264,14 @@ class LKF:
 
             np.nan_to_num(mean_residual, nan=0.0)
             np.set_printoptions(linewidth=200)
-            print(f"Current mu estimate : {x_0[6]}")
-            # print(f"Mean measurement residuals after iteration {iteration+1}: {mean_residual.flatten()} meters")
-            print(f"Current Cd estimate : {x_0[8]}")
-            print(f"Current Cd covariance : {covariance_estimates[8,8,-1]}")
-            print(f"Current J2 estimate : {x_0[7]}")
-            print(f"Current J2 covariance : {covariance_estimates[7,7,-1]}")
+            # print(f"x_hat0 correction: {x_hat0.flatten()}")
+            #print(f"Current mu estimate : {x_0[6]}")
+            print(f"Mean measurement residuals after iteration {iteration+1}: {mean_residual.flatten()} meters")
+            # print(f"x_hat0 correction Cd: {np.linalg.norm(x_hat0[8])}")
+            # print(f"Current Cd estimate : {x_0[8]}")
+            # print(f"Current Cd covariance : {covariance_estimates[8,8,-1]}")
+            # print(f"Current J2 estimate : {x_0[7]}")
+            # print(f"Current J2 covariance : {covariance_estimates[7,7,-1]}")
 
             # print(f"STM condition number: {np.linalg.cond(stm_history[0:6,0:6,-1])}")
             # print(f"Final covariance diagonal: {np.sqrt(np.diag(covariance_estimates[:,:,-1]))}")
@@ -277,5 +279,4 @@ class LKF:
                 print("Convergence achieved based on measurement residuals.")
                 break
             
-
         return state_estimates, covariance_estimates
