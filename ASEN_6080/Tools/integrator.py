@@ -2,7 +2,7 @@ import numpy as np
 from .generic_functions import state_jacobian, compute_density
 from scipy.integrate import solve_ivp
 class Integrator:
-    def __init__(self, mu : float, R_e : float, mode : list = [], parameter_indices : list = [], spacecraft_area : float = None, spacecraft_mass : float = None, number_of_stations : int = 0):
+    def __init__(self, mu : float, R_e : float, mode : list = [], parameter_indices : list = [], spacecraft_area : float = None, spacecraft_mass : float = None, number_of_stations : int = 0, earth_spin_rate : float = 7.2921158553E-5):
         """
         Initializes the Integrator class for spacecraft orbit propagation.
         Parameters:
@@ -28,6 +28,7 @@ class Integrator:
         self.spacecraft_area = spacecraft_area * 1e-6 if spacecraft_area is not None else 0  # Convert from m^2 to km^2 <---- DOUBLE CHECK THIS CONVERSION
         self.spacecraft_mass = spacecraft_mass if spacecraft_mass is not None else 1
         self.number_of_stations = number_of_stations
+        self.earth_spin_rate = earth_spin_rate
 
         if set(mode).isdisjoint({'mu', 'J2', 'J3', 'Drag', 'Stations'}):
             raise ValueError("Invalid mode specified. Choose from 'mu', 'J2', 'J3', 'Drag', and/or 'Stations'.")
@@ -130,10 +131,12 @@ class Integrator:
         w_dot = -mu * z / r**3 + (3 / 2) * (mu * J2 * self.R_e**2 * z / r**5) * (5 * (z**2 / r**2) - 3) + (5 / 2) * mu * J3 * self.R_e**3 / r**5 * (7 * z**4 / r**4 - 6 * z**2 / r**2 + 3 / 5)
 
         if 'Drag' in self.mode:
-            V_norm = np.linalg.norm(np.array([u, v, w]))
-            u_dot_drag = -(rho * Cd * spacecraft_area * V_norm * u) / (2 * spacecraft_mass)
-            v_dot_drag = -(rho * Cd * spacecraft_area * V_norm * v) / (2 * spacecraft_mass)
-            w_dot_drag = -(rho * Cd * spacecraft_area * V_norm * w) / (2 * spacecraft_mass)
+            V_rel = np.array([u + self.earth_spin_rate * y, v - self.earth_spin_rate * x, w])
+            u_rel, v_rel, w_rel = V_rel
+            V_rel_norm = np.linalg.norm(np.array([u, v, w]))
+            u_dot_drag = -(rho * Cd * spacecraft_area * V_rel_norm * u_rel) / (2 * spacecraft_mass)
+            v_dot_drag = -(rho * Cd * spacecraft_area * V_rel_norm * v_rel) / (2 * spacecraft_mass)
+            w_dot_drag = -(rho * Cd * spacecraft_area * V_rel_norm * w_rel) / (2 * spacecraft_mass)
 
             u_dot += u_dot_drag
             v_dot += v_dot_drag
@@ -151,7 +154,6 @@ class Integrator:
         if 'Stations' in self.mode:
             for _ in range(num_station_vars):
                 output = np.append(output, 0)
-
         return output
     
     def full_dynamics(self, t, augmented_state):

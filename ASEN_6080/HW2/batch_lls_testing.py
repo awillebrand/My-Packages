@@ -33,7 +33,7 @@ large_P_0 = np.diag([1000, 1000, 1000, 1, 1, 1, 1e-10])**2
 
 batch_estimator = BatchLLSEstimator(integrator, station_mgr_list, np.deg2rad(122.0))
 
-estimated_state, estimated_covariance = batch_estimator.estimate_initial_state(initial_state_guess, measurement_data, np.diag(noise_var), tol=2e-9, a_priori_covariance=P_0)
+estimated_state, estimated_covariance = batch_estimator.estimate_initial_state(initial_state_guess, measurement_data, np.diag(noise_var), tol=2e-9, a_priori_covariance=P_0, max_iterations=1)
 
 # Verify against truth data
 augmented_truth_state = truth_data['augmented_state_history'].values

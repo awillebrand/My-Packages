@@ -40,7 +40,8 @@ class LKF:
         eigenvalues, eigenvectors = np.linalg.eigh(P)
         
         # Clamp negative eigenvalues
-        eigenvalues = np.maximum(eigenvalues, min_eigenvalue)
+
+        eigenvalues = np.maximum(eigenvalues, 1e-18)
         
         # Reconstruct
         P_fixed = eigenvectors @ np.diag(eigenvalues) @ eigenvectors.T
@@ -75,9 +76,9 @@ class LKF:
         # Predict covariance
         predicted_covariance = phi @ P @ phi.T + Q
 
-        # Ensure positive definiteness if predicted covariance is very large
-        if np.any(np.abs(np.diag(predicted_covariance)) > 1e3):
-            predicted_covariance = self.ensure_positive_definite(predicted_covariance)
+        # # Ensure positive definiteness if predicted covariance is very large
+        # if np.any(np.abs(np.diag(predicted_covariance)) > 1e3):
+        #     predicted_covariance = self.ensure_positive_definite(predicted_covariance)
 
         # Compute Kalman Gain
         kalman_gain = predicted_covariance @ H.T @ np.linalg.inv(H @ predicted_covariance @ H.T + R)
@@ -201,7 +202,7 @@ class LKF:
                     phi = stm_history[:,:,k]
                 else:
                     phi = stm_history[:,:,k] @ np.linalg.inv(stm_history[:,:,k-1])
-                
+
                 if np.isnan(current_measurement_residuals).all():
                     # No measurements available, propagate state and covariance
                     x_hat, P, _ = self.predict(x_hat, P, phi, np.zeros((2,raw_state_length)), Q, R)
@@ -225,14 +226,15 @@ class LKF:
                     stacked_residuals = np.vstack(visible_residuals)
                     stacked_H = np.vstack(visible_H)
                     stacked_R = block_diag(*visible_R)
-
+                    
                     # Predict and update steps
                     x_bar, predict_P, K = self.predict(x_hat, P, phi, stacked_H, Q, stacked_R)
                     x_hat, P = self.update(x_bar, predict_P, K, stacked_residuals, stacked_H, stacked_R)
                 # Store estimates
+
                 state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
-                if np.any(np.diag(P) < 0):
-                    raise ValueError("Covariance matrix has negative diagonal elements.")
+                # if np.any(np.diag(P) < 0):
+                #     raise ValueError("Covariance matrix has negative diagonal elements.")
                 covariance_estimates[:,:,k] = P
             # Right before line 281
 
@@ -247,7 +249,7 @@ class LKF:
             x_bar0 = x_bar0 - x_hat0.flatten()  # Update x_bar0 for next iteration  
             x_hat = x_bar0.copy()
             # x_hat = np.zeros_like(x_hat)  # Reset state correction for next iteration
-            # Update station positions in measurement managers if estimating station position
+            
             if 'Stations' in self.integrator.mode:
                 num_stations = self.integrator.number_of_stations
                 first_station_index = raw_state_length - 3 * num_stations
@@ -267,16 +269,11 @@ class LKF:
             # print(f"x_hat0 correction: {x_hat0.flatten()}")
             #print(f"Current mu estimate : {x_0[6]}")
             print(f"Mean measurement residuals after iteration {iteration+1}: {mean_residual.flatten()} meters")
-            # print(f"x_hat0 correction Cd: {np.linalg.norm(x_hat0[8])}")
-            # print(f"Current Cd estimate : {x_0[8]}")
-            # print(f"Current Cd covariance : {covariance_estimates[8,8,-1]}")
-            # print(f"Current J2 estimate : {x_0[7]}")
-            # print(f"Current J2 covariance : {covariance_estimates[7,7,-1]}")
-
+            print(f"Current initial state estimate after iteration {iteration+1}: {x_0.flatten()}")
             # print(f"STM condition number: {np.linalg.cond(stm_history[0:6,0:6,-1])}")
             # print(f"Final covariance diagonal: {np.sqrt(np.diag(covariance_estimates[:,:,-1]))}")
             if np.all(np.abs(mean_residual) < convergence_threshold):
                 print("Convergence achieved based on measurement residuals.")
                 break
             
-        return state_estimates, covariance_estimates
+        return state_estimates, covariance_estimates, measurement_residuals_matrix

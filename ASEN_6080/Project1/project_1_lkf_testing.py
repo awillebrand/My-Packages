@@ -6,6 +6,7 @@ from ASEN_6080.Tools import Integrator, MeasurementMgr, CoordinateMgr, LKF
 from plotly.subplots import make_subplots
 
 measurements = pd.read_pickle(".\ASEN_6080\Project1\data\conditioned_measurements.pkl")
+
 R = np.diag([1E-5**2, 1E-6**2])  # Noise covariance matrix for range and range rate. Corresponds to 1 cm range noise and 1 mm/s range rate noise.
 
 sat_state = np.array([757700.0E-3, 5222607.0E-3, 4851500.0E-3, 2213.21E-3, 4678.34E-3, -5371.30E-3])  # Example satellite state in km and km/s
@@ -35,15 +36,15 @@ station_mgr_list = [station_1_mgr, station_2_mgr, station_3_mgr]
 integrator = Integrator(mu, R_e, mode=['mu','J2','Drag','Stations'], parameter_indices=[6,7,8,9], spacecraft_area=spacecraft_area, spacecraft_mass=spacecraft_mass, number_of_stations=3)
 
 a_priori_covariance = np.diag([1, 1, 1, 1, 1, 1, 1E2, 1E6, 1E6, 1E-16, 1E-16, 1E-16, 1, 1, 1, 1, 1, 1])  # Given
-
+# a_priori_covariance = np.diag([1, 1, 1, 1, 1, 1, 1E2, 1E-8, 4.0, 1E-16, 1E-16, 1E-16, 1, 1, 1, 1, 1, 1])
 lkf = LKF(integrator, station_mgr_list, initial_earth_spin_angle=0.0, earth_rotation_rate=earth_spin_rate)
-state_history, covariance_history = lkf.run(initial_state_estimate, np.zeros_like(initial_state_estimate), a_priori_covariance, measurements, R=R, max_iterations=5, convergence_threshold=1e-7)
+state_history, covariance_history, post_fit_residuals = lkf.run(initial_state_estimate, np.zeros_like(initial_state_estimate), a_priori_covariance, measurements, R=R, max_iterations=5, convergence_threshold=1e-9)
 
 # Simulate measurements and generate residuals for plotting
 # Simulate measurements from estimated state for residuals
-station_1_measurements = station_1_mgr.simulate_measurements(state_history, measurements['time'].values, 'ECI')
-station_2_measurements = station_2_mgr.simulate_measurements(state_history, measurements['time'].values, 'ECI')
-station_3_measurements = station_3_mgr.simulate_measurements(state_history, measurements['time'].values, 'ECI')
+station_1_measurements = station_1_mgr.simulate_measurements(state_history, measurements['time'].values, 'ECI', ignore_visibility=True)
+station_2_measurements = station_2_mgr.simulate_measurements(state_history, measurements['time'].values, 'ECI', ignore_visibility=True)
+station_3_measurements = station_3_mgr.simulate_measurements(state_history, measurements['time'].values, 'ECI', ignore_visibility=True)
 # Plot cd over time
 
 cd_history = state_history[8, :]
@@ -51,10 +52,10 @@ cd_covariance = covariance_history[8,8,:]
 
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=measurements['time'], y=cd_history, mode='lines+markers', name='Cd Estimate'))
-fig.add_trace(go.Scatter(x=measurements['time'], y=cd_history + 2*np.sqrt(cd_covariance), mode='lines', name='Cd + 2σ', line=dict(dash='dash')))
-fig.add_trace(go.Scatter(x=measurements['time'], y=cd_history - 2*np.sqrt(cd_covariance), mode='lines', name='Cd - 2σ', line=dict(dash='dash')))
+fig.add_trace(go.Scatter(x=measurements['time'], y=cd_history+3*np.sqrt(abs(cd_covariance)), mode='lines', name='Cd + 2σ', line=dict(dash='dash')))
+fig.add_trace(go.Scatter(x=measurements['time'], y=cd_history-3*np.sqrt(abs(cd_covariance)), mode='lines', name='Cd - 2σ', line=dict(dash='dash')))
 fig.update_layout(title='Cd Estimate Over Time', xaxis_title='Time (s)', yaxis_title='Cd Estimate')
-
+fig.show()
 station_1_truth =np.vstack( measurements['station_101_measurements'].values).T
 station_2_truth = np.vstack(measurements['station_337_measurements'].values).T
 station_3_truth = np.vstack(measurements['station_394_measurements'].values).T
@@ -94,3 +95,18 @@ fig.update_yaxes(title_text="Range Residuals (cm)", row=1, col=1)
 fig.update_yaxes(title_text="Range Rate Residuals (mm/s)", row=2, col=1)
 fig.update_layout(height=800, width=1200, title_text="Measurement Residuals After Batch LLS Estimation")
 fig.write_html("ASEN_6080/Project1/figures/lkf_measurement_residuals.html")
+fig.show()
+
+# Plot post fit residuals over time for each station
+fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=("Post-Fit Range Residuals", "Post-Fit Range Rate Residuals"))
+color_list = ['red', 'green', 'blue', 'red', 'green', 'blue']
+for i, mgr in enumerate(station_mgr_list):
+    station_name = mgr.station_name
+    fig.add_trace(go.Scatter(x=time_vector, y=post_fit_residuals[0,:,i].squeeze()*1E5, mode='markers', name=f"{station_name} Post-Fit Residuals", marker=dict(color=color_list[i]), showlegend=True), row=1, col=1)
+    fig.add_trace(go.Scatter(x=time_vector, y=post_fit_residuals[1,:,i].squeeze()*1E6, mode='markers', name=f"{station_name} Post-Fit Residuals", marker=dict(color=color_list[i]), showlegend=False), row=2, col=1)
+fig.update_xaxes(title_text="Time (s)", row=2, col=1)
+fig.update_yaxes(title_text="Post-Fit Range Residuals (cm)", row=1, col=1)
+fig.update_yaxes(title_text="Post-Fit Range Rate Residuals (mm/s)", row=2, col=1)
+fig.update_layout(height=800, width=1200, title_text="Post-Fit Measurement Residuals After Batch LLS Estimation")
+fig.write_html("ASEN_6080/Project1/figures/lkf_post_fit_residuals.html")
+fig.show()

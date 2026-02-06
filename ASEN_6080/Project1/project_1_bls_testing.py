@@ -43,7 +43,7 @@ estimated_initial_state, estimated_covariance = batch_estimator.estimate_initial
     a_priori_covariance=a_priori_covariance,
     measurement_data=measurements,
     R=R,
-    max_iterations=3,
+    max_iterations=5,
     tol=1E-6)
 
 print("Estimated Initial State:")
