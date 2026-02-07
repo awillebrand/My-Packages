@@ -178,7 +178,6 @@ class BatchLLSEstimator:
                 np.set_printoptions(linewidth=200)
                 print(f"Iteration {iteration+1}: State correction norm = {np.linalg.norm(x_correction)}")
                 print(f"x_hat = {np.linalg.norm(x_hat)}")
-                # print(f"Current initial state estimate after iteration {iteration+1}: {estimated_state.flatten()}")
                 print(f"Max relative correction = {np.max(np.abs(x_hat) / (np.abs(estimated_state) + 1e-10))}")
                 x_correction = x_correction - x_hat
         print("Maximum iterations reached without convergence.")

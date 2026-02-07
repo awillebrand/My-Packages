@@ -256,15 +256,6 @@ class LKF:
             x_hat = x_bar0.copy()
             # x_hat = np.zeros_like(x_hat)  # Reset state correction for next iteration
             
-            if 'Stations' in self.integrator.mode:
-                num_stations = self.integrator.number_of_stations
-                first_station_index = raw_state_length - 3 * num_stations
-                for s in range(num_stations):
-                    station_index = first_station_index + s * 3
-                    new_station_position = x_0[station_index:station_index+3]
-                    self.measurement_mgrs[s].station_state_ecef[0:3] = new_station_position
-                    self.measurement_mgrs[s].lat, self.measurement_mgrs[s].lon = self.coordinate_mgr.ECEF_to_GCS(new_station_position)
-            
             # Add post-fit residuals to DataFrame
             for i, mgr in enumerate(self.measurement_mgrs):
                 station_name = self.measurement_mgrs[i].station_name
@@ -278,6 +269,16 @@ class LKF:
 
                 idx = residuals_df[mask].index[0]  # Get the index of the matching row
                 residuals_df.at[idx, 'post-fit'] = measurement_residuals
+                
+            if 'Stations' in self.integrator.mode:
+                num_stations = self.integrator.number_of_stations
+                first_station_index = raw_state_length - 3 * num_stations
+                for s in range(num_stations):
+                    station_index = first_station_index + s * 3
+                    new_station_position = x_0[station_index:station_index+3]
+                    self.measurement_mgrs[s].station_state_ecef[0:3] = new_station_position
+                    self.measurement_mgrs[s].lat, self.measurement_mgrs[s].lon = self.coordinate_mgr.ECEF_to_GCS(new_station_position)
+            
             # Determine if another iteration is needed based on residual behavior (detect if residuals are centered around zero)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=RuntimeWarning)

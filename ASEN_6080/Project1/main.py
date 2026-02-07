@@ -55,20 +55,23 @@ lkf = LKF(integrator, station_mgr_list, initial_earth_spin_angle=0.0, earth_rota
 lkf_state_history, lkf_covariance_history, lkf_residuals_df = lkf.run(initial_state_estimate,
                                                                       np.zeros_like(initial_state_estimate),
                                                                       a_priori_covariance, measurements,
-                                                                      R=R, max_iterations=3,
+                                                                      R=R, max_iterations=1,
                                                                       convergence_threshold=1e-9)
+
+breakpoint()
+# Integrate batch estimated initial state forward for comparison
+[_, batch_estimated_state_history] = integrator.integrate_stm(time_vector[-1], estimated_initial_state, time_vector)
 
 # Plot residual time history for each station
 colors_list = ['red', 'green', 'blue']
-residual_df_list = [lkf_residuals_df]
-for residuals_df, filter_name in zip(residual_df_list, ['LKF']):
+residual_df_list = [batch_residuals_df, lkf_residuals_df]
+for residuals_df, filter_name in zip(residual_df_list, ['Batch LLS Filter', 'LKF']):
     for iteration in range(residuals_df['iteration'].max()+1):
         fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=('Range Residuals', 'Range Rate Residuals'))
         for i, station_name in enumerate(residuals_df['station'].unique()):
             mask = (residuals_df['iteration'] == iteration) & (residuals_df['station'] == station_name)
 
             pre_fit_residuals = np.vstack(residuals_df[mask]['pre-fit'])
-            print(f"Residual at index 0: {pre_fit_residuals[:,0:10]}")
             fig.add_trace(go.Scatter(x=time_vector, y=pre_fit_residuals[0,:]*100000, mode='markers', name=f'{station_name}', marker=dict(color=colors_list[i])), row=1, col=1)
             fig.add_trace(go.Scatter(x=time_vector, y=pre_fit_residuals[1,:]*1E6, mode='markers', name=f'{station_name}', marker=dict(color=colors_list[i]), showlegend=False), row=2, col=1)
         fig.update_traces(marker=dict(size=4))
@@ -109,4 +112,11 @@ for residuals_df, filter_name in zip(residual_df_list, ['LKF']):
                                     x=0.87))
         fig.show()
 
-
+# Plot state history for batch LLS and LKF
+state_labels = ['x (km)', 'y (km)', 'z (km)', 'vx (km/s)', 'vy (km/s)', 'vz (km/s)', 'mu (km^3/s^2)', 'J2', 'C_d', 'Station 1 x (km)', 'Station 1 y (km)', 'Station 1 z (km)', 'Station 2 x (km)', 'Station 2 y (km)', 'Station 2 z (km)', 'Station 3 x (km)', 'Station 3 y (km)', 'Station 3 z (km)']
+for i in range(17):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=time_vector, y=batch_estimated_state_history[i,:], mode='lines', name='Batch LLS Estimate'))
+    fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_history[i,:], mode='lines', name='LKF Estimate'))
+    fig.update_layout(title=f"State Component {state_labels[i]} Over Time", xaxis_title='Time (s)', yaxis_title=state_labels[i])
+    fig.write_html(f"ASEN_6080/Project1/figures/{state_labels[i]}_time_histories.html")
