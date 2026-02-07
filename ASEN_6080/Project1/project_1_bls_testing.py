@@ -38,14 +38,14 @@ a_priori_covariance = np.diag([1, 1, 1, 1, 1, 1, 1E2, 1E6, 1E6, 1E-16, 1E-16, 1E
 # a_priori_covariance = np.diag([1, 1, 1, 1, 1, 1, 1E2, 1E-6, 10, 1E-16, 1E-16, 1E-16, 1, 1, 1, 1, 1, 1])
 batch_estimator = BatchLLSEstimator(integrator, station_mgr_list, initial_earth_spin_angle=0.0, earth_rotation_rate=earth_spin_rate)
 
-estimated_initial_state, estimated_covariance = batch_estimator.estimate_initial_state(
+estimated_initial_state, estimated_covariance, residuals_df = batch_estimator.estimate_initial_state(
     a_priori_state=initial_state_estimate,
     a_priori_covariance=a_priori_covariance,
     measurement_data=measurements,
     R=R,
-    max_iterations=5,
+    max_iterations=3,
     tol=1E-6)
-
+breakpoint()
 print("Estimated Initial State:")
 np.set_printoptions(linewidth=200)
 print(estimated_initial_state)
@@ -67,8 +67,8 @@ for i, mgr in enumerate(station_mgr_list):
     truth_measurements = np.vstack(measurements[f"{station_name}_measurements"].values).T
 
     # Station position updated inside batch estimator
-    simulated_measurements = mgr.simulate_measurements(augmented_state_history[0:6,:], time_vector, 'ECI', noise=False, ignore_visibility=True)
 
+    simulated_measurements = mgr.simulate_measurements(augmented_state_history[0:6,:], time_vector, 'ECI', noise=False, ignore_visibility=True)
     # Compute measurement residuals
     residuals = truth_measurements - simulated_measurements
     residuals_matrix[i, :, :] = residuals.T

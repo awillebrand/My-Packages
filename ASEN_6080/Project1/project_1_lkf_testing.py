@@ -9,7 +9,7 @@ measurements = pd.read_pickle(".\ASEN_6080\Project1\data\conditioned_measurement
 
 R = np.diag([1E-5**2, 1E-6**2])  # Noise covariance matrix for range and range rate. Corresponds to 1 cm range noise and 1 mm/s range rate noise.
 
-sat_state = np.array([757700.0E-3, 5222607.0E-3, 4851500.0E-3, 2213.21E-3, 4678.34E-3, -5371.30E-3])  # Example satellite state in km and km/s
+sat_state = np.array([757700.0E-3, 5222607.0E-3, 4851500.0E-3, 2213.21E-3, 4678.34E-3, -5371.30E-3])  # Satellite state in km and km/s
 mu = 3.986004415E5  # Earth's gravitational parameter in km^3/s^2
 J2 = 1.082626925638815E-3 # Earth's J2 coefficient
 J3 = 0.0 # Earth's J3 coefficient

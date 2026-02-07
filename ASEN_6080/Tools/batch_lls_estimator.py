@@ -58,7 +58,8 @@ class BatchLLSEstimator:
         
         # Compute noise covariance matrix R
         R_inv = np.linalg.inv(R)
-
+        residuals_df = pd.DataFrame(columns=['iteration', 'station', 'pre-fit', 'post-fit'])
+        
         for iteration in range(max_iterations):
             if P_0 is not None and x_correction is not None:
                 Lambda = np.linalg.inv(P_0)
@@ -84,6 +85,14 @@ class BatchLLSEstimator:
                 # Compute measurement residuals
                 residuals = truth_measurements - simulated_measurements
                 
+                # Add pre-fit residuals to DataFrame
+                residuals_df = residuals_df._append(pd.DataFrame({
+                    'iteration': iteration,
+                    'station': station_name,
+                    'pre-fit': [residuals],
+                    'post-fit': np.nan  # Placeholder, will be updated after state correction  
+                }), ignore_index=True)
+
                 for j, residual in enumerate(residuals.T):
                     residuals_matrix[i, j] = residual
                 
@@ -127,6 +136,30 @@ class BatchLLSEstimator:
             x_hat = np.linalg.solve(Lambda, N)
             estimated_state += x_hat
 
+            # Compute post-fit residuals for this iteration
+
+            for i, mgr in enumerate(self.measurement_mgrs):
+                post_fit_state = np.empty((6, len(time_vector)))
+                for j, time in enumerate(time_vector):
+                    stm = augmented_state_history[raw_state_length:, j].reshape((raw_state_length, raw_state_length))
+                
+                    # Integrate estimated state forward using STM to get state at measurement time
+                    estimated_state_at_time = stm @ estimated_state
+                    post_fit_state[:, j] = estimated_state_at_time[0:6]
+                
+                station_name = mgr.station_name
+
+                truth_measurements = np.vstack(measurement_data[f"{station_name}_measurements"].values).T
+                simulated_measurements = mgr.simulate_measurements(post_fit_state, time_vector, 'ECI', noise=False, ignore_visibility=True)
+
+                # Compute measurement residuals
+                residuals = truth_measurements - simulated_measurements
+                # Update post-fit residuals in DataFrame
+
+                mask = (residuals_df['iteration'] == iteration) & (residuals_df['station'] == station_name)
+                idx = residuals_df[mask].index[0]  # Get the index of the matching row
+                residuals_df.at[idx, 'post-fit'] = residuals
+
             # Update station positions in measurement managers if estimating station positions
             if 'Stations' in self.integrator.mode:
                 num_stations = self.integrator.number_of_stations
@@ -140,7 +173,7 @@ class BatchLLSEstimator:
             if np.max(np.abs(x_hat) / (np.abs(estimated_state) + 1e-10)) < tol:
                 print(f"Converged in {iteration+1} iterations.")
                 P_0 = np.linalg.inv(Lambda)
-                return estimated_state, P_0
+                return estimated_state, P_0, residuals_df
             else:
                 np.set_printoptions(linewidth=200)
                 print(f"Iteration {iteration+1}: State correction norm = {np.linalg.norm(x_correction)}")
@@ -149,7 +182,8 @@ class BatchLLSEstimator:
                 print(f"Max relative correction = {np.max(np.abs(x_hat) / (np.abs(estimated_state) + 1e-10))}")
                 x_correction = x_correction - x_hat
         print("Maximum iterations reached without convergence.")
+        
         P_0 = np.linalg.inv(Lambda)
-        return estimated_state, P_0
+        return estimated_state, P_0, residuals_df
 
 
