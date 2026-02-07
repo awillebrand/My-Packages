@@ -146,9 +146,10 @@ class LKF:
         x_hat = x_bar0.copy()
         P = initial_covariance.copy() 
         raw_state_length = len(initial_state)
-        # x_0 = np.append(initial_state+x_hat.flatten(), initial_state[raw_state_length:])  # Augmented initial state with STM identity
         x_0 = initial_state+x_bar0.flatten()
         time_vector = measurement_data['time'].values
+
+        residuals_df = pd.DataFrame(columns=['iteration', 'station', 'pre-fit', 'post-fit'])
         # Begin iteration loop
         for iteration in range(max_iterations):
             print(f"Starting LKF iteration {iteration+1} of {max_iterations}                           ")
@@ -170,11 +171,14 @@ class LKF:
                 station_name = mgr.station_name
                 truth_measurements = np.vstack(measurement_data[f"{station_name}_measurements"].values).T
                 simulated_measurements = mgr.simulate_measurements(reference_state_history[0:6,:], time_vector, 'ECI', noise=False, ignore_visibility=True)
-
+                
+                residual_vector = np.zeros((2, len(time_vector)))
                 for j, time in enumerate(time_vector):
                     # Compute measurement residual
                     residual = truth_measurements[:,j] - simulated_measurements[:,j]
-
+                    residual_vector[:,j] = residual
+                    # Add pre-fit residuals to DataFrame
+                    
                     # Compute measurement Jacobian
                     station_state_eci = self.coordinate_mgr.ECEF_to_ECI(mgr.station_state_ecef, time)
                     [H_sc, H_station] = measurement_jacobian(reference_state_history[:6,j], station_state_eci)
@@ -190,6 +194,8 @@ class LKF:
                         H_total[:, station_partial_index:station_partial_index+3] = H_station_ecef
 
                     H_matrix[:,:,i,j] = H_total
+
+                residuals_df = residuals_df._append({'iteration': iteration, 'station': station_name, 'pre-fit': residual_vector, 'post-fit': np.nan}, ignore_index=True)
             # Perform LKF estimation process
             state_estimates = np.zeros((raw_state_length, len(time_vector)))
             covariance_estimates = np.zeros((raw_state_length, raw_state_length, len(time_vector)))
@@ -259,21 +265,30 @@ class LKF:
                     self.measurement_mgrs[s].station_state_ecef[0:3] = new_station_position
                     self.measurement_mgrs[s].lat, self.measurement_mgrs[s].lon = self.coordinate_mgr.ECEF_to_GCS(new_station_position)
             
+            # Add post-fit residuals to DataFrame
+            for i, mgr in enumerate(self.measurement_mgrs):
+                station_name = self.measurement_mgrs[i].station_name
+
+                # Simulate measurements using updated state estimate
+                simulated_measurements = mgr.simulate_measurements(state_estimates[0:6,:], time_vector, 'ECI', noise=False, ignore_visibility=True)
+                truth_measurements = np.vstack(measurement_data[f"{station_name}_measurements"].values).T
+                measurement_residuals = truth_measurements - simulated_measurements
+
+                mask = (residuals_df['iteration'] == iteration) & (residuals_df['station'] == station_name)
+
+                idx = residuals_df[mask].index[0]  # Get the index of the matching row
+                residuals_df.at[idx, 'post-fit'] = measurement_residuals
             # Determine if another iteration is needed based on residual behavior (detect if residuals are centered around zero)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=RuntimeWarning)
                 mean_residual = np.nanmean(measurement_residuals_matrix, axis=(0,1,3))
 
-            np.nan_to_num(mean_residual, nan=0.0)
             np.set_printoptions(linewidth=200)
-            # print(f"x_hat0 correction: {x_hat0.flatten()}")
-            #print(f"Current mu estimate : {x_0[6]}")
             print(f"Mean measurement residuals after iteration {iteration+1}: {mean_residual.flatten()} meters")
             print(f"Current initial state estimate after iteration {iteration+1}: {x_0.flatten()}")
-            # print(f"STM condition number: {np.linalg.cond(stm_history[0:6,0:6,-1])}")
-            # print(f"Final covariance diagonal: {np.sqrt(np.diag(covariance_estimates[:,:,-1]))}")
+
             if np.all(np.abs(mean_residual) < convergence_threshold):
                 print("Convergence achieved based on measurement residuals.")
                 break
             
-        return state_estimates, covariance_estimates, measurement_residuals_matrix
+        return state_estimates, covariance_estimates, residuals_df

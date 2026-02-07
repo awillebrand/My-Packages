@@ -42,11 +42,8 @@ station_3_mgr = MeasurementMgr("station_394", station_state_ecef=station_3_state
 station_mgr_list = [station_1_mgr, station_2_mgr, station_3_mgr]
 
 # Run filters
-# lkf = LKF(integrator, station_mgr_list, initial_earth_spin_angle=0.0, earth_rotation_rate=earth_spin_rate)
-# lkf_state_history, lkf_covariance_history, post_fit_residuals = lkf.run(initial_state_estimate, np.zeros_like(initial_state_estimate), a_priori_covariance, measurements, R=R, max_iterations=5, convergence_threshold=1e-9)
-
 batch_estimator = BatchLLSEstimator(integrator, station_mgr_list, initial_earth_spin_angle=0.0, earth_rotation_rate=earth_spin_rate)
-estimated_initial_state, estimated_covariance, residuals_df = batch_estimator.estimate_initial_state(
+estimated_initial_state, estimated_covariance, batch_residuals_df = batch_estimator.estimate_initial_state(
     a_priori_state=initial_state_estimate,
     a_priori_covariance=a_priori_covariance,
     measurement_data=measurements,
@@ -54,15 +51,62 @@ estimated_initial_state, estimated_covariance, residuals_df = batch_estimator.es
     max_iterations=3,
     tol=1E-6)
 
-# Plot residual time history for each station
-for iteration in range(residuals_df['iteration'].max()+1):
-    fig = go.Figure()
-    for station_name in residuals_df['station'].unique():
-        mask = (residuals_df['iteration'] == iteration) & (residuals_df['station'] == station_name)
+lkf = LKF(integrator, station_mgr_list, initial_earth_spin_angle=0.0, earth_rotation_rate=earth_spin_rate)
+lkf_state_history, lkf_covariance_history, lkf_residuals_df = lkf.run(initial_state_estimate,
+                                                                      np.zeros_like(initial_state_estimate),
+                                                                      a_priori_covariance, measurements,
+                                                                      R=R, max_iterations=3,
+                                                                      convergence_threshold=1e-9)
 
-        post_fit_residuals = np.vstack(residuals_df[mask]['post-fit'])
-        print(f"Residual at index 0: {post_fit_residuals[:,0:10]}")
-        fig.add_trace(go.Scatter(x=time_vector, y=post_fit_residuals[0,:], mode='markers', name=f'{station_name} Range Residuals'))
-        fig.add_trace(go.Scatter(x=time_vector, y=post_fit_residuals[1,:], mode='markers', name=f'{station_name} Range Rate Residuals'))
-    fig.update_layout(title=f'Post-Fit Residuals at Iteration {iteration+1}', xaxis_title='Time (s)', yaxis_title='Residuals')
-    fig.show()
+# Plot residual time history for each station
+colors_list = ['red', 'green', 'blue']
+residual_df_list = [lkf_residuals_df]
+for residuals_df, filter_name in zip(residual_df_list, ['LKF']):
+    for iteration in range(residuals_df['iteration'].max()+1):
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=('Range Residuals', 'Range Rate Residuals'))
+        for i, station_name in enumerate(residuals_df['station'].unique()):
+            mask = (residuals_df['iteration'] == iteration) & (residuals_df['station'] == station_name)
+
+            pre_fit_residuals = np.vstack(residuals_df[mask]['pre-fit'])
+            print(f"Residual at index 0: {pre_fit_residuals[:,0:10]}")
+            fig.add_trace(go.Scatter(x=time_vector, y=pre_fit_residuals[0,:]*100000, mode='markers', name=f'{station_name}', marker=dict(color=colors_list[i])), row=1, col=1)
+            fig.add_trace(go.Scatter(x=time_vector, y=pre_fit_residuals[1,:]*1E6, mode='markers', name=f'{station_name}', marker=dict(color=colors_list[i]), showlegend=False), row=2, col=1)
+        fig.update_traces(marker=dict(size=4))
+        fig.update_xaxes(title_text="Time (s)")
+        fig.update_yaxes(title_text="Range Residuals (cm)", showexponent="all", exponentformat="e", row=1, col=1)
+        fig.update_yaxes(title_text="Range Rate Residuals (mm/s)", showexponent="all", exponentformat="e", row=2, col=1)
+        fig.update_layout(title_text=f"{filter_name} Pre-Fit Residuals Time History at Iteration {iteration+1}",
+                        title_font=dict(size=28),
+                        width=1200,
+                        height=800,
+                        legend=dict(font=dict(size=18),
+                                    yanchor="top",
+                                    y=1.2,
+                                    xanchor="left",
+                                    x=0.87))
+        fig.show()
+
+    for iteration in range(residuals_df['iteration'].max()+1):
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=('Range Residuals', 'Range Rate Residuals'))
+        for i, station_name in enumerate(residuals_df['station'].unique()):
+            mask = (residuals_df['iteration'] == iteration) & (residuals_df['station'] == station_name)
+
+            post_fit_residuals = np.vstack(residuals_df[mask]['post-fit'])
+            fig.add_trace(go.Scatter(x=time_vector, y=post_fit_residuals[0,:]*100000, mode='markers', name=f'{station_name}', marker=dict(color=colors_list[i])), row=1, col=1)
+            fig.add_trace(go.Scatter(x=time_vector, y=post_fit_residuals[1,:]*1E6, mode='markers', name=f'{station_name}', marker=dict(color=colors_list[i]), showlegend=False), row=2, col=1)
+        fig.update_traces(marker=dict(size=4))
+        fig.update_xaxes(title_text="Time (s)")
+        fig.update_yaxes(title_text="Range Residuals (cm)", showexponent="all", exponentformat="e", row=1, col=1)
+        fig.update_yaxes(title_text="Range Rate Residuals (mm/s)", showexponent="all", exponentformat="e", row=2, col=1)
+        fig.update_layout(title_text=f"{filter_name} Post-Fit Residuals Time History at Iteration {iteration+1}",
+                        title_font=dict(size=28),
+                        width=1200,
+                        height=800,
+                        legend=dict(font=dict(size=18),
+                                    yanchor="top",
+                                    y=1.2,
+                                    xanchor="left",
+                                    x=0.87))
+        fig.show()
+
+

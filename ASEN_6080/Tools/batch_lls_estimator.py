@@ -144,7 +144,7 @@ class BatchLLSEstimator:
                     stm = augmented_state_history[raw_state_length:, j].reshape((raw_state_length, raw_state_length))
                 
                     # Integrate estimated state forward using STM to get state at measurement time
-                    estimated_state_at_time = stm @ estimated_state
+                    estimated_state_at_time = augmented_state_history[:raw_state_length,j] + stm @ x_hat
                     post_fit_state[:, j] = estimated_state_at_time[0:6]
                 
                 station_name = mgr.station_name
