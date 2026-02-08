@@ -271,7 +271,7 @@ def measurement_jacobian(sat_state : np.array, station_state : np.array, earth_r
     
     return H_sc, H_station
 
-def covariance_ellipse(center, cov_matrix, num_points=360):
+def covariance_ellipse(center, cov_matrix, num_points=120):
     """
     This function computes the covariance ellipse for a N dimensional Gaussian distribution given its mean and covariance matrix.
     Parameters:
@@ -280,7 +280,7 @@ def covariance_ellipse(center, cov_matrix, num_points=360):
     cov_matrix : np.Array
         3x3 covariance matrix for the x, y, and z dimensions.
     num_points : int
-        Number of points to generate along the ellipse. Default is 360.
+        Number of points to generate along the ellipse. Default is 120.
     Returns:
     ellipse_points : np.Array
         Array of shape (num_points, N) containing the coordinates of the covariance ellipse.
@@ -304,5 +304,5 @@ def covariance_ellipse(center, cov_matrix, num_points=360):
 
     # Scale the unit sphere by the eigenvalues (which represent the lengths of the ellipse axes)
     ellipse_points = eigenvectors @ np.diag(np.sqrt(eigenvalues)) @ np.array([x_sphere.flatten(), y_sphere.flatten(), z_sphere.flatten()])
-    
+
     return ellipse_points.T + center

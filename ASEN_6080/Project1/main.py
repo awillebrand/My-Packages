@@ -209,8 +209,8 @@ lkf_pos_covariance_ellipse = covariance_ellipse(lkf_center, lkf_covariance_histo
 
 # Plot 3D ellipses
 fig = go.Figure()
-fig.add_trace(go.Scatter3d(x=batch_pos_covariance_ellipse[0,:], y=batch_pos_covariance_ellipse[1,:], z=batch_pos_covariance_ellipse[2,:], mode='markers', name='Batch LLS Position Covariance Ellipse'))
-fig.add_trace(go.Scatter3d(x=lkf_pos_covariance_ellipse[0,:], y=lkf_pos_covariance_ellipse[1,:], z=lkf_pos_covariance_ellipse[2,:], mode='markers', name='LKF Position Covariance Ellipse'))
+fig.add_trace(go.Scatter3d(x=batch_pos_covariance_ellipse[:,0], y=batch_pos_covariance_ellipse[:,1], z=batch_pos_covariance_ellipse[:,2], mode='markers', name='Batch LLS Position Covariance Ellipse'))
+fig.add_trace(go.Scatter3d(x=lkf_pos_covariance_ellipse[:,0], y=lkf_pos_covariance_ellipse[:,1], z=lkf_pos_covariance_ellipse[:,2], mode='markers', name='LKF Position Covariance Ellipse'))
 fig.update_layout(title=f"Satellite Position Covariance Ellipse at Final Time Step",
                     title_font=dict(size=28),
                     width=1200,
