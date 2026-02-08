@@ -16,10 +16,10 @@ class BatchLLSEstimator:
             Initial Earth spin angle in radians.
         """
         self.integrator = integrator
-        self.measurement_mgrs = measurement_mgr_list
+        self.measurement_mgrs = measurement_mgr_list.copy()
         self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle=initial_earth_spin_angle, earth_rotation_rate=earth_rotation_rate, R_e=integrator.R_e)
 
-    def estimate_initial_state(self, a_priori_state : np.ndarray, measurement_data : pd.DataFrame, R : np.array, a_priori_covariance : np.ndarray = None, a_priori_state_correction : np.ndarray = None, max_iterations : int = 20, tol : float = 1e-5):
+    def estimate_initial_state(self, a_priori_state : np.ndarray, measurement_data : pd.DataFrame, R : np.array, a_priori_covariance : np.ndarray = None, a_priori_state_correction : np.ndarray = None, max_iterations : int = 20, tol : float = 1e-5, considered_measurements : str = 'All'):
         """
         Estimate the initial state using Batch Least Squares.
 
@@ -58,6 +58,16 @@ class BatchLLSEstimator:
         
         # Compute noise covariance matrix R
         R_inv = np.linalg.inv(R)
+
+        if considered_measurements == 'Range':
+            R_inv = R_inv[0::2, 0::2].reshape(1,1)  # Extract inverse covariance for range measurements
+        elif considered_measurements == 'Range Rate':
+            R_inv = R_inv[1::2, 1::2].reshape(1,1)  # Extract inverse covariance for range rate measurements
+        elif considered_measurements == 'All':
+            pass  # Use full R_inv
+        else:
+            raise ValueError("Invalid option for considered_measurements. Must be 'Range', 'Range Rate', or 'All'.")
+        
         residuals_df = pd.DataFrame(columns=['iteration', 'station', 'pre-fit', 'post-fit'])
         
         for iteration in range(max_iterations):
@@ -122,14 +132,23 @@ class BatchLLSEstimator:
 
             # Accumulate observations
             for i, time in enumerate(time_vector):
-                residuals_i = residuals_matrix[:, i]
-                H_i = H_matrix[:, i]
+                if considered_measurements == 'Range':
+                    # Only consider range measurements (first measurement for each station)
+                    residuals_i = np.array([res[0].reshape(1,1) for res in residuals_matrix[:, i]])
+                    H_i = np.array([H[0,:].reshape(1, -1) for H in H_matrix[:, i]])
+                elif considered_measurements == 'Range Rate':
+                    # Only consider range rate measurements (second measurement for each station)
+                    residuals_i = np.array([res[1].reshape(1,1) for res in residuals_matrix[:, i]])
+                    H_i = np.array([H[1,:].reshape(1, -1) for H in H_matrix[:, i]])
+                else:
+                    residuals_i = residuals_matrix[:, i]
+                    H_i = H_matrix[:, i]
                 
                 # Only compute Lambda and N accumulation for available measurements
                 for res, H in zip(residuals_i, H_i):
                     if ~np.isnan(res).any():
                         Lambda += H.T @ R_inv @ H
-                        N += H.T @ R_inv @ res
+                        N += (H.T @ R_inv @ res).flatten()
 
 
             # Compute state correction

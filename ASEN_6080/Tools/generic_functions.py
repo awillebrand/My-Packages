@@ -302,6 +302,6 @@ def covariance_ellipse(center, cov_matrix, num_points=120):
     z_sphere = np.cos(phi)
 
     # Scale the unit sphere by the eigenvalues (which represent the lengths of the ellipse axes)
-    ellipse_points = eigenvectors @ np.diag(np.sqrt(eigenvalues)) @ np.array([x_sphere.flatten(), y_sphere.flatten(), z_sphere.flatten()])
+    ellipse_points = eigenvectors @ np.diag(3*np.sqrt(eigenvalues)) @ np.array([x_sphere.flatten(), y_sphere.flatten(), z_sphere.flatten()])
 
     return ellipse_points.T + center

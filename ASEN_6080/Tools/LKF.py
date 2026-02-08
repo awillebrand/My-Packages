@@ -20,7 +20,7 @@ class LKF:
             Earth's rotation rate in radians per second. Default is 2*pi/86164.0905 rad/s.
         """
         self.integrator = integrator
-        self.measurement_mgrs = measurement_mgr_list
+        self.measurement_mgrs = measurement_mgr_list.copy()
         self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle=initial_earth_spin_angle, earth_rotation_rate=earth_rotation_rate, R_e = integrator.R_e)
     def ensure_positive_definite(self, P : np.ndarray, min_eigenvalue: float = 1e-13):
         """
@@ -116,7 +116,7 @@ class LKF:
         
         return updated_state, updated_covariance
     
-    def run(self, initial_state : np.ndarray, initial_x_correction : np.ndarray, initial_covariance : np.ndarray, measurement_data : pd.DataFrame, Q : np.ndarray = 0, R : np.ndarray = 0, max_iterations : int = 1, convergence_threshold : float = 1e-5):
+    def run(self, initial_state : np.ndarray, initial_x_correction : np.ndarray, initial_covariance : np.ndarray, measurement_data : pd.DataFrame, Q : np.ndarray = 0, R : np.ndarray = 0, max_iterations : int = 1, convergence_threshold : float = 1e-5, considered_measurements : str = 'All'):
         """
         Run the Linearized Kalman Filter over a series of measurements.
         Parameters:
@@ -149,6 +149,16 @@ class LKF:
         x_0 = initial_state+x_bar0.flatten()
         time_vector = measurement_data['time'].values
 
+        if considered_measurements == 'Range':
+            R = R[0::2, 0::2].reshape(1,1)  # Extract covariance for range measurements
+            meas_number = 1
+        elif considered_measurements == 'Range Rate':
+            R = R[1::2, 1::2].reshape(1,1)  # Extract covariance for range rate measurements
+            meas_number = 1
+        elif considered_measurements == 'All':
+            meas_number = 2
+        else:
+            raise ValueError("Invalid option for considered_measurements. Must be 'Range', 'Range Rate', or 'All'.")
         residuals_df = pd.DataFrame(columns=['iteration', 'station', 'pre-fit', 'post-fit'])
         # Begin iteration loop
         for iteration in range(max_iterations):
@@ -164,8 +174,8 @@ class LKF:
                 stm_history[:,:,i] = stm
 
             # Compute measurement residuals and associated H matrices for each station and measurement time
-            measurement_residuals_matrix = np.zeros((2,1,len(self.measurement_mgrs),len(time_vector)))  # Assuming 2 measurements per station
-            H_matrix = np.zeros((2,raw_state_length,len(self.measurement_mgrs),len(time_vector)))
+            measurement_residuals_matrix = np.zeros((meas_number,1,len(self.measurement_mgrs),len(time_vector)))  # Assuming 2 measurements per station
+            H_matrix = np.zeros((meas_number,raw_state_length,len(self.measurement_mgrs),len(time_vector)))
 
             for i, mgr in enumerate(self.measurement_mgrs):
                 station_name = mgr.station_name
@@ -182,7 +192,6 @@ class LKF:
                     # Compute measurement Jacobian
                     station_state_eci = self.coordinate_mgr.ECEF_to_ECI(mgr.station_state_ecef, time)
                     [H_sc, H_station] = measurement_jacobian(reference_state_history[:6,j], station_state_eci)
-                    measurement_residuals_matrix[:,:,i,j] = np.vstack(residual)
                     H_total = np.concatenate((H_sc, np.zeros((2, raw_state_length - 6))), axis = 1)  # Pad H_sc to match full state size
                     if 'Stations' in self.integrator.mode:
                         ecef_to_eci = self.coordinate_mgr.compute_DCM('ECEF', 'ECI', time=time_vector[j])
@@ -193,6 +202,16 @@ class LKF:
                         station_partial_index = first_station_partial_index + i * 3
                         H_total[:, station_partial_index:station_partial_index+3] = H_station_ecef
 
+                    # Check considered measurements and adjust residuals and H
+                    if considered_measurements == 'Range':
+                        residual = residual[0].reshape(1,1)  # Only take range residual
+                        H_total = H_total[0,:].reshape(1, -1)
+                    elif considered_measurements == 'Range Rate':
+                        residual = residual[1].reshape(1,1)  # Only take range residual
+                        H_total = H_total[1,:].reshape(1, -1)
+                    else:
+                        pass
+                    measurement_residuals_matrix[:,:,i,j] = np.vstack(residual)
                     H_matrix[:,:,i,j] = H_total
 
                 residuals_df = residuals_df._append({'iteration': iteration, 'station': station_name, 'pre-fit': residual_vector, 'post-fit': np.nan}, ignore_index=True)
@@ -211,7 +230,7 @@ class LKF:
 
                 if np.isnan(current_measurement_residuals).all():
                     # No measurements available, propagate state and covariance
-                    x_hat, P, _ = self.predict(x_hat, P, phi, np.zeros((2,raw_state_length)), Q, R)
+                    x_hat, P, _ = self.predict(x_hat, P, phi, np.zeros((meas_number, raw_state_length)), Q, R)
                 else:
                     # Determine which stations are visible
                     visible_station_indices = []
@@ -228,7 +247,7 @@ class LKF:
                         visible_residuals.append(current_measurement_residuals[:,:,i])
                         visible_H.append(H_matrix[:,:,i,k])
                         visible_R.append(R)
-                
+
                     stacked_residuals = np.vstack(visible_residuals)
                     stacked_H = np.vstack(visible_H)
                     stacked_R = block_diag(*visible_R)
@@ -286,7 +305,7 @@ class LKF:
 
             np.set_printoptions(linewidth=200)
             print(f"Mean measurement residuals after iteration {iteration+1}: {mean_residual.flatten()} meters")
-            print(f"Current initial state estimate after iteration {iteration+1}: {x_0.flatten()}")
+            # print(f"Current initial state estimate after iteration {iteration+1}: {x_0.flatten()}")
 
             if np.all(np.abs(mean_residual) < convergence_threshold):
                 print("Convergence achieved based on measurement residuals.")
