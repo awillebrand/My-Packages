@@ -269,7 +269,7 @@ class LKF:
 
                 idx = residuals_df[mask].index[0]  # Get the index of the matching row
                 residuals_df.at[idx, 'post-fit'] = measurement_residuals
-                
+
             if 'Stations' in self.integrator.mode:
                 num_stations = self.integrator.number_of_stations
                 first_station_index = raw_state_length - 3 * num_stations

@@ -174,25 +174,25 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
     temp_A = A[0:6, 0:6]
     for value in mode:
         if 'mu' in value:
-            # Append mu partials to A
+            #  mu partials to A
             temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
             needed_column = A[0:temp_A.shape[0], 6].reshape((temp_A.shape[0],1))
             temp_A[:, -1] = needed_column.flatten()
             # A = A[np.ix_([0,1,2,3,4,5,6],[0,1,2,3,4,5,6])]
         if 'J2' in value:
-            # Append J2 partials to A. Needs to be done this way to maintain correct order
+            #  J2 partials to A. Needs to be done this way to maintain correct order
             temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
             needed_column = A[0:temp_A.shape[0], 7].reshape((temp_A.shape[0],1))
             temp_A[:, -1] = needed_column.flatten()
             #A = A[np.ix_([0,1,2,3,4,5,7],[0,1,2,3,4,5,7])]
         if 'J3' in value:
-            # Append J3 partials to A
+            #  J3 partials to A
             temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
             needed_column = A[0:temp_A.shape[0], 8].reshape((temp_A.shape[0],1))
             temp_A[:, -1] = needed_column.flatten()
             # A = A[np.ix_([0,1,2,3,4,5,8],[0,1,2,3,4,5,8])]
         if 'Drag' in value:
-            # Compute needed drag partials and append to A
+            # Compute needed drag partials and  to A
             temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
             a_xCd = -(rho * spacecraft_area * V_rel_norm * u_rel) / (2*spacecraft_mass)
             a_yCd = -(rho * spacecraft_area * V_rel_norm * v_rel) / (2*spacecraft_mass)
@@ -202,7 +202,7 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
             temp_A[4, -1] = a_yCd
             temp_A[5, -1] = a_zCd
         if 'Stations' in value:
-            # Append station partials to A, just adding 3 zero rows and columns per station
+            #  station partials to A, just adding 3 zero rows and columns per station
             for _ in range(station_positions_ecef.shape[0]):
                 temp_A = np.pad(temp_A, ((0,3),(0,3)), 'constant')
 
@@ -270,3 +270,39 @@ def measurement_jacobian(sat_state : np.array, station_state : np.array, earth_r
                           [rho_dot_x_station, rho_dot_y_station, rho_dot_z_station]])
     
     return H_sc, H_station
+
+def covariance_ellipse(center, cov_matrix, num_points=360):
+    """
+    This function computes the covariance ellipse for a N dimensional Gaussian distribution given its mean and covariance matrix.
+    Parameters:
+    center : np.Array
+        Array representing the mean (x, y, z) of the distribution.
+    cov_matrix : np.Array
+        3x3 covariance matrix for the x, y, and z dimensions.
+    num_points : int
+        Number of points to generate along the ellipse. Default is 360.
+    Returns:
+    ellipse_points : np.Array
+        Array of shape (num_points, N) containing the coordinates of the covariance ellipse.
+    """
+
+    # Eigenvalue decomposition of the covariance matrix
+    eigenvalues, eigenvectors = np.linalg.eig(cov_matrix)
+
+    # Sort the eigenvalues and corresponding eigenvectors
+    order = np.argsort(eigenvalues)[::-1]
+    eigenvalues = eigenvalues[order]
+    eigenvectors = eigenvectors[:, order]
+
+    # Generate points on a unit sphere
+    phi = np.linspace(0, np.pi, num_points)
+    theta = np.linspace(0, 2 * np.pi, num_points)
+    phi, theta = np.meshgrid(phi, theta)
+    x_sphere = np.sin(phi) * np.cos(theta)
+    y_sphere = np.sin(phi) * np.sin(theta)
+    z_sphere = np.cos(phi)
+
+    # Scale the unit sphere by the eigenvalues (which represent the lengths of the ellipse axes)
+    ellipse_points = eigenvectors @ np.diag(np.sqrt(eigenvalues)) @ np.array([x_sphere.flatten(), y_sphere.flatten(), z_sphere.flatten()])
+    
+    return ellipse_points.T + center

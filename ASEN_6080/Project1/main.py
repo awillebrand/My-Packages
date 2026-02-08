@@ -2,7 +2,7 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
-from ASEN_6080.Tools import Integrator, MeasurementMgr, CoordinateMgr, LKF, BatchLLSEstimator
+from ASEN_6080.Tools import Integrator, MeasurementMgr, CoordinateMgr, LKF, BatchLLSEstimator, covariance_ellipse
 from plotly.subplots import make_subplots
 
 measurements = pd.read_pickle(".\ASEN_6080\Project1\data\conditioned_measurements.pkl")
@@ -58,19 +58,44 @@ lkf_state_history, lkf_covariance_history, lkf_residuals_df = lkf.run(initial_st
                                                                       R=R, max_iterations=1,
                                                                       convergence_threshold=1e-9)
 
-breakpoint()
 # Integrate batch estimated initial state forward for comparison
-[_, batch_estimated_state_history] = integrator.integrate_stm(time_vector[-1], estimated_initial_state, time_vector)
+[_, batch_estimated_state_history] = integrator.integrate_stm(time_vector[-1], estimated_initial_state, teval=time_vector)
+
+covariance_history = np.zeros((18, 18, len(time_vector)))
+for i, time in enumerate(time_vector):
+    stm = batch_estimated_state_history[18:,i].reshape((18,18))
+    covariance_history[:,:,i] = stm @ estimated_covariance @ stm.T
+
 
 # Plot residual time history for each station
 colors_list = ['red', 'green', 'blue']
 residual_df_list = [batch_residuals_df, lkf_residuals_df]
-for residuals_df, filter_name in zip(residual_df_list, ['Batch LLS Filter', 'LKF']):
+for residuals_df, filter_name in zip(residual_df_list, ['Batch Filter', 'LKF']):
     for iteration in range(residuals_df['iteration'].max()+1):
-        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=('Range Residuals', 'Range Rate Residuals'))
+        # Combine station residuals into a single vector for RMS calculation, this can be done by adding all the station residuals together for the given iteration (since none overlap in timing)
+        relevant_residuals = residuals_df[residuals_df['iteration'] == iteration]['pre-fit'].values.copy()
+        for i in range(len(residuals_df['station'].unique())):
+            # Set any NaN values to zero for RMS calculation
+            relevant_residuals[i][np.isnan(relevant_residuals[i])] = 0.0
+        
+        # Sum the residuals across stations to get a single residual vector for the iteration
+        combined_residuals = np.sum(relevant_residuals, axis=0)
+
+        # Reset zeros to NaN so they aren't included in RMS calculation
+        combined_residuals[combined_residuals == 0.0] = np.nan
+        
+        # Compute RMS of combined residuals for the iteration
+        rms_range_residual = np.sqrt(np.abs(np.nanmean(combined_residuals[0,:]*10000 **2))) # Convert from km to cm for RMS calculation
+        rms_range_rate_residual = np.sqrt(np.abs(np.nanmean(combined_residuals[1,:]*1E6 **2))) # Convert from km/s to mm/s for RMS calculation
+
+        # Reset zeros to NaN in individual station residuals as well for accurate RMS calculation
+        for i in range(len(residuals_df['station'].unique())):
+            # Set any NaN values to zero for RMS calculation
+            relevant_residuals[i][relevant_residuals[i] == 0.0] = np.nan
+
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=(f'Range Residuals (RMS = {rms_range_residual:.4f} cm)', f'Range Rate Residuals (RMS = {rms_range_rate_residual:4f} mm/s)'))
         for i, station_name in enumerate(residuals_df['station'].unique()):
             mask = (residuals_df['iteration'] == iteration) & (residuals_df['station'] == station_name)
-
             pre_fit_residuals = np.vstack(residuals_df[mask]['pre-fit'])
             fig.add_trace(go.Scatter(x=time_vector, y=pre_fit_residuals[0,:]*100000, mode='markers', name=f'{station_name}', marker=dict(color=colors_list[i])), row=1, col=1)
             fig.add_trace(go.Scatter(x=time_vector, y=pre_fit_residuals[1,:]*1E6, mode='markers', name=f'{station_name}', marker=dict(color=colors_list[i]), showlegend=False), row=2, col=1)
@@ -87,10 +112,31 @@ for residuals_df, filter_name in zip(residual_df_list, ['Batch LLS Filter', 'LKF
                                     y=1.2,
                                     xanchor="left",
                                     x=0.87))
-        fig.show()
+        fig.write_html(f"ASEN_6080/Project1/figures/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}.html")
 
     for iteration in range(residuals_df['iteration'].max()+1):
-        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=('Range Residuals', 'Range Rate Residuals'))
+        # Combine station residuals into a single vector for RMS calculation, this can be done by adding all the station residuals together for the given iteration (since none overlap in timing)
+        relevant_residuals = residuals_df[residuals_df['iteration'] == iteration]['pre-fit'].values.copy()
+        for i in range(len(residuals_df['station'].unique())):
+            # Set any NaN values to zero for RMS calculation
+            relevant_residuals[i][np.isnan(relevant_residuals[i])] = 0.0
+        
+        # Sum the residuals across stations to get a single residual vector for the iteration
+        combined_residuals = np.sum(relevant_residuals, axis=0)
+
+        # Reset zeros to NaN so they aren't included in RMS calculation
+        combined_residuals[combined_residuals == 0.0] = np.nan
+        
+        # Compute RMS of combined residuals for the iteration
+        rms_range_residual = np.sqrt(np.abs(np.nanmean(combined_residuals[0,:]*10000 **2))) # Convert from km to cm for RMS calculation
+        rms_range_rate_residual = np.sqrt(np.abs(np.nanmean(combined_residuals[1,:]*1E6 **2))) # Convert from km/s to mm/s for RMS calculation
+
+        # Reset zeros to NaN in individual station residuals as well for accurate RMS calculation
+        for i in range(len(residuals_df['station'].unique())):
+            # Set any NaN values to zero for RMS calculation
+            relevant_residuals[i][relevant_residuals[i] == 0.0] = np.nan
+
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=(f'Range Residuals (RMS = {rms_range_residual:.4f} cm)', f'Range Rate Residuals (RMS = {rms_range_rate_residual:4f} mm/s)'))
         for i, station_name in enumerate(residuals_df['station'].unique()):
             mask = (residuals_df['iteration'] == iteration) & (residuals_df['station'] == station_name)
 
@@ -110,13 +156,68 @@ for residuals_df, filter_name in zip(residual_df_list, ['Batch LLS Filter', 'LKF
                                     y=1.2,
                                     xanchor="left",
                                     x=0.87))
-        fig.show()
+        fig.write_html(f"ASEN_6080/Project1/figures/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}.html")
 
-# Plot state history for batch LLS and LKF
+# Plot state history difference for batch LLS and LKF
 state_labels = ['x (km)', 'y (km)', 'z (km)', 'vx (km/s)', 'vy (km/s)', 'vz (km/s)', 'mu (km^3/s^2)', 'J2', 'C_d', 'Station 1 x (km)', 'Station 1 y (km)', 'Station 1 z (km)', 'Station 2 x (km)', 'Station 2 y (km)', 'Station 2 z (km)', 'Station 3 x (km)', 'Station 3 y (km)', 'Station 3 z (km)']
-for i in range(17):
+file_labels = ['x', 'y', 'z', 'vx', 'vy', 'vz', 'mu', 'J2', 'C_d', 'station_1_x', 'station_1_y', 'station_1_z', 'station_2_x', 'station_2_y', 'station_2_z', 'station_3_x', 'station_3_y', 'station_3_z']
+for i in range(18):
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=time_vector, y=batch_estimated_state_history[i,:], mode='lines', name='Batch LLS Estimate'))
-    fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_history[i,:], mode='lines', name='LKF Estimate'))
-    fig.update_layout(title=f"State Component {state_labels[i]} Over Time", xaxis_title='Time (s)', yaxis_title=state_labels[i])
-    fig.write_html(f"ASEN_6080/Project1/figures/{state_labels[i]}_time_histories.html")
+    diff = batch_estimated_state_history[i,:] - lkf_state_history[i,:]
+    fig.add_trace(go.Scatter(x=time_vector, y=diff, mode='lines', name='Difference Between Estimates'))
+    fig.update_layout(title=f"State Component {state_labels[i]} Over Time",
+                      xaxis_title='Time (s)',
+                      yaxis_title=state_labels[i],
+                      title_font=dict(size=28),
+                        width=1200,
+                        height=800,
+                        legend=dict(font=dict(size=18),
+                                    yanchor="top",
+                                    y=1.2,
+                                    xanchor="left",
+                                    x=0.87))
+    fig.update_yaxes(showexponent="all", exponentformat="e")
+    fig.write_html(f"ASEN_6080/Project1/figures/{file_labels[i]}_time_histories.html")
+
+# Plot trace of satellite state covariance using log scale for better visualization
+fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=('Position Covariance Trace', 'Velocity Covariance Trace'))
+trace_pos = np.trace(lkf_covariance_history[:3,:3,:])
+trace_vel = np.trace(lkf_covariance_history[3:6,3:6,:])
+fig.add_trace(go.Scatter(x=time_vector, y=trace_pos, mode='lines', name='Satellite Position'), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=trace_vel, mode='lines', name='Satellite Velocity'), row=2, col=1)
+fig.update_yaxes(type="log", showexponent="all", exponentformat="e", title_text=f'Covariance Trace (km^2)', row=1, col=1)
+fig.update_yaxes(type="log", showexponent="all", exponentformat="e", title_text=f'Covariance Trace (km^2/s^2)', row=2, col=1)
+    
+fig.update_layout(title=f"Covariance for Satellite States Over Time",
+                    xaxis_title='Time (s)',
+                    title_font=dict(size=28),
+                    width=1200,
+                    height=800,
+                    legend=dict(font=dict(size=18),
+                                yanchor="top",
+                                y=1.2,
+                                xanchor="left",
+                                x=0.87))
+fig.update_yaxes(showexponent="all", exponentformat="e")
+fig.write_html(f"ASEN_6080/Project1/figures/covariance_traces.html")
+
+# Plot covariance ellipse for satellite position at final time step
+batch_center = batch_estimated_state_history[:3,-1]
+lkf_center = lkf_state_history[:3,-1]
+batch_pos_covariance_ellipse = covariance_ellipse(batch_center, covariance_history[:3,:3,-1])
+lkf_pos_covariance_ellipse = covariance_ellipse(lkf_center, lkf_covariance_history[:3,:3,-1])
+
+# Plot 3D ellipses
+fig = go.Figure()
+fig.add_trace(go.Scatter3d(x=batch_pos_covariance_ellipse[0,:], y=batch_pos_covariance_ellipse[1,:], z=batch_pos_covariance_ellipse[2,:], mode='markers', name='Batch LLS Position Covariance Ellipse'))
+fig.add_trace(go.Scatter3d(x=lkf_pos_covariance_ellipse[0,:], y=lkf_pos_covariance_ellipse[1,:], z=lkf_pos_covariance_ellipse[2,:], mode='markers', name='LKF Position Covariance Ellipse'))
+fig.update_layout(title=f"Satellite Position Covariance Ellipse at Final Time Step",
+                    title_font=dict(size=28),
+                    width=1200,
+                    height=800,
+                    legend=dict(font=dict(size=18),
+                                yanchor="top",
+                                y=1.2,
+                                xanchor="left",
+                                x=0.87))
+fig.write_html(f"ASEN_6080/Project1/figures/position_covariance_ellipses.html")
