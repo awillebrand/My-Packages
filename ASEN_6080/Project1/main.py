@@ -210,7 +210,7 @@ lkf_pos_covariance_ellipse = covariance_ellipse(lkf_center, lkf_covariance_histo
 # Plot 3D ellipses
 fig = go.Figure()
 fig.add_trace(go.Scatter3d(x=batch_pos_covariance_ellipse[:,0], y=batch_pos_covariance_ellipse[:,1], z=batch_pos_covariance_ellipse[:,2], mode='markers', name='Batch LLS Position Covariance Ellipse'))
-fig.add_trace(go.Scatter3d(x=lkf_pos_covariance_ellipse[:,0], y=lkf_pos_covariance_ellipse[:,1], z=lkf_pos_covariance_ellipse[:,2], mode='markers', name='LKF Position Covariance Ellipse'))
+#fig.add_trace(go.Scatter3d(x=lkf_pos_covariance_ellipse[:,0], y=lkf_pos_covariance_ellipse[:,1], z=lkf_pos_covariance_ellipse[:,2], mode='markers', name='LKF Position Covariance Ellipse'))
 fig.update_layout(title=f"Satellite Position Covariance Ellipse at Final Time Step",
                     title_font=dict(size=28),
                     width=1200,
@@ -219,5 +219,12 @@ fig.update_layout(title=f"Satellite Position Covariance Ellipse at Final Time St
                                 yanchor="top",
                                 y=1.2,
                                 xanchor="left",
-                                x=0.87))
+                                x=0.87),
+                    scene=dict(xaxis_title='X Position (km)',
+                               yaxis_title='Y Position (km)',
+                               zaxis_title='Z Position (km)',
+                               xaxis=dict(showexponent="all", exponentformat="e", range=[batch_center[0]-2e-5, batch_center[0]+2e-5]),
+                               yaxis=dict(showexponent="all", exponentformat="e", range=[batch_center[1]-2e-5, batch_center[1]+2e-5]),
+                               zaxis=dict(showexponent="all", exponentformat="e", range=[batch_center[2]-2e-5, batch_center[2]+2e-5])))
+
 fig.write_html(f"ASEN_6080/Project1/figures/position_covariance_ellipses.html")

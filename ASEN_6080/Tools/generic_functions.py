@@ -293,7 +293,6 @@ def covariance_ellipse(center, cov_matrix, num_points=120):
     order = np.argsort(eigenvalues)[::-1]
     eigenvalues = eigenvalues[order]
     eigenvectors = eigenvectors[:, order]
-
     # Generate points on a unit sphere
     phi = np.linspace(0, np.pi, num_points)
     theta = np.linspace(0, 2 * np.pi, num_points)
