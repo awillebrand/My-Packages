@@ -52,18 +52,19 @@ estimated_initial_state, estimated_covariance, batch_residuals_df = batch_estima
     tol=1E-6,
     considered_measurements='All')
 
+# Reset measurement managers positions
+for i, mgr in enumerate(batch_estimator.measurement_mgrs):
+    mgr.station_state_ecef[0:3] = station_positions_ecef[i]
+    mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(mgr.station_state_ecef)
+
 lkf = LKF(integrator, station_mgr_list, initial_earth_spin_angle=0.0, earth_rotation_rate=earth_spin_rate)
 lkf_state_history, lkf_covariance_history, lkf_residuals_df = lkf.run(initial_state_estimate,
                                                                       np.zeros_like(initial_state_estimate),
                                                                       a_priori_covariance, measurements,
                                                                       R=R, max_iterations=1,
+
                                                                       convergence_threshold=1e-9,
                                                                       considered_measurements='All')
-
-# Reset measurement managers positions
-for i, mgr in enumerate(batch_estimator.measurement_mgrs):
-    mgr.station_state_ecef[0:3] = station_positions_ecef[i]
-    mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(mgr.station_state_ecef)
 
 for i, mgr in enumerate(lkf.measurement_mgrs):
     mgr.station_state_ecef[0:3] = station_positions_ecef[i]
@@ -129,9 +130,14 @@ non_fixed_batch_estimated_initial_state, non_fixed_estimated_covariance, non_fix
     a_priori_covariance=a_priori_covariance,
     measurement_data=measurements,
     R=R,
-    max_iterations=3,
+    max_iterations=4,
     tol=1E-6,
     considered_measurements='All')
+
+# Reset measurement managers positions
+for i, mgr in enumerate(batch_estimator.measurement_mgrs):
+    mgr.station_state_ecef[0:3] = station_positions_ecef[i]
+    mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(mgr.station_state_ecef)
 
 non_fixed_lkf_state_history, non_fixed_lkf_covariance_history, non_fixed_lkf_residuals_df = lkf.run(initial_state_estimate,
                                                                         np.zeros_like(initial_state_estimate),
@@ -140,15 +146,28 @@ non_fixed_lkf_state_history, non_fixed_lkf_covariance_history, non_fixed_lkf_res
                                                                         convergence_threshold=1e-9,
                                                                         considered_measurements='All')
 
+for i, mgr in enumerate(lkf.measurement_mgrs):
+    mgr.station_state_ecef[0:3] = station_positions_ecef[i]
+    mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(mgr.station_state_ecef)
+
+# Fixing Station 337
+a_prior_covariance = np.diag([1, 1, 1, 1, 1, 1, 1E2, 1E6, 1E6, 1, 1, 1, 1E-16, 1E-16, 1E-16, 1, 1, 1])  # Given a priori covariance
+
+fixed_station_2_batch_estimated_initial_state, fixed_station_2_estimated_covariance, fixed_station_2_batch_residuals_df = batch_estimator.estimate_initial_state(
+    a_priori_state=initial_state_estimate,
+    a_priori_covariance=a_prior_covariance,
+    measurement_data=measurements,
+    R=R,
+    max_iterations=4,
+    tol=1E-6,
+    considered_measurements='All')
+
 # Reset measurement managers positions
 for i, mgr in enumerate(batch_estimator.measurement_mgrs):
     mgr.station_state_ecef[0:3] = station_positions_ecef[i]
     mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(mgr.station_state_ecef)
 
-for i, mgr in enumerate(lkf.measurement_mgrs):
-    mgr.station_state_ecef[0:3] = station_positions_ecef[i]
-    mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(mgr.station_state_ecef)
-
+# Fixing Station 394
 a_prior_covariance = np.diag([1, 1, 1, 1, 1, 1, 1E2, 1E6, 1E6, 1, 1, 1, 1, 1, 1, 1E-16, 1E-16, 1E-16])  # Given a priori covariance
 
 fixed_station_3_batch_estimated_initial_state, fixed_station_3_estimated_covariance, fixed_station_3_batch_residuals_df = batch_estimator.estimate_initial_state(
@@ -156,9 +175,14 @@ fixed_station_3_batch_estimated_initial_state, fixed_station_3_estimated_covaria
     a_priori_covariance=a_prior_covariance,
     measurement_data=measurements,
     R=R,
-    max_iterations=3,
+    max_iterations=4,
     tol=1E-6,
     considered_measurements='All')
+
+# Reset measurement managers positions
+for i, mgr in enumerate(batch_estimator.measurement_mgrs):
+    mgr.station_state_ecef[0:3] = station_positions_ecef[i]
+    mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(mgr.station_state_ecef)
 
 fixed_station_3_lkf_state_history, fixed_station_3_lkf_covariance_history, fixed_station_3_lkf_residuals_df = lkf.run(initial_state_estimate,
                                                                         np.zeros_like(initial_state_estimate),
@@ -167,14 +191,74 @@ fixed_station_3_lkf_state_history, fixed_station_3_lkf_covariance_history, fixed
                                                                         convergence_threshold=1e-9,
                                                                         considered_measurements='All')
 
-# Reset measurement managers positions
-for i, mgr in enumerate(batch_estimator.measurement_mgrs):
+for i, mgr in enumerate(lkf.measurement_mgrs):
     mgr.station_state_ecef[0:3] = station_positions_ecef[i]
     mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(mgr.station_state_ecef)
+
+# Changing a priori covariance to be more compatible with actual errors
+a_priori_covariance = np.diag([1E-3, 1E-3, 1E-3, 1E-3, 1E-3, 1E-3, 1, 1E-4, 10, 1E-8, 1E-8, 1E-8, 1E-1, 1E-1, 1E-1, 1E-1, 1E-1, 1E-1])**2  # Altered a priori covariance
+
+reasonable_batch_estimated_initial_state, reasonable_estimated_covariance, reasonable_batch_residuals_df = batch_estimator.estimate_initial_state(
+    a_priori_state=initial_state_estimate,
+    a_priori_covariance=a_priori_covariance,
+    measurement_data=measurements,
+    R=R,
+    max_iterations=3,
+    tol=1E-6,
+    considered_measurements='All')
 
 for i, mgr in enumerate(lkf.measurement_mgrs):
     mgr.station_state_ecef[0:3] = station_positions_ecef[i]
     mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(mgr.station_state_ecef)
+
+reasonable_lkf_state_history, reasonable_lkf_covariance_history, reasonable_lkf_residuals_df = lkf.run(initial_state_estimate,
+                                                                        np.zeros_like(initial_state_estimate),
+                                                                        a_priori_covariance, measurements,
+                                                                        R=R, max_iterations=1,
+                                                                        convergence_threshold=1e-9,
+                                                                        considered_measurements='All')
+
+for i, mgr in enumerate(lkf.measurement_mgrs):
+    mgr.station_state_ecef[0:3] = station_positions_ecef[i]
+    mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(mgr.station_state_ecef)
+
+# Change data noise covariance to be larger than truth
+a_priori_covariance = np.diag([1, 1, 1, 1, 1, 1, 1E2, 1E6, 1E6, 1E-16, 1E-16, 1E-16, 1, 1, 1, 1, 1, 1])  # Given a priori covariance
+R = np.diag([1E-4**2, 1E-5**2])  # Noise covariance matrix for range and range rate. Corresponds to 10 cm range noise and 10 mm/s range rate noise.
+underconfident_batch_estimated_initial_state, underconfident_estimated_covariance, underconfident_batch_residuals_df = batch_estimator.estimate_initial_state(
+    a_priori_state=initial_state_estimate,
+    a_priori_covariance=a_priori_covariance,
+    measurement_data=measurements,
+    R=R,
+    max_iterations=3,
+    tol=1E-6,
+    considered_measurements='All')
+
+for i, mgr in enumerate(lkf.measurement_mgrs):
+    mgr.station_state_ecef[0:3] = station_positions_ecef[i]
+    mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(mgr.station_state_ecef)
+
+underconfident_lkf_state_history, underconfident_lkf_covariance_history, underconfident_lkf_residuals_df = lkf.run(initial_state_estimate,
+                                                                        np.zeros_like(initial_state_estimate),
+                                                                        a_priori_covariance, measurements,
+                                                                        R=R, max_iterations=1,
+                                                                        convergence_threshold=1e-9,
+                                                                        considered_measurements='All')
+
+for i, mgr in enumerate(lkf.measurement_mgrs):
+    mgr.station_state_ecef[0:3] = station_positions_ecef[i]
+    mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(mgr.station_state_ecef)
+
+# Change data noise covariance to be smaller than truth
+R = np.diag([1E-6**2, 1E-7**2])  # Noise covariance matrix for range and range rate. Corresponds to 0.1 cm range noise and 0.1 mm/s range rate noise.
+overconfident_batch_estimated_initial_state, overconfident_estimated_covariance, overconfident_batch_residuals_df = batch_estimator.estimate_initial_state(
+    a_priori_state=initial_state_estimate,
+    a_priori_covariance=a_priori_covariance,
+    measurement_data=measurements,
+    R=R,
+    max_iterations=3,
+    tol=1E-6,
+    considered_measurements='All')
 
 # Update measurement managers to new estimated initial state for covariance propagation
 for i, mgr in enumerate(station_mgr_list):
@@ -182,254 +266,501 @@ for i, mgr in enumerate(station_mgr_list):
     mgr.station_state_ecef[0:3] = new_station_position
     mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(new_station_position)
 
+overconfident_lkf_state_history, overconfident_lkf_covariance_history, overconfident_lkf_residuals_df = lkf.run(initial_state_estimate,
+                                                                        np.zeros_like(initial_state_estimate),
+                                                                        a_priori_covariance, measurements,
+                                                                        R=R, max_iterations=1,
+                                                                        convergence_threshold=1e-9,
+                                                                        considered_measurements='All')
+
+for i, mgr in enumerate(lkf.measurement_mgrs):
+    mgr.station_state_ecef[0:3] = station_positions_ecef[i]
+    mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(mgr.station_state_ecef)
+
 # Integrate batch estimated initial state forward for comparison
 [_, batch_estimated_state_history] = integrator.integrate_stm(time_vector[-1], estimated_initial_state, teval=time_vector)
 [_, range_batch_estimated_state_history] = integrator.integrate_stm(time_vector[-1], range_estimated_initial_state, teval=time_vector)
 [_, range_rate_batch_estimated_state_history] = integrator.integrate_stm(time_vector[-1], range_rate_estimated_initial_state, teval=time_vector)
 [_, non_fixed_batch_estimated_state_history] = integrator.integrate_stm(time_vector[-1], non_fixed_batch_estimated_initial_state, teval=time_vector)
+[_, fixed_station_2_batch_estimated_state_history] = integrator.integrate_stm(time_vector[-1], fixed_station_2_batch_estimated_initial_state, teval=time_vector)
 [_, fixed_station_3_batch_estimated_state_history] = integrator.integrate_stm(time_vector[-1], fixed_station_3_batch_estimated_initial_state, teval=time_vector)
+[_, reasonable_batch_estimated_state_history] = integrator.integrate_stm(time_vector[-1], reasonable_batch_estimated_initial_state, teval=time_vector)
+[_, underconfident_batch_estimated_state_history] = integrator.integrate_stm(time_vector[-1], underconfident_batch_estimated_initial_state, teval=time_vector)
+[_, overconfident_batch_estimated_state_history] = integrator.integrate_stm(time_vector[-1], overconfident_batch_estimated_initial_state, teval=time_vector)
 
 covariance_history = np.zeros((18, 18, len(time_vector)))
-for i, time in enumerate(time_vector):
-    stm = batch_estimated_state_history[18:,i].reshape((18,18))
-    covariance_history[:,:,i] = stm @ estimated_covariance @ stm.T
+range_covariance_history = np.zeros((18, 18, len(time_vector)))
+range_rate_covariance_history = np.zeros((18, 18, len(time_vector)))
+non_fixed_covariance_history = np.zeros((18, 18, len(time_vector)))
+fixed_station_2_covariance_history = np.zeros((18, 18, len(time_vector)))
+fixed_station_3_covariance_history = np.zeros((18, 18, len(time_vector)))
+reasonable_covariance_history = np.zeros((18, 18, len(time_vector)))
+underconfident_covariance_history = np.zeros((18, 18, len(time_vector)))
+overconfident_covariance_history = np.zeros((18, 18, len(time_vector)))
 
+for i, time in enumerate(time_vector):
+    stm_batch = batch_estimated_state_history[18:,i].reshape((18,18))
+    covariance_history[:,:,i] = stm_batch @ estimated_covariance @ stm_batch.T
+    stm_range = range_batch_estimated_state_history[18:,i].reshape((18,18))
+    range_covariance_history[:,:,i] = stm_range @ range_estimated_initial_covariance @ stm_range.T
+    stm_range_rate = range_rate_batch_estimated_state_history[18:,i].reshape((18,18))
+    range_rate_covariance_history[:,:,i] = stm_range_rate @ range_rate_estimated_initial_covariance @ stm_range_rate.T
+    stm_non_fixed = non_fixed_batch_estimated_state_history[18:,i].reshape((18,18))
+    non_fixed_covariance_history[:,:,i] = stm_non_fixed @ non_fixed_estimated_covariance @ stm_non_fixed.T
+    stm_fixed_station_2 = fixed_station_2_batch_estimated_state_history[18:,i].reshape((18,18))
+    fixed_station_2_covariance_history[:,:,i] = stm_fixed_station_2 @ fixed_station_2_estimated_covariance @ stm_fixed_station_2.T
+    stm_fixed_station_3 = fixed_station_3_batch_estimated_state_history[18:,i].reshape((18,18))
+    fixed_station_3_covariance_history[:,:,i] = stm_fixed_station_3 @ fixed_station_3_estimated_covariance @ stm_fixed_station_3.T
+    stm_reasonable = reasonable_batch_estimated_state_history[18:,i].reshape((18,18))
+    reasonable_covariance_history[:,:,i] = stm_reasonable @ reasonable_estimated_covariance @ stm_reasonable.T
+    stm_underconfident = underconfident_batch_estimated_state_history[18:,i].reshape((18,18))
+    underconfident_covariance_history[:,:,i] = stm_underconfident @ underconfident_estimated_covariance @ stm_underconfident.T
+    stm_overconfident = overconfident_batch_estimated_state_history[18:,i].reshape((18,18))
+    overconfident_covariance_history[:,:,i] = stm_overconfident @ overconfident_estimated_covariance @ stm_overconfident.T
+
+print("----------------------------------------------------")
+print("Batch LLS Estimated Final State:")
+print(batch_estimated_state_history[:18,-1])
+print("Diagonal of Batch LLS Estimated Final Covariance:")
+print(np.diag(covariance_history[:,:,-1]))
+print("---------------------------------------------------")
+print("LKF Estimated Final State:")
+print(lkf_state_history[:18,-1])
+print("Diagonal of LKF Estimated Final Covariance:")
+print(np.diag(lkf_covariance_history[:,:,-1]))
+print("---------------------------------------------------")
+print("Batch LLS (Range Only) Estimated Final State:")
+print(range_batch_estimated_state_history[:18,-1])
+print("Diagonal of Batch LLS (Range Only) Estimated Final Covariance:")
+print(np.diag(range_covariance_history[:,:,-1]))
+print("---------------------------------------------------")
+print("Batch LLS (Range Rate Only) Estimated Final State:")
+print(range_rate_batch_estimated_state_history[:18,-1])
+print("Diagonal of Batch LLS (Range Rate Only) Estimated Final Covariance:")
+print(np.diag(range_rate_covariance_history[:,:,-1]))
+print("---------------------------------------------------")
+print("Batch LLS (No-Fixed Stations) Estimated Final State:")   
+print(non_fixed_batch_estimated_state_history[:18,-1])
+print("Diagonal of Batch LLS (No-Fixed Stations) Estimated Final Covariance:")
+print(np.diag(non_fixed_covariance_history[:,:,-1]))
+print("---------------------------------------------------")
+print("Batch LLS (Station 2 Fixed) Estimated Final State:")
+print(fixed_station_2_batch_estimated_state_history[:18,-1])
+print("Diagonal of Batch LLS (Station 2 Fixed) Estimated Final Covariance:")
+print(np.diag(fixed_station_2_covariance_history[:,:,-1]))
+print("---------------------------------------------------")
+print("Batch LLS (Station 3 Fixed) Estimated Final State:")
+print(fixed_station_3_batch_estimated_state_history[:18,-1])
+print("Diagonal of Batch LLS (Station 3 Fixed) Estimated Final Covariance:")
+print(np.diag(fixed_station_3_covariance_history[:,:,-1]))
+print("---------------------------------------------------")
+print("Batch LLS (Reasonable A Priori Covariance) Estimated Final State:")
+print(reasonable_batch_estimated_state_history[:18,-1])
+print("Diagonal of Batch LLS (Reasonable A Priori Covariance) Estimated Final Covariance:")
+print(np.diag(reasonable_covariance_history[:,:,-1]))
+print("---------------------------------------------------")
+print("LKF (Reasonable A Priori Covariance) Estimated Final State:")
+print(reasonable_lkf_state_history[:18,-1])
+print("Diagonal of LKF (Reasonable A Priori Covariance) Estimated Final Covariance:")
+print(np.diag(reasonable_lkf_covariance_history[:,:,-1]))
+print("---------------------------------------------------")
+print("Batch LLS (Underconfident Data Noise) Estimated Final State:")
+print(underconfident_batch_estimated_state_history[:18,-1])
+print("Diagonal of Batch LLS (Underconfident Data Noise) Estimated Final Covariance:")
+print(np.diag(underconfident_covariance_history[:,:,-1]))
+print("---------------------------------------------------")
+print("LKF (Underconfident Data Noise) Estimated Final State:")
+print(underconfident_lkf_state_history[:18,-1])
+print("Diagonal of LKF (Underconfident Data Noise) Estimated Final Covariance:")
+print(np.diag(underconfident_lkf_covariance_history[:,:,-1]))
+print("---------------------------------------------------")
+print("Batch LLS (Overconfident Data Noise) Estimated Final State:")
+print(overconfident_batch_estimated_state_history[:18,-1])
+print("Diagonal of Batch LLS (Overconfident Data Noise) Estimated Final Covariance:")
+print(np.diag(overconfident_covariance_history[:,:,-1]))
+print("---------------------------------------------------")
+print("LKF (Overconfident Data Noise) Estimated Final State:")
+print(overconfident_lkf_state_history[:18,-1])
+print("Diagonal of LKF (Overconfident Data Noise) Estimated Final Covariance:")
+print(np.diag(overconfident_lkf_covariance_history[:,:,-1]))
+print("---------------------------------------------------")
 # PLOTTING -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-# Plot residual time history for each station
-colors_list = ['red', 'green', 'blue']
-residual_df_list = [batch_residuals_df,
-                    lkf_residuals_df,
-                    range_batch_residuals_df,
-                    range_lkf_residuals_df,
-                    range_rate_batch_residuals_df,
-                    range_rate_lkf_residuals_df,
-                    non_fixed_batch_residuals_df,
-                    non_fixed_lkf_residuals_df,
-                    fixed_station_3_batch_residuals_df,
-                    fixed_station_3_lkf_residuals_df]
-filter_names = ['Batch Filter', 'LKF', 'Batch Filter (Range Only)', 'LKF (Range Only)', 'Batch Filter (Range Rate Only)', 'LKF (Range Rate Only)', 'Batch Filter (No-Fixed Stations)', 'LKF (No-Fixed Stations)', 'Batch Filter (Station 3 Fixed)', 'LKF (Station 3 Fixed)']
-for residuals_df, filter_name in zip(residual_df_list, filter_names):
-    for iteration in range(residuals_df['iteration'].max()+1):
-        # Combine station residuals into a single vector for RMS calculation, this can be done by adding all the station residuals together for the given iteration (since none overlap in timing)
-        relevant_residuals = residuals_df[residuals_df['iteration'] == iteration]['pre-fit'].values.copy()
-        for i in range(len(residuals_df['station'].unique())):
-            # Set any NaN values to zero for RMS calculation
-            relevant_residuals[i][np.isnan(relevant_residuals[i])] = 0.0
+# # Plot residual time history for each station
+# colors_list = ['red', 'green', 'blue']
+# residual_df_list = [batch_residuals_df,
+#                     lkf_residuals_df,
+#                     range_batch_residuals_df,
+#                     range_lkf_residuals_df,
+#                     range_rate_batch_residuals_df,
+#                     range_rate_lkf_residuals_df,
+#                     non_fixed_batch_residuals_df,
+#                     non_fixed_lkf_residuals_df,
+#                     fixed_station_2_batch_residuals_df,
+#                     fixed_station_3_batch_residuals_df,
+#                     fixed_station_3_lkf_residuals_df,
+#                     reasonable_batch_residuals_df,
+#                     reasonable_lkf_residuals_df,
+#                     underconfident_batch_residuals_df,
+#                     underconfident_lkf_residuals_df,
+#                     overconfident_batch_residuals_df,
+#                     overconfident_lkf_residuals_df]
+
+# filter_names = ['Batch Filter',
+#                 'LKF',
+#                 'Batch Filter (Range Only)',
+#                 'LKF (Range Only)',
+#                 'Batch Filter (Range Rate Only)',
+#                 'LKF (Range Rate Only)',
+#                 'Batch Filter (No-Fixed Stations)',
+#                 'LKF (No-Fixed Stations)',
+#                 'Batch Filter (Station 2 Fixed)',
+#                 'Batch Filter (Station 3 Fixed)',
+#                 'LKF (Station 3 Fixed)',
+#                 'Batch Filter (Reasonable A Priori Covariance)',
+#                 'LKF (Reasonable A Priori Covariance)',
+#                 'Batch Filter (Underconfident Data Noise)',
+#                 'LKF (Underconfident Data Noise)',
+#                 'Batch Filter (Overconfident Data Noise)',
+#                 'LKF (Overconfident Data Noise)']
+# for residuals_df, filter_name in zip(residual_df_list, filter_names):
+#     for iteration in range(residuals_df['iteration'].max()+1):
+#         # Combine station residuals into a single vector for RMS calculation, this can be done by adding all the station residuals together for the given iteration (since none overlap in timing)
+#         relevant_residuals = residuals_df[residuals_df['iteration'] == iteration]['pre-fit'].values.copy()
+#         for i in range(len(residuals_df['station'].unique())):
+#             # Set any NaN values to zero for RMS calculation
+#             relevant_residuals[i][np.isnan(relevant_residuals[i])] = 0.0
         
-        # Sum the residuals across stations to get a single residual vector for the iteration
-        combined_residuals = np.sum(relevant_residuals, axis=0)
+#         # Sum the residuals across stations to get a single residual vector for the iteration
+#         combined_residuals = np.sum(relevant_residuals, axis=0)
 
-        # Reset zeros to NaN so they aren't included in RMS calculation
-        combined_residuals[combined_residuals == 0.0] = np.nan
+#         # Reset zeros to NaN so they aren't included in RMS calculation
+#         combined_residuals[combined_residuals == 0.0] = np.nan
         
-        # Compute RMS of combined residuals for the iteration
-        rms_range_residual = np.sqrt(np.abs(np.nanmean(combined_residuals[0,:]*10000 **2))) # Convert from km to cm for RMS calculation
-        rms_range_rate_residual = np.sqrt(np.abs(np.nanmean(combined_residuals[1,:]*1E6 **2))) # Convert from km/s to mm/s for RMS calculation
+#         # Compute RMS of combined residuals for the iteration
+#         rms_range_residual = np.sqrt(np.abs(np.nanmean((combined_residuals[0,:]*1E5) **2))) # Convert from km to cm for RMS calculation
+#         rms_range_rate_residual = np.sqrt(np.abs(np.nanmean((combined_residuals[1,:]*1E6) **2))) # Convert from km/s to mm/s for RMS calculation
 
-        # Reset zeros to NaN in individual station residuals as well for accurate RMS calculation
-        for i in range(len(residuals_df['station'].unique())):
-            # Set any NaN values to zero for RMS calculation
-            relevant_residuals[i][relevant_residuals[i] == 0.0] = np.nan
+#         # Find mean and standard deviation of range and range rate residuals for the iteration
+#         mean_range_residual = np.nanmean(combined_residuals[0,:]*1E5) # Convert from km to cm for mean calculation
+#         std_range_residual = np.nanstd(combined_residuals[0,:]*1E5) # Convert from km to cm for std calculation
+#         mean_range_rate_residual = np.nanmean(combined_residuals[1,:]*1E6) # Convert from km/s to mm/s for mean calculation
+#         std_range_rate_residual = np.nanstd(combined_residuals[1,:]*1E6) # Convert from km/s to mm/s for std calculation
+#         print(f"Pre-fit {filter_name} Iteration {iteration+1}:")
+#         print(f"Range Residuals: Mean = {mean_range_residual:.4f} cm, Std Dev = {std_range_residual:.4f} cm, RMS = {rms_range_residual:.4f} cm")
+#         print(f"Range Rate Residuals: Mean = {mean_range_rate_residual:.4f} mm/s, Std Dev = {std_range_rate_residual:.4f} mm/s, RMS = {rms_range_rate_residual:.4f} mm/s")
+#         print("--------------------------------------------------")
 
-        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=(f'Range Residuals (RMS = {rms_range_residual:.4f} cm)', f'Range Rate Residuals (RMS = {rms_range_rate_residual:4f} mm/s)'))
-        for i, station_name in enumerate(residuals_df['station'].unique()):
-            mask = (residuals_df['iteration'] == iteration) & (residuals_df['station'] == station_name)
-            pre_fit_residuals = np.vstack(residuals_df[mask]['pre-fit'])
-            fig.add_trace(go.Scatter(x=time_vector, y=pre_fit_residuals[0,:]*100000, mode='markers', name=f'{station_name}', marker=dict(color=colors_list[i])), row=1, col=1)
-            fig.add_trace(go.Scatter(x=time_vector, y=pre_fit_residuals[1,:]*1E6, mode='markers', name=f'{station_name}', marker=dict(color=colors_list[i]), showlegend=False), row=2, col=1)
-        fig.update_traces(marker=dict(size=4))
-        fig.update_xaxes(title_text="Time (s)")
-        fig.update_yaxes(title_text="Range Residuals (cm)", showexponent="all", exponentformat="e", row=1, col=1)
-        fig.update_yaxes(title_text="Range Rate Residuals (mm/s)", showexponent="all", exponentformat="e", row=2, col=1)
-        fig.update_layout(title_text=f"{filter_name} Pre-Fit Residuals at Iteration {iteration+1}",
-                        title_font=dict(size=28),
-                        width=1200,
-                        height=800,
-                        legend=dict(font=dict(size=18),
-                                    yanchor="top",
-                                    y=1.2,
-                                    xanchor="left",
-                                    x=0.87))
-        fig.write_html(f"ASEN_6080/Project1/figures/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}.html")
+#         # Reset zeros to NaN in individual station residuals as well for accurate RMS calculation
+#         for i in range(len(residuals_df['station'].unique())):
+#             # Set any NaN values to zero for RMS calculation
+#             relevant_residuals[i][relevant_residuals[i] == 0.0] = np.nan
 
-    for iteration in range(residuals_df['iteration'].max()+1):
-        # Combine station residuals into a single vector for RMS calculation, this can be done by adding all the station residuals together for the given iteration (since none overlap in timing)
-        relevant_residuals = residuals_df[residuals_df['iteration'] == iteration]['pre-fit'].values.copy()
-        for i in range(len(residuals_df['station'].unique())):
-            # Set any NaN values to zero for RMS calculation
-            relevant_residuals[i][np.isnan(relevant_residuals[i])] = 0.0
         
-        # Sum the residuals across stations to get a single residual vector for the iteration
-        combined_residuals = np.sum(relevant_residuals, axis=0)
-
-        # Reset zeros to NaN so they aren't included in RMS calculation
-        combined_residuals[combined_residuals == 0.0] = np.nan
+#         fig = make_subplots(
+#             rows=2, cols=2, 
+#             shared_xaxes=False,
+#             column_widths=[0.8, 0.2],
+#             horizontal_spacing=0.06,
+#             subplot_titles=(f'Range Residuals (Mean = {mean_range_residual:.4f} cm, Std Dev = {std_range_residual:.4f} cm, RMS = {rms_range_residual:.4f} cm)', 'Distribution',
+#                             f'Range Rate Residuals (Mean = {mean_range_rate_residual:.4f} mm/s, Std Dev = {std_range_rate_residual:.4f} mm/s, RMS = {rms_range_rate_residual:.4f} mm/s)', 'Distribution')
+#         )
         
-        # Compute RMS of combined residuals for the iteration
-        rms_range_residual = np.sqrt(np.abs(np.nanmean(combined_residuals[0,:]*10000 **2))) # Convert from km to cm for RMS calculation
-        rms_range_rate_residual = np.sqrt(np.abs(np.nanmean(combined_residuals[1,:]*1E6 **2))) # Convert from km/s to mm/s for RMS calculation
+#         # Collect all residuals for histogram
+#         all_range_residuals = []
+#         all_range_rate_residuals = []
+        
+#         for i, station_name in enumerate(residuals_df['station'].unique()):
+#             mask = (residuals_df['iteration'] == iteration) & (residuals_df['station'] == station_name)
+#             pre_fit_residuals = np.vstack(residuals_df[mask]['pre-fit'])
+            
+#             # Add scatter plots (left column)
+#             fig.add_trace(go.Scatter(x=time_vector, y=pre_fit_residuals[0,:]*1E5, 
+#                                     mode='markers', name=f'{station_name}', 
+#                                     marker=dict(color=colors_list[i]), legendgroup=f'group{i}'), 
+#                          row=1, col=1)
+#             fig.add_trace(go.Scatter(x=time_vector, y=pre_fit_residuals[1,:]*1E6, 
+#                                     mode='markers', name=f'{station_name}', 
+#                                     marker=dict(color=colors_list[i]), 
+#                                     showlegend=False, legendgroup=f'group{i}'), 
+#                          row=2, col=1)
+            
+#             # Collect valid (non-NaN) residuals for histograms
+#             valid_range = pre_fit_residuals[0,:][~np.isnan(pre_fit_residuals[0,:])] * 1E5
+#             valid_range_rate = pre_fit_residuals[1,:][~np.isnan(pre_fit_residuals[1,:])] * 1E6
+#             all_range_residuals.extend(valid_range)
+#             all_range_rate_residuals.extend(valid_range_rate)
+        
+#         # Add histograms (right column) - rotated to be vertical
+#         fig.add_trace(go.Histogram(y=all_range_residuals, 
+#                                   marker=dict(color='lightblue'),
+#                                   showlegend=False,
+#                                   nbinsy=50), 
+#                      row=1, col=2)
+#         fig.add_trace(go.Histogram(y=all_range_rate_residuals, 
+#                                   marker=dict(color='lightcoral'),
+#                                   showlegend=False,
+#                                   nbinsy=50), 
+#                      row=2, col=2)
+        
+#         fig.update_traces(marker=dict(size=4), selector=dict(mode='markers'))
+#         fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=14), row=2, col=1)
+#         fig.update_xaxes(title_text="Count", tickfont=dict(size=14), row=1, col=2)
+#         fig.update_xaxes(title_text="Count", tickfont=dict(size=14), row=2, col=2)
+#         fig.update_yaxes(title_text="Range Residuals (cm)", tickfont=dict(size=14), showexponent="all", exponentformat="e", row=1, col=1)
+#         fig.update_yaxes(title_text="Range Rate Residuals (mm/s)", tickfont=dict(size=14), showexponent="all", exponentformat="e", row=2, col=1)
+#         fig.update_yaxes(showexponent="all", exponentformat="e", row=1, col=2)
+#         fig.update_yaxes(showexponent="all", exponentformat="e", row=2, col=2)
+#         fig.update_annotations(font=dict(size=18))
+#         fig.update_layout(title_text=f"{filter_name} Pre-Fit Residuals at Iteration {iteration+1}",
+#                         title_font=dict(size=28),
+#                         width=1400,  # Increased width to accommodate histograms
+#                         height=800,
+#                         legend=dict(font=dict(size=18),
+#                                     yanchor="top",
+#                                     y=1.25,
+#                                     xanchor="left",
+#                                     x=0.85))
+#         fig.write_html(f"ASEN_6080/Project1/figures/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}.html")
+#         fig.write_image(f"ASEN_6080/Project1/figures/pngs/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}.png")
 
-        # Reset zeros to NaN in individual station residuals as well for accurate RMS calculation
-        for i in range(len(residuals_df['station'].unique())):
-            # Set any NaN values to zero for RMS calculation
-            relevant_residuals[i][relevant_residuals[i] == 0.0] = np.nan
+#         # Combine station residuals into a single vector for RMS calculation, this can be done by adding all the station residuals together for the given iteration (since none overlap in timing)
+#         relevant_residuals = residuals_df[residuals_df['iteration'] == iteration]['post-fit'].values.copy()
+#         for i in range(len(residuals_df['station'].unique())):
+#             # Set any NaN values to zero for RMS calculation
+#             relevant_residuals[i][np.isnan(relevant_residuals[i])] = 0.0
+        
+#         # Sum the residuals across stations to get a single residual vector for the iteration
+#         combined_residuals = np.sum(relevant_residuals, axis=0)
 
-        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=(f'Range Residuals (RMS = {rms_range_residual:.4f} cm)', f'Range Rate Residuals (RMS = {rms_range_rate_residual:4f} mm/s)'))
-        for i, station_name in enumerate(residuals_df['station'].unique()):
-            mask = (residuals_df['iteration'] == iteration) & (residuals_df['station'] == station_name)
+#         # Reset zeros to NaN so they aren't included in RMS calculation
+#         combined_residuals[combined_residuals == 0.0] = np.nan
+        
+#         # Compute RMS of combined residuals for the iteration
+#         rms_range_residual = np.sqrt(np.abs(np.nanmean((combined_residuals[0,:]*1E5) **2))) # Convert from km to cm for RMS calculation
+#         rms_range_rate_residual = np.sqrt(np.abs(np.nanmean((combined_residuals[1,:]*1E6) **2))) # Convert from km/s to mm/s for RMS calculation
 
-            post_fit_residuals = np.vstack(residuals_df[mask]['post-fit'])
-            fig.add_trace(go.Scatter(x=time_vector, y=post_fit_residuals[0,:]*100000, mode='markers', name=f'{station_name}', marker=dict(color=colors_list[i])), row=1, col=1)
-            fig.add_trace(go.Scatter(x=time_vector, y=post_fit_residuals[1,:]*1E6, mode='markers', name=f'{station_name}', marker=dict(color=colors_list[i]), showlegend=False), row=2, col=1)
-        fig.update_traces(marker=dict(size=4))
-        fig.update_xaxes(title_text="Time (s)")
-        fig.update_yaxes(title_text="Range Residuals (cm)", showexponent="all", exponentformat="e", row=1, col=1)
-        fig.update_yaxes(title_text="Range Rate Residuals (mm/s)", showexponent="all", exponentformat="e", row=2, col=1)
-        fig.update_layout(title_text=f"{filter_name} Post-Fit Residuals at Iteration {iteration+1}",
-                        title_font=dict(size=28),
-                        width=1200,
-                        height=800,
-                        legend=dict(font=dict(size=18),
-                                    yanchor="top",
-                                    y=1.2,
-                                    xanchor="left",
-                                    x=0.87))
-        fig.write_html(f"ASEN_6080/Project1/figures/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}.html")
+#         mean_range_residual = np.nanmean(combined_residuals[0,:]*1E5) # Convert from km to cm for mean calculation
+#         std_range_residual = np.nanstd(combined_residuals[0,:]*1E5) # Convert from km to cm for std calculation
+#         mean_range_rate_residual = np.nanmean(combined_residuals[1,:]*1E6) # Convert from km/s to mm/s for mean calculation
+#         std_range_rate_residual = np.nanstd(combined_residuals[1,:]*1E6) # Convert from km/s to mm/s for std calculation
+#         print(f"Post-Fit {filter_name} Iteration {iteration+1}:")
+#         print(f"Range Residuals: Mean = {mean_range_residual:.4f} cm, Std Dev = {std_range_residual:.4f} cm, RMS = {rms_range_residual:.4f} cm")
+#         print(f"Range Rate Residuals: Mean = {mean_range_rate_residual:.4f} mm/s, Std Dev = {std_range_rate_residual:.4f} mm/s, RMS = {rms_range_rate_residual:.4f} mm/s")
+#         print("--------------------------------------------------")
 
-# Plot state history difference for batch LLS and LKF
-state_labels = ['x (km)', 'y (km)', 'z (km)', 'vx (km/s)', 'vy (km/s)', 'vz (km/s)', 'mu (km^3/s^2)', 'J2', 'C_d', 'Station 1 x (km)', 'Station 1 y (km)', 'Station 1 z (km)', 'Station 2 x (km)', 'Station 2 y (km)', 'Station 2 z (km)', 'Station 3 x (km)', 'Station 3 y (km)', 'Station 3 z (km)']
-file_labels = ['x', 'y', 'z', 'vx', 'vy', 'vz', 'mu', 'J2', 'C_d', 'station_1_x', 'station_1_y', 'station_1_z', 'station_2_x', 'station_2_y', 'station_2_z', 'station_3_x', 'station_3_y', 'station_3_z']
-time_history_list = [batch_estimated_state_history, lkf_state_history, range_batch_estimated_state_history, range_lkf_state_history, range_rate_batch_estimated_state_history, range_rate_lkf_state_history, non_fixed_batch_estimated_state_history, non_fixed_lkf_state_history, fixed_station_3_batch_estimated_state_history, fixed_station_3_lkf_state_history]
-for state_history, filter_name in zip(time_history_list, filter_names):
-    for i in range(6):
-        fig = make_subplots(rows = 3, cols=1, shared_xaxes=True, subplot_titles=(f'{state_labels[3*i]} Difference', f'{state_labels[3*i+1]} Difference', f'{state_labels[3*i+2]} Difference'))
-        for j in range(3):
-            diff = state_history[3*i+j,:] - batch_estimated_state_history[3*i+j,:]
-            fig.add_trace(go.Scatter(x=time_vector, y=diff, mode='lines', name=f'{state_labels[3*i+j]} Difference'), row=j+1, col=1)
-            fig.update_yaxes(title_text=f'{state_labels[3*i+j]} Difference', showexponent="all", exponentformat="e", row=j+1, col=1)
+#         # Reset zeros to NaN in individual station residuals as well for accurate RMS calculation
+#         for i in range(len(residuals_df['station'].unique())):
+#             # Set any NaN values to zero for RMS calculation
+#             relevant_residuals[i][relevant_residuals[i] == 0.0] = np.nan
 
-        fig.update_layout(title=f"Difference in {state_labels[3*i]}, {state_labels[3*i+1]}, and {state_labels[3*i+2]} Between Base Batch and {filter_name}",
-                        xaxis_title='Time (s)',
-                        title_font=dict(size=28))
-        fig.update_yaxes(showexponent="all", exponentformat="e")
-        fig.write_html(f"ASEN_6080/Project1/figures/{filter_name}_states_{3*i}_{3*i+2}_time_histories.html")
+#         fig = make_subplots(
+#             rows=2, cols=2, 
+#             shared_xaxes=False,
+#             column_widths=[0.8, 0.2],
+#             horizontal_spacing=0.06,
+#             subplot_titles=(f'Range Residuals (Mean = {mean_range_residual:.4f} cm, Std Dev = {std_range_residual:.4f} cm, RMS = {rms_range_residual:.4f} cm)', 'Distribution',
+#                             f'Range Rate Residuals (Mean = {mean_range_rate_residual:.4f} mm/s, Std Dev = {std_range_rate_residual:.4f} mm/s, RMS = {rms_range_rate_residual:.4f} mm/s)', 'Distribution')
+#         )
+        
+#         # Collect all residuals for histogram
+#         all_range_residuals = []
+#         all_range_rate_residuals = []
+        
+#         for i, station_name in enumerate(residuals_df['station'].unique()):
+#             mask = (residuals_df['iteration'] == iteration) & (residuals_df['station'] == station_name)
+#             post_fit_residuals = np.vstack(residuals_df[mask]['post-fit'])
+            
+#             # Add scatter plots (left column)
+#             fig.add_trace(go.Scatter(x=time_vector, y=post_fit_residuals[0,:]*1E5, 
+#                                     mode='markers', name=f'{station_name}', 
+#                                     marker=dict(color=colors_list[i]), legendgroup=f'group{i}'), 
+#                          row=1, col=1)
+#             fig.add_trace(go.Scatter(x=time_vector, y=post_fit_residuals[1,:]*1E6, 
+#                                     mode='markers', name=f'{station_name}', 
+#                                     marker=dict(color=colors_list[i]), 
+#                                     showlegend=False, legendgroup=f'group{i}'), 
+#                          row=2, col=1)
+            
+#             # Collect valid (non-NaN) residuals for histograms
+#             valid_range = post_fit_residuals[0,:][~np.isnan(post_fit_residuals[0,:])] * 1E5
+#             valid_range_rate = post_fit_residuals[1,:][~np.isnan(post_fit_residuals[1,:])] * 1E6
+#             all_range_residuals.extend(valid_range)
+#             all_range_rate_residuals.extend(valid_range_rate)
+        
+#         # Add histograms (right column) - rotated to be vertical
+#         fig.add_trace(go.Histogram(y=all_range_residuals, 
+#                                   marker=dict(color='lightblue'),
+#                                   showlegend=False,
+#                                   nbinsy=50), 
+#                      row=1, col=2)
+#         fig.add_trace(go.Histogram(y=all_range_rate_residuals, 
+#                                   marker=dict(color='lightcoral'),
+#                                   showlegend=False,
+#                                   nbinsy=50), 
+#                      row=2, col=2)
+        
+#         fig.update_traces(marker=dict(size=4), selector=dict(mode='markers'))
+#         fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=14), row=2, col=1)
+#         fig.update_xaxes(title_text="Count", tickfont=dict(size=14), row=1, col=2)
+#         fig.update_xaxes(title_text="Count", tickfont=dict(size=14), row=2, col=2)
+#         fig.update_yaxes(title_text="Range Residuals (cm)", tickfont=dict(size=14), showexponent="all", exponentformat="e", row=1, col=1)
+#         fig.update_yaxes(title_text="Range Rate Residuals (mm/s)", tickfont=dict(size=14), showexponent="all", exponentformat="e", row=2, col=1)
+#         fig.update_yaxes(showexponent="all", exponentformat="e", row=1, col=2)
+#         fig.update_yaxes(showexponent="all", exponentformat="e", row=2, col=2)
+#         fig.update_annotations(font=dict(size=18))
+#         fig.update_layout(title_text=f"{filter_name} Post-Fit Residuals at Iteration {iteration+1}",
+#                         title_font=dict(size=28),
+#                         width=1400,  # Increased width to accommodate histograms
+#                         height=800,
+#                         legend=dict(font=dict(size=18),
+#                                     yanchor="top",
+#                                     y=1.25,
+#                                     xanchor="left",
+#                                     x=0.85))
+#         fig.write_html(f"ASEN_6080/Project1/figures/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}.html")
+#         fig.write_image(f"ASEN_6080/Project1/figures/pngs/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}.png")
 
-# Plot trace of satellite state covariance using log scale for better visualization
-fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=('Position Covariance Trace', 'Velocity Covariance Trace'))
-trace_pos = np.trace(lkf_covariance_history[:3,:3,:])
-trace_vel = np.trace(lkf_covariance_history[3:6,3:6,:])
-fig.add_trace(go.Scatter(x=time_vector, y=trace_pos, mode='lines', name='Satellite Position'), row=1, col=1)
-fig.add_trace(go.Scatter(x=time_vector, y=trace_vel, mode='lines', name='Satellite Velocity'), row=2, col=1)
-fig.update_yaxes(type="log", showexponent="all", exponentformat="e", title_text=f'Covariance Trace (km^2)', row=1, col=1)
-fig.update_yaxes(type="log", showexponent="all", exponentformat="e", title_text=f'Covariance Trace (km^2/s^2)', row=2, col=1)
+# # Plot state history difference for batch LLS and LKF
+# state_labels = ['x (km)', 'y (km)', 'z (km)', 'vx (km/s)', 'vy (km/s)', 'vz (km/s)', 'mu (km^3/s^2)', 'J2', 'C_d', 'Station 1 x (km)', 'Station 1 y (km)', 'Station 1 z (km)', 'Station 2 x (km)', 'Station 2 y (km)', 'Station 2 z (km)', 'Station 3 x (km)', 'Station 3 y (km)', 'Station 3 z (km)']
+# file_labels = ['x', 'y', 'z', 'vx', 'vy', 'vz', 'mu', 'J2', 'C_d', 'station_1_x', 'station_1_y', 'station_1_z', 'station_2_x', 'station_2_y', 'station_2_z', 'station_3_x', 'station_3_y', 'station_3_z']
+# time_history_list = [batch_estimated_state_history, lkf_state_history, range_batch_estimated_state_history, range_lkf_state_history, range_rate_batch_estimated_state_history, range_rate_lkf_state_history, non_fixed_batch_estimated_state_history, non_fixed_lkf_state_history, fixed_station_3_batch_estimated_state_history, fixed_station_3_lkf_state_history]
+# for state_history, filter_name in zip(time_history_list, filter_names):
+#     for i in range(6):
+#         fig = make_subplots(rows = 3, cols=1, shared_xaxes=True, subplot_titles=(f'{state_labels[3*i]} Difference', f'{state_labels[3*i+1]} Difference', f'{state_labels[3*i+2]} Difference'))
+#         for j in range(3):
+#             diff = state_history[3*i+j,:] - batch_estimated_state_history[3*i+j,:]
+#             fig.add_trace(go.Scatter(x=time_vector, y=diff, mode='lines', name=f'{state_labels[3*i+j]} Difference'), row=j+1, col=1)
+#             fig.update_yaxes(title_text=f'{state_labels[3*i+j]} Difference', showexponent="all", exponentformat="e", row=j+1, col=1)
+
+#         fig.update_layout(title=f"Difference in {state_labels[3*i]}, {state_labels[3*i+1]}, and {state_labels[3*i+2]} Between Base Batch and {filter_name}",
+#                         xaxis_title='Time (s)',
+#                         title_font=dict(size=28))
+#         fig.update_annotations(font=dict(size=18))
+#         fig.update_yaxes(showexponent="all", exponentformat="e")
+#         fig.write_html(f"ASEN_6080/Project1/figures/{filter_name}_states_{3*i}_{3*i+2}_time_histories.html")
+#         fig.write_image(f"ASEN_6080/Project1/figures/pngs/{filter_name}_states_{3*i}_{3*i+2}_time_histories.png")
+
+# # Plot trace of satellite state covariance using log scale for better visualization
+# fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=('Position Covariance Trace', 'Velocity Covariance Trace'))
+# trace_pos = np.trace(lkf_covariance_history[:3,:3,:])
+# trace_vel = np.trace(lkf_covariance_history[3:6,3:6,:])
+# fig.add_trace(go.Scatter(x=time_vector, y=trace_pos, mode='lines', name='Satellite Position'), row=1, col=1)
+# fig.add_trace(go.Scatter(x=time_vector, y=trace_vel, mode='lines', name='Satellite Velocity'), row=2, col=1)
+# fig.update_yaxes(type="log", showexponent="all", exponentformat="e", title_text=f'Covariance Trace (km^2)', row=1, col=1)
+# fig.update_yaxes(type="log", showexponent="all", exponentformat="e", title_text=f'Covariance Trace (km^2/s^2)', row=2, col=1)
     
-fig.update_layout(title=f"Covariance for Satellite States Over Time",
-                    xaxis_title='Time (s)',
-                    title_font=dict(size=28),
-                    width=1200,
-                    height=800,
-                    legend=dict(font=dict(size=18),
-                                yanchor="top",
-                                y=1.2,
-                                xanchor="left",
-                                x=0.87))
-fig.update_yaxes(showexponent="all", exponentformat="e")
-fig.write_html(f"ASEN_6080/Project1/figures/covariance_traces.html")
+# fig.update_layout(title=f"Covariance for Satellite States Over Time",
+#                     xaxis_title='Time (s)',
+#                     title_font=dict(size=28),
+#                     width=1200,
+#                     height=800,
+#                     legend=dict(font=dict(size=18),
+#                                 yanchor="top",
+#                                 y=1.2,
+#                                 xanchor="left",
+#                                 x=0.87))
+# fig.update_yaxes(showexponent="all", exponentformat="e")
+# fig.write_html(f"ASEN_6080/Project1/figures/covariance_traces.html")
+# fig.write_image(f"ASEN_6080/Project1/figures/pngs/covariance_traces.png")
 
-# Plot covariance ellipse for satellite position at final time step
-batch_center = batch_estimated_state_history[:6,-1]
-lkf_center = lkf_state_history[:6,-1]
-center_diff = batch_center - lkf_center
-batch_pos_covariance_ellipse = covariance_ellipse(np.zeros(3), covariance_history[:3,:3,-1])
-lkf_pos_covariance_ellipse = covariance_ellipse(center_diff[:3], lkf_covariance_history[:3,:3,-1])
+# # Plot covariance ellipse for satellite position at final time step
+# batch_center = batch_estimated_state_history[:6,-1]
+# lkf_center = lkf_state_history[:6,-1]
+# center_diff = batch_center - lkf_center
+# batch_pos_covariance_ellipse = covariance_ellipse(np.zeros(3), covariance_history[:3,:3,-1])
+# lkf_pos_covariance_ellipse = covariance_ellipse(center_diff[:3], lkf_covariance_history[:3,:3,-1])
 
-# Plot 3D ellipses
-fig = go.Figure()
-fig.add_trace(go.Scatter3d(x=batch_pos_covariance_ellipse[:,0], y=batch_pos_covariance_ellipse[:,1], z=batch_pos_covariance_ellipse[:,2], mode='markers', name='Batch LLS Position Covariance Ellipse'))
-fig.add_trace(go.Scatter3d(x=lkf_pos_covariance_ellipse[:,0], y=lkf_pos_covariance_ellipse[:,1], z=lkf_pos_covariance_ellipse[:,2], mode='markers', name='LKF Position Covariance Ellipse'))
-fig.update_layout(title=f"Satellite Position Covariance Ellipse",
-                    title_font=dict(size=28),
-                    width=1200,
-                    height=800,
-                    legend=dict(font=dict(size=18),
-                                yanchor="top",
-                                y=1.2,
-                                xanchor="left",
-                                x=0.87),
-                    scene=dict(xaxis_title='X Position (km)',
-                               yaxis_title='Y Position (km)',
-                               zaxis_title='Z Position (km)',
-                               xaxis=dict(showexponent="all", exponentformat="e"),
-                               yaxis=dict(showexponent="all", exponentformat="e"),
-                               zaxis=dict(showexponent="all", exponentformat="e")))
+# # Plot 3D ellipses
+# fig = go.Figure()
+# fig.add_trace(go.Scatter3d(x=batch_pos_covariance_ellipse[:,0], y=batch_pos_covariance_ellipse[:,1], z=batch_pos_covariance_ellipse[:,2], mode='markers', name='Batch LLS Position Covariance Ellipse'))
+# fig.add_trace(go.Scatter3d(x=lkf_pos_covariance_ellipse[:,0], y=lkf_pos_covariance_ellipse[:,1], z=lkf_pos_covariance_ellipse[:,2], mode='markers', name='LKF Position Covariance Ellipse'))
+# fig.update_layout(title=f"Satellite Position Covariance Ellipses",
+#                     title_font=dict(size=28),
+#                     width=1000,
+#                     height=800,
+#                     legend=dict(font=dict(size=18),
+#                                 yanchor="top",
+#                                 y=1.2,
+#                                 xanchor="left",
+#                                 x=0.6),
+#                     scene=dict(xaxis_title='X Position (km)',
+#                                yaxis_title='Y Position (km)',
+#                                zaxis_title='Z Position (km)',
+#                                xaxis=dict(showexponent="all", exponentformat="e"),
+#                                yaxis=dict(showexponent="all", exponentformat="e"),
+#                                zaxis=dict(showexponent="all", exponentformat="e")))
 
-fig.write_html(f"ASEN_6080/Project1/figures/position_covariance_ellipses.html")
+# fig.write_html(f"ASEN_6080/Project1/figures/position_covariance_ellipses.html")
+# fig.write_image(f"ASEN_6080/Project1/figures/pngs/position_covariance_ellipses.png")
 
-# Plot covariance ellipse for satellite velocity at final time step
-batch_vel_covariance_ellipse = covariance_ellipse(np.zeros(3), covariance_history[3:6,3:6,-1])
-lkf_vel_covariance_ellipse = covariance_ellipse(center_diff[3:6], lkf_covariance_history[3:6,3:6,-1])
+# # Plot covariance ellipse for satellite velocity at final time step
+# batch_vel_covariance_ellipse = covariance_ellipse(np.zeros(3), covariance_history[3:6,3:6,-1])
+# lkf_vel_covariance_ellipse = covariance_ellipse(center_diff[3:6], lkf_covariance_history[3:6,3:6,-1])
 
-# Plot 3D ellipses
-fig = go.Figure()
-fig.add_trace(go.Scatter3d(x=batch_vel_covariance_ellipse[:,0], y=batch_vel_covariance_ellipse[:,1], z=batch_vel_covariance_ellipse[:,2], mode='markers', name='Batch LLS Velocity Covariance Ellipse'))
-fig.add_trace(go.Scatter3d(x=lkf_vel_covariance_ellipse[:,0], y=lkf_vel_covariance_ellipse[:,1], z=lkf_vel_covariance_ellipse[:,2], mode='markers', name='LKF Velocity Covariance Ellipse'))
-fig.update_layout(title=f"Satellite Velocity Covariance Ellipse",
-                    title_font=dict(size=28),
-                    width=1200,
-                    height=800,
-                    legend=dict(font=dict(size=18),
-                                yanchor="top",
-                                y=1.2,
-                                xanchor="left",
-                                x=0.5),
-                    scene=dict(xaxis_title='X Velocity (km/s)',
-                               yaxis_title='Y Velocity (km/s)',
-                               zaxis_title='Z Velocity (km/s)',
-                               xaxis=dict(showexponent="all", exponentformat="e"),
-                               yaxis=dict(showexponent="all", exponentformat="e"),
-                               zaxis=dict(showexponent="all", exponentformat="e")))
+# # Plot 3D ellipses
+# fig = go.Figure()
+# fig.add_trace(go.Scatter3d(x=batch_vel_covariance_ellipse[:,0], y=batch_vel_covariance_ellipse[:,1], z=batch_vel_covariance_ellipse[:,2], mode='markers', name='Batch LLS Velocity Covariance Ellipse'))
+# fig.add_trace(go.Scatter3d(x=lkf_vel_covariance_ellipse[:,0], y=lkf_vel_covariance_ellipse[:,1], z=lkf_vel_covariance_ellipse[:,2], mode='markers', name='LKF Velocity Covariance Ellipse'))
+# fig.update_layout(title=f"Satellite Velocity Covariance Ellipses",
+#                     title_font=dict(size=28),
+#                     width=1000,
+#                     height=800,
+#                     legend=dict(font=dict(size=18),
+#                                 yanchor="top",
+#                                 y=1.2,
+#                                 xanchor="left",
+#                                 x=0.6),
+#                     scene=dict(xaxis_title='X Velocity (km/s)',
+#                                yaxis_title='Y Velocity (km/s)',
+#                                zaxis_title='Z Velocity (km/s)',
+#                                xaxis=dict(showexponent="all", exponentformat="e"),
+#                                yaxis=dict(showexponent="all", exponentformat="e"),
+#                                zaxis=dict(showexponent="all", exponentformat="e")))
 
-fig.write_html(f"ASEN_6080/Project1/figures/velocity_covariance_ellipses.html")
+# fig.write_html(f"ASEN_6080/Project1/figures/velocity_covariance_ellipses.html")
+# fig.write_image(f"ASEN_6080/Project1/figures/pngs/velocity_covariance_ellipses.png")
 
-# Plot covariance ellipse to show difference between analyzing range and range rate
-range_center = range_lkf_state_history[:6,-1]
-range_rate_center = range_rate_lkf_state_history[:6,-1]
-center_diff = range_center - range_rate_center
-range_pos_covariance_ellipse = covariance_ellipse(np.zeros(3), range_lkf_covariance_history[:3,:3,-1])
-range_rate_pos_covariance_ellipse = covariance_ellipse(center_diff[:3], range_rate_lkf_covariance_history[:3,:3,-1])
+# # Plot covariance ellipse to show difference between analyzing range and range rate
+# range_center = range_lkf_state_history[:6,-1]
+# range_rate_center = range_rate_lkf_state_history[:6,-1]
+# center_diff = range_center - range_rate_center
+# range_pos_covariance_ellipse = covariance_ellipse(np.zeros(3), range_covariance_history[:3,:3,-1])
+# range_rate_pos_covariance_ellipse = covariance_ellipse(center_diff[:3], range_rate_covariance_history[:3,:3,-1])
 
-fig = go.Figure()
-fig.add_trace(go.Scatter3d(x=range_pos_covariance_ellipse[:,0], y=range_pos_covariance_ellipse[:,1], z=range_pos_covariance_ellipse[:,2], mode='markers', name='Range Only'))
-fig.add_trace(go.Scatter3d(x=range_rate_pos_covariance_ellipse[:,0], y=range_rate_pos_covariance_ellipse[:,1], z=range_rate_pos_covariance_ellipse[:,2], mode='markers', name='Range Rate Only'))
-fig.update_layout(title=f"Position Covariance Ellipses from Analyzing Only Range or Range Rate Measurements",
-                    title_font=dict(size=28),
-                    width=1200,
-                    height=800,
-                    legend=dict(font=dict(size=18)),
-                    scene=dict(xaxis_title='X Position (km)',
-                               yaxis_title='Y Position (km)',
-                               zaxis_title='Z Position (km)',
-                               xaxis=dict(showexponent="all", exponentformat="e"),
-                               yaxis=dict(showexponent="all", exponentformat="e"),
-                               zaxis=dict(showexponent="all", exponentformat="e")))
-fig.write_html(f"ASEN_6080/Project1/figures/range_vs_range_rate_position_covariance_ellipses.html")
+# fig = go.Figure()
+# fig.add_trace(go.Scatter3d(x=range_pos_covariance_ellipse[:,0], y=range_pos_covariance_ellipse[:,1], z=range_pos_covariance_ellipse[:,2], mode='markers', name='Range Only'))
+# fig.add_trace(go.Scatter3d(x=range_rate_pos_covariance_ellipse[:,0], y=range_rate_pos_covariance_ellipse[:,1], z=range_rate_pos_covariance_ellipse[:,2], mode='markers', name='Range Rate Only'))
+# fig.update_layout(title=f"Position Covariance Ellipses from Analyzing Only Range or Range Rate",
+#                     title_font=dict(size=28),
+#                     width=1200,
+#                     height=800,
+#                     legend=dict(font=dict(size=18)),
+#                     scene=dict(xaxis_title='X Position (km)',
+#                                yaxis_title='Y Position (km)',
+#                                zaxis_title='Z Position (km)',
+#                                xaxis=dict(showexponent="all", exponentformat="e"),
+#                                yaxis=dict(showexponent="all", exponentformat="e"),
+#                                zaxis=dict(showexponent="all", exponentformat="e")))
+# fig.write_html(f"ASEN_6080/Project1/figures/range_vs_range_rate_position_covariance_ellipses.html")
+# fig.write_image(f"ASEN_6080/Project1/figures/pngs/range_vs_range_rate_position_covariance_ellipses.png")
 
-range_vel_covariance_ellipse = covariance_ellipse(np.zeros(3), range_lkf_covariance_history[3:6,3:6,-1])
-range_rate_vel_covariance_ellipse = covariance_ellipse(center_diff[3:6], range_rate_lkf_covariance_history[3:6,3:6,-1])
+# range_vel_covariance_ellipse = covariance_ellipse(np.zeros(3), range_covariance_history[3:6,3:6,-1])
+# range_rate_vel_covariance_ellipse = covariance_ellipse(center_diff[3:6], range_rate_covariance_history[3:6,3:6,-1])
 
-fig = go.Figure()
-fig.add_trace(go.Scatter3d(x=range_vel_covariance_ellipse[:,0], y=range_vel_covariance_ellipse[:,1], z=range_vel_covariance_ellipse[:,2], mode='markers', name='Range Only'))
-fig.add_trace(go.Scatter3d(x=range_rate_vel_covariance_ellipse[:,0], y=range_rate_vel_covariance_ellipse[:,1], z=range_rate_vel_covariance_ellipse[:,2], mode='markers', name='Range Rate Only'))
-fig.update_layout(title=f"Velocity Covariance Ellipses from Analyzing Only Range or Range Rate Measurements",
-                    title_font=dict(size=28),
-                    width=1200,
-                    height=800,
-                    legend=dict(font=dict(size=18)),
-                    scene=dict(xaxis_title='X Velocity (km/s)',
-                               yaxis_title='Y Velocity (km/s)',
-                               zaxis_title='Z Velocity (km/s)',
-                               xaxis=dict(showexponent="all", exponentformat="e"),
-                               yaxis=dict(showexponent="all", exponentformat="e"),
-                               zaxis=dict(showexponent="all", exponentformat="e")))
-fig.write_html(f"ASEN_6080/Project1/figures/range_vs_range_rate_velocity_covariance_ellipses.html")
+# fig = go.Figure()
+# fig.add_trace(go.Scatter3d(x=range_vel_covariance_ellipse[:,0], y=range_vel_covariance_ellipse[:,1], z=range_vel_covariance_ellipse[:,2], mode='markers', name='Range Only'))
+# fig.add_trace(go.Scatter3d(x=range_rate_vel_covariance_ellipse[:,0], y=range_rate_vel_covariance_ellipse[:,1], z=range_rate_vel_covariance_ellipse[:,2], mode='markers', name='Range Rate Only'))
+# fig.update_layout(title=f"Velocity Covariance Ellipses from Analyzing Only Range or Range Rate",
+#                     title_font=dict(size=28),
+#                     width=1200,
+#                     height=800,
+#                     legend=dict(font=dict(size=18)),
+#                     scene=dict(xaxis_title='X Velocity (km/s)',
+#                                yaxis_title='Y Velocity (km/s)',
+#                                zaxis_title='Z Velocity (km/s)',
+#                                xaxis=dict(showexponent="all", exponentformat="e"),
+#                                yaxis=dict(showexponent="all", exponentformat="e"),
+#                                zaxis=dict(showexponent="all", exponentformat="e")))
+# fig.write_html(f"ASEN_6080/Project1/figures/range_vs_range_rate_velocity_covariance_ellipses.html")
+# fig.write_image(f"ASEN_6080/Project1/figures/pngs/range_vs_range_rate_velocity_covariance_ellipses.png")
