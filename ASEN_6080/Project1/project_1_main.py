@@ -139,17 +139,6 @@ for i, mgr in enumerate(batch_estimator.measurement_mgrs):
     mgr.station_state_ecef[0:3] = station_positions_ecef[i]
     mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(mgr.station_state_ecef)
 
-non_fixed_lkf_state_history, non_fixed_lkf_covariance_history, non_fixed_lkf_residuals_df = lkf.run(initial_state_estimate,
-                                                                        np.zeros_like(initial_state_estimate),
-                                                                        a_priori_covariance, measurements,
-                                                                        R=R, max_iterations=1,
-                                                                        convergence_threshold=1e-9,
-                                                                        considered_measurements='All')
-
-for i, mgr in enumerate(lkf.measurement_mgrs):
-    mgr.station_state_ecef[0:3] = station_positions_ecef[i]
-    mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(mgr.station_state_ecef)
-
 # Fixing Station 337
 a_prior_covariance = np.diag([1, 1, 1, 1, 1, 1, 1E2, 1E6, 1E6, 1, 1, 1, 1E-16, 1E-16, 1E-16, 1, 1, 1])  # Given a priori covariance
 
@@ -181,17 +170,6 @@ fixed_station_3_batch_estimated_initial_state, fixed_station_3_estimated_covaria
 
 # Reset measurement managers positions
 for i, mgr in enumerate(batch_estimator.measurement_mgrs):
-    mgr.station_state_ecef[0:3] = station_positions_ecef[i]
-    mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(mgr.station_state_ecef)
-
-fixed_station_3_lkf_state_history, fixed_station_3_lkf_covariance_history, fixed_station_3_lkf_residuals_df = lkf.run(initial_state_estimate,
-                                                                        np.zeros_like(initial_state_estimate),
-                                                                        a_prior_covariance, measurements,
-                                                                        R=R, max_iterations=1,
-                                                                        convergence_threshold=1e-9,
-                                                                        considered_measurements='All')
-
-for i, mgr in enumerate(lkf.measurement_mgrs):
     mgr.station_state_ecef[0:3] = station_positions_ecef[i]
     mgr.lat, mgr.lon = mgr.coordinate_mgr.ECEF_to_GCS(mgr.station_state_ecef)
 
@@ -388,41 +366,33 @@ print("---------------------------------------------------")
 
 # Plot residual time history for each station
 colors_list = ['red', 'green', 'blue']
-residual_df_list = [ #batch_residuals_df,
-                    # lkf_residuals_df,
-                    # range_batch_residuals_df,
-                    # range_lkf_residuals_df,
-                    # range_rate_batch_residuals_df,
-                    # range_rate_lkf_residuals_df,
-                    # non_fixed_batch_residuals_df,
-                    # non_fixed_lkf_residuals_df,
-                    # fixed_station_2_batch_residuals_df,
-                    # fixed_station_3_batch_residuals_df,
-                    # fixed_station_3_lkf_residuals_df,
+residual_df_list = [batch_residuals_df,
+                    lkf_residuals_df,
+                    range_batch_residuals_df,
+                    range_rate_batch_residuals_df,
+                    non_fixed_batch_residuals_df,
+                    fixed_station_2_batch_residuals_df,
+                    fixed_station_3_batch_residuals_df,
                     reasonable_batch_residuals_df,
-                    reasonable_lkf_residuals_df,]
-                    # underconfident_batch_residuals_df,
-                    # underconfident_lkf_residuals_df,
-                    # overconfident_batch_residuals_df,
-                    # overconfident_lkf_residuals_df]
+                    reasonable_lkf_residuals_df,
+                    underconfident_batch_residuals_df,
+                    underconfident_lkf_residuals_df,
+                    overconfident_batch_residuals_df,
+                    overconfident_lkf_residuals_df]
 
-filter_names = [#'Batch Filter',
-                # 'LKF',
-                # 'Batch Filter (Range Only)',
-                # 'LKF (Range Only)',
-                # 'Batch Filter (Range Rate Only)',
-                # 'LKF (Range Rate Only)',
-                # 'Batch Filter (No-Fixed Stations)',
-                # 'LKF (No-Fixed Stations)',
-                # 'Batch Filter (Station 2 Fixed)',
-                # 'Batch Filter (Station 3 Fixed)',
-                # 'LKF (Station 3 Fixed)',
+filter_names = ['Batch Filter',
+                'LKF',
+                'Batch Filter (Range Only)',
+                'Batch Filter (Range Rate Only)',
+                'Batch Filter (No-Fixed Stations)',
+                'Batch Filter (Station 2 Fixed)',
+                'Batch Filter (Station 3 Fixed)',
                 'Batch Filter (Reasonable A Priori Covariance)',
-                'LKF (Reasonable A Priori Covariance)',]
-                # 'Batch Filter (Underconfident Data Noise)',
-                # 'LKF (Underconfident Data Noise)',
-                # 'Batch Filter (Overconfident Data Noise)',
-                # 'LKF (Overconfident Data Noise)']
+                'LKF (Reasonable A Priori Covariance)',
+                'Batch Filter (Underconfident Data Noise)',
+                'LKF (Underconfident Data Noise)',
+                'Batch Filter (Overconfident Data Noise)',
+                'LKF (Overconfident Data Noise)']
 for residuals_df, filter_name in zip(residual_df_list, filter_names):
     for iteration in range(residuals_df['iteration'].max()+1):
         # Combine station residuals into a single vector for RMS calculation, this can be done by adding all the station residuals together for the given iteration (since none overlap in timing)
@@ -524,8 +494,7 @@ for residuals_df, filter_name in zip(residual_df_list, filter_names):
                                     xanchor="left",
                                     x=0.7,
                                     itemsizing='constant'))
-        fig.write_html(f"ASEN_6080/Project1/figures/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}.html")
-        fig.write_image(f"ASEN_6080/Project1/figures/pngs/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}.png")
+        fig.show()
 
         # Combine station residuals into a single vector for RMS calculation, this can be done by adding all the station residuals together for the given iteration (since none overlap in timing)
         relevant_residuals = residuals_df[residuals_df['iteration'] == iteration]['post-fit'].values.copy()
@@ -624,221 +593,189 @@ for residuals_df, filter_name in zip(residual_df_list, filter_names):
                                     xanchor="left",
                                     x=0.7,
                                     itemsizing='constant'))
-        fig.write_html(f"ASEN_6080/Project1/figures/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}.html")
-        fig.write_image(f"ASEN_6080/Project1/figures/pngs/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}.png")
+        fig.show()
 
-# # Plot state history difference for batch LLS and LKF
-# state_labels = ['x (km)', 'y (km)', 'z (km)', 'vx (km/s)', 'vy (km/s)', 'vz (km/s)', 'mu (km^3/s^2)', 'J2', 'C_d', 'Station 1 x (km)', 'Station 1 y (km)', 'Station 1 z (km)', 'Station 2 x (km)', 'Station 2 y (km)', 'Station 2 z (km)', 'Station 3 x (km)', 'Station 3 y (km)', 'Station 3 z (km)']
-# file_labels = ['x', 'y', 'z', 'vx', 'vy', 'vz', 'mu', 'J2', 'C_d', 'station_1_x', 'station_1_y', 'station_1_z', 'station_2_x', 'station_2_y', 'station_2_z', 'station_3_x', 'station_3_y', 'station_3_z']
-# time_history_list = [batch_estimated_state_history, lkf_state_history, range_batch_estimated_state_history, range_lkf_state_history, range_rate_batch_estimated_state_history, range_rate_lkf_state_history, non_fixed_batch_estimated_state_history, non_fixed_lkf_state_history, fixed_station_3_batch_estimated_state_history, fixed_station_3_lkf_state_history]
-# for state_history, filter_name in zip(time_history_list, filter_names):
-#     for i in range(6):
-#         fig = make_subplots(rows = 3, cols=1, shared_xaxes=True, subplot_titles=(f'{state_labels[3*i]} Difference', f'{state_labels[3*i+1]} Difference', f'{state_labels[3*i+2]} Difference'))
-#         for j in range(3):
-#             diff = state_history[3*i+j,:] - batch_estimated_state_history[3*i+j,:]
-#             fig.add_trace(go.Scatter(x=time_vector, y=diff, mode='lines', name=f'{state_labels[3*i+j]} Difference'), row=j+1, col=1)
-#             fig.update_yaxes(title_text=f'{state_labels[3*i+j]} Difference', showexponent="all", exponentformat="e", row=j+1, col=1)
-
-#         fig.update_layout(title=f"Difference in {state_labels[3*i]}, {state_labels[3*i+1]}, and {state_labels[3*i+2]} Between Base Batch and {filter_name}",
-#                         xaxis_title='Time (s)',
-#                         title_font=dict(size=28))
-#         fig.update_annotations(font=dict(size=18))
-#         fig.update_yaxes(showexponent="all", exponentformat="e")
-#         fig.write_html(f"ASEN_6080/Project1/figures/{filter_name}_states_{3*i}_{3*i+2}_time_histories.html")
-#         fig.write_image(f"ASEN_6080/Project1/figures/pngs/{filter_name}_states_{3*i}_{3*i+2}_time_histories.png")
-
-# # Plot trace of satellite state covariance using log scale for better visualization
-# lkf_covariance_list = [lkf_covariance_history, reasonable_lkf_covariance_history]
-# lkf_file_labels = ['lkf_covariance', 'reasonable_lkf_covariance']
-# for covariance_history, filter_name, file_label in zip(lkf_covariance_list, ['LKF', 'LKF with Reasonable'], lkf_file_labels):
-#     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=('Position Covariance Trace', 'Velocity Covariance Trace'))
-#     trace_pos = np.trace(covariance_history[:3,:3,:])
-#     trace_vel = np.trace(covariance_history[3:6,3:6,:])
-#     fig.add_trace(go.Scatter(x=time_vector, y=trace_pos, mode='lines', name='Satellite Position'), row=1, col=1)
-#     fig.add_trace(go.Scatter(x=time_vector, y=trace_vel, mode='lines', name='Satellite Velocity'), row=2, col=1)
-#     fig.update_yaxes(type="log", showexponent="all", exponentformat="e", title_text=f'Covariance Trace (km^2)', row=1, col=1)
-#     fig.update_yaxes(type="log", showexponent="all", exponentformat="e", title_text=f'Covariance Trace (km^2/s^2)', row=2, col=1)
+# Plot trace of satellite state covariance using log scale for better visualization
+lkf_covariance_list = [lkf_covariance_history, reasonable_lkf_covariance_history]
+lkf_file_labels = ['lkf_covariance', 'reasonable_lkf_covariance']
+for covariance_history, filter_name, file_label in zip(lkf_covariance_list, ['LKF', 'LKF with Reasonable'], lkf_file_labels):
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=('Position Covariance Trace', 'Velocity Covariance Trace'))
+    trace_pos = np.trace(covariance_history[:3,:3,:])
+    trace_vel = np.trace(covariance_history[3:6,3:6,:])
+    fig.add_trace(go.Scatter(x=time_vector, y=trace_pos, mode='lines', name='Satellite Position'), row=1, col=1)
+    fig.add_trace(go.Scatter(x=time_vector, y=trace_vel, mode='lines', name='Satellite Velocity'), row=2, col=1)
+    fig.update_yaxes(type="log", showexponent="all", exponentformat="e", title_text=f'Covariance Trace (km^2)', row=1, col=1)
+    fig.update_yaxes(type="log", showexponent="all", exponentformat="e", title_text=f'Covariance Trace (km^2/s^2)', row=2, col=1)
         
-#     fig.update_layout(title=f"{filter_name} Covariance Time History",
-#                         xaxis_title='Time (s)',
-#                         title_font=dict(size=28),
-#                         width=1200,
-#                         height=800,
-#                         legend=dict(font=dict(size=18),
-#                                     yanchor="top",
-#                                     y=1.2,
-#                                     xanchor="left",
-#                                     x=0.87))
-#     fig.update_yaxes(showexponent="all", exponentformat="e")
-#     fig.write_html(f"ASEN_6080/Project1/figures/{file_label}_traces.html")
-#     fig.write_image(f"ASEN_6080/Project1/figures/pngs/{file_label}_traces.png")
+    fig.update_layout(title=f"{filter_name} Covariance Time History",
+                        xaxis_title='Time (s)',
+                        title_font=dict(size=28),
+                        width=1200,
+                        height=800,
+                        legend=dict(font=dict(size=18),
+                                    yanchor="top",
+                                    y=1.2,
+                                    xanchor="left",
+                                    x=0.87))
+    fig.update_yaxes(showexponent="all", exponentformat="e")
+    fig.show()
 
+fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=('Position Covariance Trace', 'Velocity Covariance Trace'))
+overconfident_trace_pos = np.trace(overconfident_lkf_covariance_history[:3,:3,:])
+overconfident_trace_vel = np.trace(overconfident_lkf_covariance_history[3:6,3:6,:])
+underconfident_trace_pos = np.trace(underconfident_lkf_covariance_history[:3,:3,:])
+underconfident_trace_vel = np.trace(underconfident_lkf_covariance_history[3:6,3:6,:])
+fig.add_trace(go.Scatter(x=time_vector, y=overconfident_trace_pos, mode='lines', name='Overconfident Noise Data', marker =dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=overconfident_trace_vel, mode='lines', name='Overconfident Noise Data', marker = dict(color='blue'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=underconfident_trace_pos, mode='lines', name='Underconfident Position', marker =dict(color='red')), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=underconfident_trace_vel, mode='lines', name='Underconfident Velocity', marker = dict(color='red'), showlegend=False), row=2, col=1)
+fig.update_yaxes(type="log", showexponent="all", exponentformat="e", title_text=f'Covariance Trace (km^2)', row=1, col=1)
+fig.update_yaxes(type="log", showexponent="all", exponentformat="e", title_text=f'Covariance Trace (km^2/s^2)', row=2, col=1)
+fig.update_layout(title=f"Covariance Time Histories for Varying Data Noise",
+                    xaxis_title='Time (s)',
+                    title_font=dict(size=28),
+                    width=1200,
+                    height=800,
+                    legend=dict(font=dict(size=18),
+                                yanchor="top",
+                                y=1.2,
+                                xanchor="left",
+                                x=0.87))
+fig.update_yaxes(showexponent="all", exponentformat="e")
+fig.show()
 
-# fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=('Position Covariance Trace', 'Velocity Covariance Trace'))
-# overconfident_trace_pos = np.trace(overconfident_lkf_covariance_history[:3,:3,:])
-# overconfident_trace_vel = np.trace(overconfident_lkf_covariance_history[3:6,3:6,:])
-# underconfident_trace_pos = np.trace(underconfident_lkf_covariance_history[:3,:3,:])
-# underconfident_trace_vel = np.trace(underconfident_lkf_covariance_history[3:6,3:6,:])
-# fig.add_trace(go.Scatter(x=time_vector, y=overconfident_trace_pos, mode='lines', name='Overconfident Noise Data', marker =dict(color='blue')), row=1, col=1)
-# fig.add_trace(go.Scatter(x=time_vector, y=overconfident_trace_vel, mode='lines', name='Overconfident Noise Data', marker = dict(color='blue'), showlegend=False), row=2, col=1)
-# fig.add_trace(go.Scatter(x=time_vector, y=underconfident_trace_pos, mode='lines', name='Underconfident Position', marker =dict(color='red')), row=1, col=1)
-# fig.add_trace(go.Scatter(x=time_vector, y=underconfident_trace_vel, mode='lines', name='Underconfident Velocity', marker = dict(color='red'), showlegend=False), row=2, col=1)
-# fig.update_yaxes(type="log", showexponent="all", exponentformat="e", title_text=f'Covariance Trace (km^2)', row=1, col=1)
-# fig.update_yaxes(type="log", showexponent="all", exponentformat="e", title_text=f'Covariance Trace (km^2/s^2)', row=2, col=1)
-# fig.update_layout(title=f"Covariance Time Histories for Varying Data Noise",
-#                     xaxis_title='Time (s)',
-#                     title_font=dict(size=28),
-#                     width=1200,
-#                     height=800,
-#                     legend=dict(font=dict(size=18),
-#                                 yanchor="top",
-#                                 y=1.2,
-#                                 xanchor="left",
-#                                 x=0.87))
-# fig.update_yaxes(showexponent="all", exponentformat="e")
-# fig.write_html(f"ASEN_6080/Project1/figures/underconfident_overconfident_covariance_traces.html")   
-# fig.write_image(f"ASEN_6080/Project1/figures/pngs/underconfident_overconfident_covariance_traces.png")
+# Plot covariance ellipse for satellite position at final time step
+batch_center = batch_estimated_state_history[:6,-1]
+lkf_center = lkf_state_history[:6,-1]
+center_diff = batch_center - lkf_center
+batch_pos_covariance_ellipse = covariance_ellipse(np.zeros(3), covariance_history[:3,:3,-1])
+lkf_pos_covariance_ellipse = covariance_ellipse(center_diff[:3], lkf_covariance_history[:3,:3,-1])
 
-# # Plot covariance ellipse for satellite position at final time step
-# batch_center = batch_estimated_state_history[:6,-1]
-# lkf_center = lkf_state_history[:6,-1]
-# center_diff = batch_center - lkf_center
-# batch_pos_covariance_ellipse = covariance_ellipse(np.zeros(3), covariance_history[:3,:3,-1])
-# lkf_pos_covariance_ellipse = covariance_ellipse(center_diff[:3], lkf_covariance_history[:3,:3,-1])
+# Plot 3D ellipses
+fig = go.Figure()
+fig.add_trace(go.Scatter3d(x=batch_pos_covariance_ellipse[:,0], y=batch_pos_covariance_ellipse[:,1], z=batch_pos_covariance_ellipse[:,2], mode='markers', name='Batch LLS Position Covariance Ellipse'))
+fig.add_trace(go.Scatter3d(x=lkf_pos_covariance_ellipse[:,0], y=lkf_pos_covariance_ellipse[:,1], z=lkf_pos_covariance_ellipse[:,2], mode='markers', name='LKF Position Covariance Ellipse'))
+fig.update_layout(title=f"Satellite Position Covariance Ellipses",
+                    title_font=dict(size=28),
+                    width=1000,
+                    height=800,
+                    legend=dict(font=dict(size=18),
+                                yanchor="top",
+                                y=1.2,
+                                xanchor="left",
+                                x=0.6),
+                    scene=dict(xaxis_title='X Position (km)',
+                               yaxis_title='Y Position (km)',
+                               zaxis_title='Z Position (km)',
+                               xaxis=dict(showexponent="all", exponentformat="e"),
+                               yaxis=dict(showexponent="all", exponentformat="e"),
+                               zaxis=dict(showexponent="all", exponentformat="e")))
+fig.show()
 
-# # Plot 3D ellipses
-# fig = go.Figure()
-# fig.add_trace(go.Scatter3d(x=batch_pos_covariance_ellipse[:,0], y=batch_pos_covariance_ellipse[:,1], z=batch_pos_covariance_ellipse[:,2], mode='markers', name='Batch LLS Position Covariance Ellipse'))
-# fig.add_trace(go.Scatter3d(x=lkf_pos_covariance_ellipse[:,0], y=lkf_pos_covariance_ellipse[:,1], z=lkf_pos_covariance_ellipse[:,2], mode='markers', name='LKF Position Covariance Ellipse'))
-# fig.update_layout(title=f"Satellite Position Covariance Ellipses",
-#                     title_font=dict(size=28),
-#                     width=1000,
-#                     height=800,
-#                     legend=dict(font=dict(size=18),
-#                                 yanchor="top",
-#                                 y=1.2,
-#                                 xanchor="left",
-#                                 x=0.6),
-#                     scene=dict(xaxis_title='X Position (km)',
-#                                yaxis_title='Y Position (km)',
-#                                zaxis_title='Z Position (km)',
-#                                xaxis=dict(showexponent="all", exponentformat="e"),
-#                                yaxis=dict(showexponent="all", exponentformat="e"),
-#                                zaxis=dict(showexponent="all", exponentformat="e")))
+# Plot covariance ellipse for satellite velocity at final time step
+batch_vel_covariance_ellipse = covariance_ellipse(np.zeros(3), covariance_history[3:6,3:6,-1])
+lkf_vel_covariance_ellipse = covariance_ellipse(center_diff[3:6], lkf_covariance_history[3:6,3:6,-1])
 
-# fig.write_html(f"ASEN_6080/Project1/figures/position_covariance_ellipses.html")
-# fig.write_image(f"ASEN_6080/Project1/figures/pngs/position_covariance_ellipses.png")
+# Plot 3D ellipses
+fig = go.Figure()
+fig.add_trace(go.Scatter3d(x=batch_vel_covariance_ellipse[:,0], y=batch_vel_covariance_ellipse[:,1], z=batch_vel_covariance_ellipse[:,2], mode='markers', name='Batch LLS Velocity Covariance Ellipse'))
+fig.add_trace(go.Scatter3d(x=lkf_vel_covariance_ellipse[:,0], y=lkf_vel_covariance_ellipse[:,1], z=lkf_vel_covariance_ellipse[:,2], mode='markers', name='LKF Velocity Covariance Ellipse'))
+fig.update_layout(title=f"Satellite Velocity Covariance Ellipses",
+                    title_font=dict(size=28),
+                    width=1000,
+                    height=800,
+                    legend=dict(font=dict(size=18),
+                                yanchor="top",
+                                y=1.2,
+                                xanchor="left",
+                                x=0.6),
+                    scene=dict(xaxis_title='X Velocity (km/s)',
+                               yaxis_title='Y Velocity (km/s)',
+                               zaxis_title='Z Velocity (km/s)',
+                               xaxis=dict(showexponent="all", exponentformat="e"),
+                               yaxis=dict(showexponent="all", exponentformat="e"),
+                               zaxis=dict(showexponent="all", exponentformat="e")))
+fig.show()
 
-# # Plot covariance ellipse for satellite velocity at final time step
-# batch_vel_covariance_ellipse = covariance_ellipse(np.zeros(3), covariance_history[3:6,3:6,-1])
-# lkf_vel_covariance_ellipse = covariance_ellipse(center_diff[3:6], lkf_covariance_history[3:6,3:6,-1])
+# Plot covariance ellipse to show difference between analyzing range and range rate
+range_center = range_lkf_state_history[:6,-1]
+range_rate_center = range_rate_lkf_state_history[:6,-1]
+center_diff = range_center - range_rate_center
+range_pos_covariance_ellipse = covariance_ellipse(np.zeros(3), range_covariance_history[:3,:3,-1])
+range_rate_pos_covariance_ellipse = covariance_ellipse(center_diff[:3], range_rate_covariance_history[:3,:3,-1])
 
-# # Plot 3D ellipses
-# fig = go.Figure()
-# fig.add_trace(go.Scatter3d(x=batch_vel_covariance_ellipse[:,0], y=batch_vel_covariance_ellipse[:,1], z=batch_vel_covariance_ellipse[:,2], mode='markers', name='Batch LLS Velocity Covariance Ellipse'))
-# fig.add_trace(go.Scatter3d(x=lkf_vel_covariance_ellipse[:,0], y=lkf_vel_covariance_ellipse[:,1], z=lkf_vel_covariance_ellipse[:,2], mode='markers', name='LKF Velocity Covariance Ellipse'))
-# fig.update_layout(title=f"Satellite Velocity Covariance Ellipses",
-#                     title_font=dict(size=28),
-#                     width=1000,
-#                     height=800,
-#                     legend=dict(font=dict(size=18),
-#                                 yanchor="top",
-#                                 y=1.2,
-#                                 xanchor="left",
-#                                 x=0.6),
-#                     scene=dict(xaxis_title='X Velocity (km/s)',
-#                                yaxis_title='Y Velocity (km/s)',
-#                                zaxis_title='Z Velocity (km/s)',
-#                                xaxis=dict(showexponent="all", exponentformat="e"),
-#                                yaxis=dict(showexponent="all", exponentformat="e"),
-#                                zaxis=dict(showexponent="all", exponentformat="e")))
+fig = go.Figure()
+fig.add_trace(go.Scatter3d(x=range_pos_covariance_ellipse[:,0], y=range_pos_covariance_ellipse[:,1], z=range_pos_covariance_ellipse[:,2], mode='markers', name='Range Only'))
+fig.add_trace(go.Scatter3d(x=range_rate_pos_covariance_ellipse[:,0], y=range_rate_pos_covariance_ellipse[:,1], z=range_rate_pos_covariance_ellipse[:,2], mode='markers', name='Range Rate Only'))
+fig.update_layout(title=f"Position Covariance Ellipses from Analyzing Only Range or Range Rate",
+                    title_font=dict(size=28),
+                    width=1200,
+                    height=800,
+                    legend=dict(font=dict(size=18)),
+                    scene=dict(xaxis_title='X Position (km)',
+                               yaxis_title='Y Position (km)',
+                               zaxis_title='Z Position (km)',
+                               xaxis=dict(showexponent="all", exponentformat="e"),
+                               yaxis=dict(showexponent="all", exponentformat="e"),
+                               zaxis=dict(showexponent="all", exponentformat="e")))
+fig.show()
 
-# fig.write_html(f"ASEN_6080/Project1/figures/velocity_covariance_ellipses.html")
-# fig.write_image(f"ASEN_6080/Project1/figures/pngs/velocity_covariance_ellipses.png")
+range_vel_covariance_ellipse = covariance_ellipse(np.zeros(3), range_covariance_history[3:6,3:6,-1])
+range_rate_vel_covariance_ellipse = covariance_ellipse(center_diff[3:6], range_rate_covariance_history[3:6,3:6,-1])
 
-# # Plot covariance ellipse to show difference between analyzing range and range rate
-# range_center = range_lkf_state_history[:6,-1]
-# range_rate_center = range_rate_lkf_state_history[:6,-1]
-# center_diff = range_center - range_rate_center
-# range_pos_covariance_ellipse = covariance_ellipse(np.zeros(3), range_covariance_history[:3,:3,-1])
-# range_rate_pos_covariance_ellipse = covariance_ellipse(center_diff[:3], range_rate_covariance_history[:3,:3,-1])
+fig = go.Figure()
+fig.add_trace(go.Scatter3d(x=range_vel_covariance_ellipse[:,0], y=range_vel_covariance_ellipse[:,1], z=range_vel_covariance_ellipse[:,2], mode='markers', name='Range Only'))
+fig.add_trace(go.Scatter3d(x=range_rate_vel_covariance_ellipse[:,0], y=range_rate_vel_covariance_ellipse[:,1], z=range_rate_vel_covariance_ellipse[:,2], mode='markers', name='Range Rate Only'))
+fig.update_layout(title=f"Velocity Covariance Ellipses from Analyzing Only Range or Range Rate",
+                    title_font=dict(size=28),
+                    width=1200,
+                    height=800,
+                    legend=dict(font=dict(size=18)),
+                    scene=dict(xaxis_title='X Velocity (km/s)',
+                               yaxis_title='Y Velocity (km/s)',
+                               zaxis_title='Z Velocity (km/s)',
+                               xaxis=dict(showexponent="all", exponentformat="e"),
+                               yaxis=dict(showexponent="all", exponentformat="e"),
+                               zaxis=dict(showexponent="all", exponentformat="e")))
+fig.show()
 
-# fig = go.Figure()
-# fig.add_trace(go.Scatter3d(x=range_pos_covariance_ellipse[:,0], y=range_pos_covariance_ellipse[:,1], z=range_pos_covariance_ellipse[:,2], mode='markers', name='Range Only'))
-# fig.add_trace(go.Scatter3d(x=range_rate_pos_covariance_ellipse[:,0], y=range_rate_pos_covariance_ellipse[:,1], z=range_rate_pos_covariance_ellipse[:,2], mode='markers', name='Range Rate Only'))
-# fig.update_layout(title=f"Position Covariance Ellipses from Analyzing Only Range or Range Rate",
-#                     title_font=dict(size=28),
-#                     width=1200,
-#                     height=800,
-#                     legend=dict(font=dict(size=18)),
-#                     scene=dict(xaxis_title='X Position (km)',
-#                                yaxis_title='Y Position (km)',
-#                                zaxis_title='Z Position (km)',
-#                                xaxis=dict(showexponent="all", exponentformat="e"),
-#                                yaxis=dict(showexponent="all", exponentformat="e"),
-#                                zaxis=dict(showexponent="all", exponentformat="e")))
-# fig.write_html(f"ASEN_6080/Project1/figures/range_vs_range_rate_position_covariance_ellipses.html")
-# fig.write_image(f"ASEN_6080/Project1/figures/pngs/range_vs_range_rate_position_covariance_ellipses.png")
+# Plot covariance ellipse to show difference between analyzing range and range rate
+underconfident_center = underconfident_batch_estimated_state_history[:6,-1]
+overconfident_center = overconfident_batch_estimated_state_history[:6,-1]
+center_diff = underconfident_center - overconfident_center
+underconfident_pos_covariance_ellipse = covariance_ellipse(np.zeros(3), underconfident_covariance_history[:3,:3,-1])
+overconfident_pos_covariance_ellipse = covariance_ellipse(center_diff[:3], overconfident_covariance_history[:3,:3,-1])
 
-# range_vel_covariance_ellipse = covariance_ellipse(np.zeros(3), range_covariance_history[3:6,3:6,-1])
-# range_rate_vel_covariance_ellipse = covariance_ellipse(center_diff[3:6], range_rate_covariance_history[3:6,3:6,-1])
+fig = go.Figure()
+fig.add_trace(go.Scatter3d(x=underconfident_pos_covariance_ellipse[:,0], y=underconfident_pos_covariance_ellipse[:,1], z=underconfident_pos_covariance_ellipse[:,2], mode='markers', name='Underconfident Data Noise', marker=dict(opacity=0.05)))
+fig.add_trace(go.Scatter3d(x=overconfident_pos_covariance_ellipse[:,0], y=overconfident_pos_covariance_ellipse[:,1], z=overconfident_pos_covariance_ellipse[:,2], mode='markers', name='Overconfident Data Noise'))
+fig.update_layout(title=f"Position Covariance Ellipses from Underconfident vs Overconfident Data Noise",
+                  title_font=dict(size=28),
+                  width=1200,
+                  height=800,
+                  legend=dict(font=dict(size=18)),
+                  scene=dict(xaxis_title='X Position (km)',
+                             yaxis_title='Y Position (km)',
+                             zaxis_title='Z Position (km)',
+                             xaxis=dict(showexponent="all", exponentformat="e"),
+                             yaxis=dict(showexponent="all", exponentformat="e"),
+                             zaxis=dict(showexponent="all", exponentformat="e")))
+fig.show()
 
-# fig = go.Figure()
-# fig.add_trace(go.Scatter3d(x=range_vel_covariance_ellipse[:,0], y=range_vel_covariance_ellipse[:,1], z=range_vel_covariance_ellipse[:,2], mode='markers', name='Range Only'))
-# fig.add_trace(go.Scatter3d(x=range_rate_vel_covariance_ellipse[:,0], y=range_rate_vel_covariance_ellipse[:,1], z=range_rate_vel_covariance_ellipse[:,2], mode='markers', name='Range Rate Only'))
-# fig.update_layout(title=f"Velocity Covariance Ellipses from Analyzing Only Range or Range Rate",
-#                     title_font=dict(size=28),
-#                     width=1200,
-#                     height=800,
-#                     legend=dict(font=dict(size=18)),
-#                     scene=dict(xaxis_title='X Velocity (km/s)',
-#                                yaxis_title='Y Velocity (km/s)',
-#                                zaxis_title='Z Velocity (km/s)',
-#                                xaxis=dict(showexponent="all", exponentformat="e"),
-#                                yaxis=dict(showexponent="all", exponentformat="e"),
-#                                zaxis=dict(showexponent="all", exponentformat="e")))
-# fig.write_html(f"ASEN_6080/Project1/figures/range_vs_range_rate_velocity_covariance_ellipses.html")
-# fig.write_image(f"ASEN_6080/Project1/figures/pngs/range_vs_range_rate_velocity_covariance_ellipses.png")
-
-# # Plot covariance ellipse to show difference between analyzing range and range rate
-# underconfident_center = underconfident_batch_estimated_state_history[:6,-1]
-# overconfident_center = overconfident_batch_estimated_state_history[:6,-1]
-# center_diff = underconfident_center - overconfident_center
-# underconfident_pos_covariance_ellipse = covariance_ellipse(np.zeros(3), underconfident_covariance_history[:3,:3,-1])
-# overconfident_pos_covariance_ellipse = covariance_ellipse(center_diff[:3], overconfident_covariance_history[:3,:3,-1])
-
-# fig = go.Figure()
-# fig.add_trace(go.Scatter3d(x=underconfident_pos_covariance_ellipse[:,0], y=underconfident_pos_covariance_ellipse[:,1], z=underconfident_pos_covariance_ellipse[:,2], mode='markers', name='Underconfident Data Noise', marker=dict(opacity=0.05)))
-# fig.add_trace(go.Scatter3d(x=overconfident_pos_covariance_ellipse[:,0], y=overconfident_pos_covariance_ellipse[:,1], z=overconfident_pos_covariance_ellipse[:,2], mode='markers', name='Overconfident Data Noise'))
-# fig.update_layout(title=f"Position Covariance Ellipses from Underconfident vs Overconfident Data Noise",
-#                   title_font=dict(size=28),
-#                   width=1200,
-#                   height=800,
-#                   legend=dict(font=dict(size=18)),
-#                   scene=dict(xaxis_title='X Position (km)',
-#                              yaxis_title='Y Position (km)',
-#                              zaxis_title='Z Position (km)',
-#                              xaxis=dict(showexponent="all", exponentformat="e"),
-#                              yaxis=dict(showexponent="all", exponentformat="e"),
-#                              zaxis=dict(showexponent="all", exponentformat="e")))
-# fig.write_html(f"ASEN_6080/Project1/figures/underconfident_vs_overconfident_position_covariance_ellipses.html")
-# fig.write_image(f"ASEN_6080/Project1/figures/pngs/underconfident_vs_overconfident_position_covariance_ellipses.png")
-
-# underconfident_vel_covariance_ellipse = covariance_ellipse(np.zeros(3), underconfident_covariance_history[3:6,3:6,-1])
-# overconfident_vel_covariance_ellipse = covariance_ellipse(center_diff[3:6], overconfident_covariance_history[3:6,3:6,-1])
-# fig = go.Figure()
-# fig.add_trace(go.Scatter3d(x=underconfident_vel_covariance_ellipse[:,0], y=underconfident_vel_covariance_ellipse[:,1], z=underconfident_vel_covariance_ellipse[:,2], mode='markers', name='Underconfident Data Noise', marker=dict(opacity=0.05)))
-# fig.add_trace(go.Scatter3d(x=overconfident_vel_covariance_ellipse[:,0], y=overconfident_vel_covariance_ellipse[:,1], z=overconfident_vel_covariance_ellipse[:,2], mode='markers', name='Overconfident Data Noise'))
-# fig.update_layout(title=f"Velocity Covariance Ellipses from Underconfident vs Overconfident Data Noise",
-#                   title_font=dict(size=28),
-#                   width=1200,
-#                   height=800,
-#                   legend=dict(font=dict(size=18)),
-#                   scene=dict(xaxis_title='X Velocity (km/s)',
-#                              yaxis_title='Y Velocity (km/s)',
-#                              zaxis_title='Z Velocity (km/s)',
-#                              xaxis=dict(showexponent="all", exponentformat="e"),
-#                              yaxis=dict(showexponent="all", exponentformat="e"),
-#                              zaxis=dict(showexponent="all", exponentformat="e")))
-# fig.write_html(f"ASEN_6080/Project1/figures/underconfident_vs_overconfident_velocity_covariance_ellipses.html")
-# fig.write_image(f"ASEN_6080/Project1/figures/pngs/underconfident_vs_overconfident_velocity_covariance_ellipses.png")
+underconfident_vel_covariance_ellipse = covariance_ellipse(np.zeros(3), underconfident_covariance_history[3:6,3:6,-1])
+overconfident_vel_covariance_ellipse = covariance_ellipse(center_diff[3:6], overconfident_covariance_history[3:6,3:6,-1])
+fig = go.Figure()
+fig.add_trace(go.Scatter3d(x=underconfident_vel_covariance_ellipse[:,0], y=underconfident_vel_covariance_ellipse[:,1], z=underconfident_vel_covariance_ellipse[:,2], mode='markers', name='Underconfident Data Noise', marker=dict(opacity=0.05)))
+fig.add_trace(go.Scatter3d(x=overconfident_vel_covariance_ellipse[:,0], y=overconfident_vel_covariance_ellipse[:,1], z=overconfident_vel_covariance_ellipse[:,2], mode='markers', name='Overconfident Data Noise'))
+fig.update_layout(title=f"Velocity Covariance Ellipses from Underconfident vs Overconfident Data Noise",
+                  title_font=dict(size=28),
+                  width=1200,
+                  height=800,
+                  legend=dict(font=dict(size=18)),
+                  scene=dict(xaxis_title='X Velocity (km/s)',
+                             yaxis_title='Y Velocity (km/s)',
+                             zaxis_title='Z Velocity (km/s)',
+                             xaxis=dict(showexponent="all", exponentformat="e"),
+                             yaxis=dict(showexponent="all", exponentformat="e"),
+                             zaxis=dict(showexponent="all", exponentformat="e")))
+fig.show()
