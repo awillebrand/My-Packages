@@ -214,7 +214,7 @@ class LKF:
                     measurement_residuals_matrix[:,:,i,j] = np.vstack(residual)
                     H_matrix[:,:,i,j] = H_total
 
-                residuals_df = residuals_df._append({'iteration': iteration, 'station': station_name, 'pre-fit': residual_vector, 'post-fit': np.nan}, ignore_index=True)
+                residuals_df = pd.concat([residuals_df, pd.DataFrame({'iteration': iteration, 'station': station_name, 'pre-fit': [residual_vector], 'post-fit': np.nan})], ignore_index=True)
             # Perform LKF estimation process
             state_estimates = np.zeros((raw_state_length, len(time_vector)))
             covariance_estimates = np.zeros((raw_state_length, raw_state_length, len(time_vector)))
