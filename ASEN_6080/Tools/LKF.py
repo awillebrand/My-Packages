@@ -114,6 +114,53 @@ class LKF:
         
         return updated_state, updated_covariance
     
+    def compute_DMC_covariance(self, beta_mat : np.ndarray, Q : np.ndarray, delta_t : float):
+        """
+        Compute the process noise covariance matrix for Dynamic Model Compensation (DMC).
+
+        Parameters:
+        beta_mat : np.ndarray
+            A 3x3 diagonal matrix of time constants for DMC.
+        Q : np.ndarray
+            The base process noise covariance matrix.
+        delta_t : float
+            The time step size.
+
+        Returns:
+        Q_w : np.ndarray
+            The process noise covariance matrix for DMC.
+        """
+        beta_list = np.diag(beta_mat)
+        sigma_list = np.sqrt(np.diag(Q))
+
+        Q_w = np.zeros((9, 9))  # Assuming 6 state variables and 3 DMC variables
+        for i, (beta, sigma) in enumerate(zip(beta_list, sigma_list)):
+            # Precompute exponential terms
+            exp_beta = np.exp(-beta * delta_t)
+            exp_2beta = np.exp(-2 * beta * delta_t)
+            leading_term = (sigma**2) / (beta**2)
+
+            # Compute covariance elements using closed-form solutions
+            Q_ii = leading_term * (delta_t**3 / 3 - delta_t**2 / beta + delta_t / beta**2 * (1 - 2*exp_beta) + (1 - exp_2beta) / (2 * beta**3))
+            Q_iv = leading_term * (0.5 * delta_t**2 - delta_t / beta * (1 - exp_beta) + (0.5 - exp_beta + 0.5*exp_2beta) / beta**2)
+            Q_vv = leading_term * (delta_t - (1.5 + 0.5 * exp_2beta - 2*exp_beta) / beta)
+            Q_iw = leading_term * ((1 - exp_2beta) / (2 * beta) - delta_t * exp_beta)
+            Q_vw = leading_term * (0.5 * (1 + exp_2beta) - exp_beta)
+            Q_ww = sigma **2 / (2 * beta) * (1 - exp_2beta)
+
+            # Assign proper values to the covariance matrix
+            Q_w[i, i] = Q_ii
+            Q_w[i, i+3] = Q_iv
+            Q_w[i, i+6] = Q_iw
+            Q_w[i+3, i+3] = Q_vv
+            Q_w[i+3, i+6] = Q_vw
+            Q_w[i+6, i+6] = Q_ww
+
+            # Assign symmetric elements by
+            Q_w = Q_w + Q_w.T - np.diag(Q_w.diagonal())
+
+        return Q_w
+
     def run(self, initial_state : np.ndarray,
             initial_x_correction : np.ndarray,
             initial_covariance : np.ndarray,
@@ -123,7 +170,8 @@ class LKF:
             convergence_threshold : float = 1e-5,
             considered_measurements : str = 'All',
             process_noise_approach : str = 'None',
-            Q_frame : str = 'ECI'):
+            Q_frame : str = 'ECI',
+            beta_mat : np.ndarray = None):
         """
         Run the Linearized Kalman Filter over a series of measurements.
         Parameters:
@@ -149,6 +197,8 @@ class LKF:
             A string indicating the approach for handling process noise. Options are 'None' for no process noise, 'SNC' for State Noise Compensation, or 'DMC' for Dynamic Model Compensation. Default is 'None'.
         Q_frame : str, optional
             The reference frame of the process noise covariance matrix Q ('ECI' or 'RIC'). Default is 'ECI'.
+        beta_mat : np.ndarray, optional
+            A 3x3 diagonal matrix of time constants for dynamic model compensation. Required if process_noise_approach is 'DMC'. Default is None.
         Returns:
         state_estimates : list
             A list of state estimates at each measurement time.
@@ -159,6 +209,8 @@ class LKF:
             raise ValueError("Invalid process_noise_approach. Must be 'None', 'SNC', or 'DMC'.")
         if process_noise_approach == 'SNC' and Q is None:
             raise ValueError("Process noise covariance matrix Q must be provided for SNC approach.")
+        if process_noise_approach == 'DMC' and (beta_mat is None or Q is None):
+            raise ValueError("Beta matrix and process noise covariance matrix Q must be provided for DMC approach.")
 
         x_bar0 = np.zeros_like(initial_state)
         x_hat = x_bar0.copy()
@@ -263,6 +315,19 @@ class LKF:
                         delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
                         Gamma = delta_t * np.concatenate((0.5 * delta_t * np.eye(3), np.eye(3)), axis=0)
                         P[0:6, 0:6] = P[0:6, 0:6] + Gamma @ Q_eci @ Gamma.T
+                    if process_noise_approach == 'DMC':
+                        if Q_frame == 'RIC':
+                            # Transform Q from RIC to ECI frame
+                            dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time)
+                            Q_eci = dcm.T @ Q @ dcm
+                        elif Q_frame == 'ECI':
+                            Q_eci = Q
+                        delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
+                        Q_w = self.compute_DMC_covariance(beta_mat, Q_eci, delta_t)
+                        P[0:6, 0:6] = P[0:6, 0:6] + Q_w[0:6, 0:6]  # Add only the state covariance portion of Q_w
+                        P[0:6, -3:] = P[0:6, -3:] + Q_w[0:6, 6:]  # Add state-DMC cross covariance
+                        P[-3:, 0:6] = P[-3:, 0:6] + Q_w[6:, 0:6]  # Add DMC-state cross covariance
+                        P[-3:, -3:] = P[-3:, -3:] + Q_w[6:, 6:]  # Add DMC covariance
                     
                 else:
                     # Determine which stations are visible
@@ -291,12 +356,29 @@ class LKF:
 
                     # Add process noise
                     if process_noise_approach == 'SNC':
+                        if Q_frame == 'RIC':
+                            # Transform Q from RIC to ECI frame
+                            dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time)
+                            Q_eci = dcm.T @ Q @ dcm
+                        elif Q_frame == 'ECI':
+                            Q_eci = Q
                         delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
                         Gamma = delta_t * np.concatenate((0.5 * delta_t * np.eye(3), np.eye(3)), axis=0)
-                        P[0:6, 0:6] = P[0:6, 0:6] + Gamma @ Q @ Gamma.T
-                    
+                        predict_P[0:6, 0:6] = predict_P[0:6, 0:6] + Gamma @ Q_eci @ Gamma.T
+                    if process_noise_approach == 'DMC':
+                        if Q_frame == 'RIC':
+                            # Transform Q from RIC to ECI frame
+                            dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time)
+                            Q_eci = dcm.T @ Q @ dcm
+                        elif Q_frame == 'ECI':
+                            Q_eci = Q
+                        delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
+                        Q_w = self.compute_DMC_covariance(beta_mat, Q_eci, delta_t)
+                        predict_P[0:6, 0:6] = predict_P[0:6, 0:6] + Q_w[0:6, 0:6]  # Add only the state covariance portion of Q_w
+                        predict_P[0:6, -3:] = predict_P[0:6, -3:] + Q_w[0:6, 6:]  # Add state-DMC cross covariance
+                        predict_P[-3:, 0:6] = predict_P[-3:, 0:6] + Q_w[6:, 0:6]  # Add DMC-state cross covariance
+                        predict_P[-3:, -3:] = predict_P[-3:, -3:] + Q_w[6:, 6:]  # Add DMC covariance
                     x_hat, P = self.update(x_bar, predict_P, K, stacked_residuals, stacked_H, stacked_R)
-
 
                 # Store estimates
                 state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
