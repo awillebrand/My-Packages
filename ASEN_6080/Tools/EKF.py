@@ -23,7 +23,7 @@ class EKF:
         self.measurement_mgrs = measurement_mgr_list
         self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle=initial_earth_spin_angle, earth_rotation_rate=earth_rotation_rate, R_e = integrator.R_e)
         
-    def predict(self, P : np.ndarray, phi : np.ndarray, Q : np.ndarray):
+    def predict(self, P : np.ndarray, phi : np.ndarray):
         """
         Perform the prediction step of the Extended Kalman Filter.
 
@@ -32,14 +32,12 @@ class EKF:
             The current covariance estimate.
         phi : np.ndarray
             The state transition matrix.
-        Q : np.ndarray
-            The process noise covariance matrix.
         Returns:
         np.ndarray
             The predicted covariance estimate.
         """
         # Predict covariance
-        predicted_covariance = phi @ P @ phi.T + Q
+        predicted_covariance = phi @ P @ phi.T
 
         return predicted_covariance
     
@@ -83,7 +81,8 @@ class EKF:
             R : np.ndarray = 0,
             start_mode : str = 'cold',
             start_length : int = 100,
-            process_noise_approach : str = 'None'):
+            process_noise_approach : str = 'None',
+            Q_frame : str = 'ECI'):
         """
         Run the Extended Kalman Filter over the provided measurement data.
 
@@ -104,6 +103,10 @@ class EKF:
             The starting mode of the filter ('cold' or 'warm'). Default is 'cold'.
         start_length : int, optional
             The number of initial measurements to use for warm start. Default is 100.
+        process_noise_approach : str, optional
+            The approach for incorporating process noise ('None', 'SNC', or 'DMC'). Default is 'None'.
+        Q_frame : str, optional
+            The reference frame of the process noise covariance matrix Q ('ECI' or 'RIC'). Default is 'ECI'.
         Returns:
         Tuple
             A tuple containing the state estimates and covariance estimates over time.
@@ -133,7 +136,7 @@ class EKF:
             print("Starting EKF in warm start mode.")
             # Run LKF on initial measurements to get initial state correction
             lkf = LKF(self.integrator, self.measurement_mgrs, initial_earth_spin_angle=self.coordinate_mgr.initial_earth_spin_angle, earth_rotation_rate=self.coordinate_mgr.earth_rotation_rate)
-            [lkf_x_history, lkf_P_history, residuals_df] = lkf.run(initial_state, initial_x_correction, initial_covariance, measurement_data.iloc[0:start_length], Q=Q, R=R)
+            [lkf_x_history, lkf_P_history, residuals_df] = lkf.run(initial_state, initial_x_correction, initial_covariance, measurement_data.iloc[0:start_length], Q=Q, R=R, max_iterations=1, process_noise_approach=process_noise_approach)
                     
             P = lkf_P_history[:,:,-1]
             X_k_0 = lkf_x_history[:,-1]
@@ -177,7 +180,18 @@ class EKF:
             phi = raw_stm[0:raw_state_length,0:raw_state_length]
 
             # Predict covariance
-            predict_P = self.predict(P, phi, Q)
+            predict_P = self.predict(P, phi)
+            # Add process noise if using SNC approach
+            if process_noise_approach == 'SNC':
+                if Q_frame == 'RIC':
+                    # Transform Q from RIC to ECI frame
+                    dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time)
+                    Q_eci = dcm.T @ Q @ dcm
+                elif Q_frame == 'ECI':
+                    Q_eci = Q
+                delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
+                Gamma = delta_t * np.concatenate((0.5 * delta_t * np.eye(3), np.eye(3)), axis=0)
+                predict_P[0:6, 0:6] = predict_P[0:6, 0:6] + Gamma @ Q_eci @ Gamma.T
 
             # Check if measurements are available at this time
             current_measurements = measurement_matrix[:,:,:,k]

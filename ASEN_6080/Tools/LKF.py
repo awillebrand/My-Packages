@@ -122,7 +122,8 @@ class LKF:
             max_iterations : int = 1,
             convergence_threshold : float = 1e-5,
             considered_measurements : str = 'All',
-            process_noise_approach : str = 'None'):
+            process_noise_approach : str = 'None',
+            Q_frame : str = 'ECI'):
         """
         Run the Linearized Kalman Filter over a series of measurements.
         Parameters:
@@ -146,6 +147,8 @@ class LKF:
             A string indicating which measurements to consider in the LKF. Options are 'Range', 'Range Rate', or 'All'. Default is 'All'.
         process_noise_approach : str, optional
             A string indicating the approach for handling process noise. Options are 'None' for no process noise, 'SNC' for State Noise Compensation, or 'DMC' for Dynamic Model Compensation. Default is 'None'.
+        Q_frame : str, optional
+            The reference frame of the process noise covariance matrix Q ('ECI' or 'RIC'). Default is 'ECI'.
         Returns:
         state_estimates : list
             A list of state estimates at each measurement time.
@@ -249,6 +252,18 @@ class LKF:
                 if np.isnan(current_measurement_residuals).all():
                     # No measurements available, propagate state and covariance
                     x_hat, P, _ = self.predict(x_hat, P, phi, np.zeros((meas_number, raw_state_length)), R)
+                    # Add process noise
+                    if process_noise_approach == 'SNC':
+                        if Q_frame == 'RIC':
+                            # Transform Q from RIC to ECI frame
+                            dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time)
+                            Q_eci = dcm.T @ Q @ dcm
+                        elif Q_frame == 'ECI':
+                            Q_eci = Q
+                        delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
+                        Gamma = delta_t * np.concatenate((0.5 * delta_t * np.eye(3), np.eye(3)), axis=0)
+                        P[0:6, 0:6] = P[0:6, 0:6] + Gamma @ Q_eci @ Gamma.T
+                    
                 else:
                     # Determine which stations are visible
                     visible_station_indices = []
@@ -273,13 +288,15 @@ class LKF:
                     # Predict and update steps
 
                     x_bar, predict_P, K = self.predict(x_hat, P, phi, stacked_H, stacked_R)
+
+                    # Add process noise
+                    if process_noise_approach == 'SNC':
+                        delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
+                        Gamma = delta_t * np.concatenate((0.5 * delta_t * np.eye(3), np.eye(3)), axis=0)
+                        P[0:6, 0:6] = P[0:6, 0:6] + Gamma @ Q @ Gamma.T
+                    
                     x_hat, P = self.update(x_bar, predict_P, K, stacked_residuals, stacked_H, stacked_R)
 
-                # Add process noise
-                if process_noise_approach == 'SNC':
-                    delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
-                    Gamma = delta_t * np.concatenate((0.5 * delta_t * np.eye(3), np.eye(3)), axis=0)
-                    P[0:6, 0:6] = P[0:6, 0:6] + Gamma @ Q @ Gamma.T
 
                 # Store estimates
                 state_estimates[:,k] = x_hat.T + reference_state_history[:,k]

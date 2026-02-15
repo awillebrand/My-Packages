@@ -21,9 +21,9 @@ class CoordinateMgr:
         """Compute direction cosine matrix between two coordinate frames. Outputted DCM converts from frame 1 to frame 2.
         Parameters:
         coordinate_frame_1 : str
-            Name of the first coordinate frame (e.g., 'ECI', 'ECEF', 'Perifocal').
+            Name of the first coordinate frame (e.g., 'ECI', 'ECEF', 'Perifocal', 'RIC').
         coordinate_frame_2 : str
-            Name of the second coordinate frame (e.g., 'ECI', 'ECEF', 'Perifocal).
+            Name of the second coordinate frame (e.g., 'ECI', 'ECEF', 'Perifocal', 'RIC').
         time : float, optional
             Time in seconds since epoch (required for ECI/ECEF transformations).
         orbit_state : np.array, optional
@@ -93,6 +93,38 @@ class CoordinateMgr:
             Perifocal_to_ECI = self.compute_DCM('Perifocal', 'ECI', orbit_state=orbit_state)
             ECI_to_ECEF = self.compute_DCM('ECI', 'ECEF', time=time)
             DCM = ECI_to_ECEF @ Perifocal_to_ECI
+            return DCM
+        
+        elif coordinate_frame_1 == 'ECI' and coordinate_frame_2 == 'RIC':
+            r_vec = orbit_state[0:3]
+            v_vec = orbit_state[3:6]
+            r_hat = r_vec / np.linalg.norm(r_vec)
+            h_vec = np.cross(r_vec, v_vec)
+            h_hat = h_vec / np.linalg.norm(h_vec)
+            c_hat = np.cross(r_hat, h_hat)
+            DCM = np.vstack((r_hat, c_hat, h_hat)).T
+            return DCM
+        
+        elif coordinate_frame_1 == 'RIC' and coordinate_frame_2 == 'ECI':
+            r_vec = orbit_state[0:3]
+            v_vec = orbit_state[3:6]
+            r_hat = r_vec / np.linalg.norm(r_vec)
+            h_vec = np.cross(r_vec, v_vec)
+            h_hat = h_vec / np.linalg.norm(h_vec)
+            c_hat = np.cross(r_hat, h_hat)
+            DCM = np.vstack((r_hat, c_hat, h_hat)).T
+            return DCM.T
+        
+        elif coordinate_frame_1 == 'ECEF' and coordinate_frame_2 == 'RIC':
+            ECEF_to_ECI = self.compute_DCM('ECEF', 'ECI', time=time)
+            ECI_to_RIC = self.compute_DCM('ECI', 'RIC', orbit_state=orbit_state)
+            DCM = ECI_to_RIC @ ECEF_to_ECI
+            return DCM
+        
+        elif coordinate_frame_1 == 'RIC' and coordinate_frame_2 == 'ECEF':
+            RIC_to_ECI = self.compute_DCM('RIC', 'ECI', orbit_state=orbit_state)
+            ECI_to_ECEF = self.compute_DCM('ECI', 'ECEF', time=time)
+            DCM = ECI_to_ECEF @ RIC_to_ECI
             return DCM
         
         elif coordinate_frame_1 == coordinate_frame_2:

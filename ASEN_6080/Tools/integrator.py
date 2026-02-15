@@ -91,7 +91,21 @@ class Integrator:
 
         return a, e, i, LoN, AoP, f
     
-    def equations_of_motion(self, t, state):
+    def equations_of_motion(self, t : float, state : np.ndarray, DMC : bool = False):
+        """
+        Computes the time derivative of the state vector for a spacecraft under various perturbations.
+        Parameters:
+        t : float
+            Current time in seconds.
+        state : np.ndarray
+            State vector of the spacecraft. The first 6 elements must be [x, y, z, u, v, w] in km and km/s. Additional elements can include parameters for estimation based on the mode.
+        DMC : bool, optional
+            If True, include dynamic model compensation terms in the equations of motion. Default is False.
+        Returns:
+        state_dot : np.ndarray
+            Time derivative of the state vector.
+
+        """
         mu = self.mu
         x, y, z = state[0:3]
         u, v, w = state[3:6]
@@ -154,9 +168,28 @@ class Integrator:
         if 'Stations' in self.mode:
             for _ in range(num_station_vars):
                 output = np.append(output, 0)
+
+        if DMC:
+            output = np.append(output, state[-3:]) 
+
         return output
     
-    def full_dynamics(self, t, augmented_state):
+    def full_dynamics(self, t, augmented_state, DMC : bool = False , beta_mat : np.ndarray = None):
+        """
+        Computes the time derivative of the augmented state vector, which includes both the spacecraft state and the state transition matrix (STM) for variational equations.
+        Parameters:
+        t : float
+            Current time in seconds.
+        augmented_state : np.ndarray
+            Augmented state vector of the spacecraft and STM. The first n elements are the spacecraft state, and the remaining elements are the flattened STM (n x n).
+        DMC : bool, optional
+            If True, include dynamic model compensation terms in the equations of motion. Default is False.
+        beta_mat : np.ndarray, optional
+            3x3 diagonal matrix of time constants for dynamic model compensation. Required if DMC is True. Default is None.
+        Returns:
+        augmented_state_dot : np.ndarray
+            Time derivative of the augmented state vector, including both the spacecraft state derivatives and the STM derivatives.
+        """
         # This function is passed through the integrator when the initial state is augmented by the STM
 
         # Determine state length based on mode and assign J2 and J3 according to mode
@@ -193,16 +226,17 @@ class Integrator:
             station_positions_ecef = np.zeros((self.number_of_stations, 3))
             for i in range(self.number_of_stations):
                 station_positions_ecef[i, :] = station_positions_vector[3*i:3*i+3]
-                
+        if DMC:
+            state_length += 3
         state = augmented_state[0:state_length]
         phi_flat = augmented_state[state_length:]
         phi = phi_flat.reshape((state_length, state_length))
 
         # Compute state derivatives
-        state_dot = self.equations_of_motion(t, state)
+        state_dot = self.equations_of_motion(t, state, DMC=DMC)
 
         # Compute STM derivative
-        A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, station_positions_ecef, self.R_e, mode=self.mode, spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass)
+        A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, station_positions_ecef, self.R_e, mode=self.mode, spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
         phi_dot = A @ phi
         phi_dot_flat = phi_dot.flatten()
 
@@ -227,7 +261,7 @@ class Integrator:
         sol = solve_ivp(self.equations_of_motion, t_span, initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval)
         return sol.t, sol.y
     
-    def integrate_stm(self, t_final, initial_state, phi_0 = None, teval = None, initial_time : float = 0):
+    def integrate_stm(self, t_final, initial_state, phi_0 = None, teval = None, initial_time : float = 0, DMC : bool = False, beta_mat : np.ndarray = None):
         # Determine state length based on mode
         state_length = 6
 
@@ -244,6 +278,8 @@ class Integrator:
             param_index = self.parameter_indices[self.mode.index('Stations')]
             num_station_vars = len(initial_state[param_index:])
             state_length += num_station_vars
+        if DMC:
+            state_length += 3
 
         # Initialize STM as identity matrix
         if phi_0 is None:
@@ -251,5 +287,5 @@ class Integrator:
 
         augmented_initial_state = np.hstack((initial_state, phi_0))
         t_span = (initial_time, t_final)
-        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval)
+        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval, args=(DMC, beta_mat))
         return sol.t, sol.y
