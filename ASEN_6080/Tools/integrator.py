@@ -91,7 +91,7 @@ class Integrator:
 
         return a, e, i, LoN, AoP, f
     
-    def equations_of_motion(self, t : float, state : np.ndarray, DMC : bool = False):
+    def equations_of_motion(self, t : float, state : np.ndarray, DMC : bool = False, beta_mat : np.ndarray = None):
         """
         Computes the time derivative of the state vector for a spacecraft under various perturbations.
         Parameters:
@@ -101,11 +101,13 @@ class Integrator:
             State vector of the spacecraft. The first 6 elements must be [x, y, z, u, v, w] in km and km/s. Additional elements can include parameters for estimation based on the mode.
         DMC : bool, optional
             If True, include dynamic model compensation terms in the equations of motion. Default is False.
+        beta_mat : np.ndarray, optional
+            3x3 diagonal matrix of time constants for dynamic model compensation. Required if DMC is True. Default is None.
         Returns:
         state_dot : np.ndarray
             Time derivative of the state vector.
-
         """
+
         mu = self.mu
         x, y, z = state[0:3]
         u, v, w = state[3:6]
@@ -156,6 +158,17 @@ class Integrator:
             v_dot += v_dot_drag
             w_dot += w_dot_drag
 
+        if DMC:
+            # Add DMC terms to the equations of motion, these are simple linear damping terms on the velocity components with time constants specified by beta_mat
+            w_1, w_2, w_3 = state[-3:]
+            u_dot += w_1
+            v_dot += w_2
+            w_dot += w_3
+
+            w_1_dot = -beta_mat[0,0] * w_1
+            w_2_dot = -beta_mat[1,1] * w_2
+            w_3_dot = -beta_mat[2,2] * w_3
+
         output = np.array([x_dot, y_dot, z_dot, u_dot, v_dot, w_dot])
         if 'mu' in self.mode:
             output = np.append(output, 0)
@@ -170,7 +183,7 @@ class Integrator:
                 output = np.append(output, 0)
 
         if DMC:
-            output = np.append(output, state[-3:]) 
+            output = np.append(output, [w_1_dot, w_2_dot, w_3_dot]) 
 
         return output
     

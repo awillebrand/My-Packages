@@ -212,13 +212,14 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
             #  station partials to A, just adding 3 zero rows and columns per station
             for _ in range(station_positions_ecef.shape[0]):
                 temp_A = np.pad(temp_A, ((0,3),(0,3)), 'constant')
-        if DMC:
-            # Add DMC partials to A
-            D = np.concatenate((np.zeros((3,3)), np.eye(3)), axis=0)
+                
+    if DMC:
+        # Add DMC partials to A
+        D = np.concatenate((np.zeros((3,3)), np.eye(3)), axis=0)
 
-            temp_A = np.pad(temp_A, ((0,3),(0,3)), 'constant')
-            temp_A[0:6, -3:] = D
-            temp_A[-3:, -3:] = -beta_mat
+        temp_A = np.pad(temp_A, ((0,3),(0,3)), 'constant')
+        temp_A[0:6, -3:] = D
+        temp_A[-3:, -3:] = -beta_mat
 
     return temp_A
 
