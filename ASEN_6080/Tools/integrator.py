@@ -246,7 +246,7 @@ class Integrator:
         phi = phi_flat.reshape((state_length, state_length))
 
         # Compute state derivatives
-        state_dot = self.equations_of_motion(t, state, DMC=DMC)
+        state_dot = self.equations_of_motion(t, state, DMC=DMC, beta_mat=beta_mat)
 
         # Compute STM derivative
         A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, station_positions_ecef, self.R_e, mode=self.mode, spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
