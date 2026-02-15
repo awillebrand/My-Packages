@@ -241,6 +241,7 @@ class Integrator:
                 station_positions_ecef[i, :] = station_positions_vector[3*i:3*i+3]
         if DMC:
             state_length += 3
+
         state = augmented_state[0:state_length]
         phi_flat = augmented_state[state_length:]
         phi = phi_flat.reshape((state_length, state_length))
@@ -293,7 +294,7 @@ class Integrator:
             state_length += num_station_vars
         if DMC:
             state_length += 3
-
+        
         # Initialize STM as identity matrix
         if phi_0 is None:
             phi_0 = np.eye(state_length).flatten()

@@ -237,7 +237,7 @@ class LKF:
         for iteration in range(max_iterations):
             print(f"Starting LKF iteration {iteration+1} of {max_iterations}                           ")
             # Integrate over measurement times
-            [_, augmented_state_history] = self.integrator.integrate_stm(time_vector[-1], x_0, teval=time_vector)
+            [_, augmented_state_history] = self.integrator.integrate_stm(time_vector[-1], x_0, teval=time_vector, DMC=(process_noise_approach=='DMC'), beta_mat=beta_mat)
 
             # Separate state and STM history
             reference_state_history = augmented_state_history[0:raw_state_length, :]
