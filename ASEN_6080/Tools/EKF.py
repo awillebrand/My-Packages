@@ -22,6 +22,7 @@ class EKF:
         self.integrator = integrator
         self.measurement_mgrs = measurement_mgr_list
         self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle=initial_earth_spin_angle, earth_rotation_rate=earth_rotation_rate, R_e = integrator.R_e)
+        
     def predict(self, P : np.ndarray, phi : np.ndarray, Q : np.ndarray):
         """
         Perform the prediction step of the Extended Kalman Filter.
@@ -74,7 +75,15 @@ class EKF:
 
         return x_hat, updated_covariance
     
-    def run(self, initial_state, initial_x_correction : np.ndarray, initial_covariance : np.ndarray, input_measurement_data : pd.DataFrame, Q : np.ndarray = 0, R : np.ndarray = 0, start_mode : str = 'cold', start_length : int = 100):
+    def run(self, initial_state : np.ndarray,
+            initial_x_correction : np.ndarray,
+            initial_covariance : np.ndarray,
+            input_measurement_data : pd.DataFrame,
+            Q : np.ndarray = None,
+            R : np.ndarray = 0,
+            start_mode : str = 'cold',
+            start_length : int = 100,
+            process_noise_approach : str = 'None'):
         """
         Run the Extended Kalman Filter over the provided measurement data.
 
@@ -99,17 +108,24 @@ class EKF:
         Tuple
             A tuple containing the state estimates and covariance estimates over time.
         """
+        if start_mode not in ['cold', 'warm']:
+            raise ValueError("Invalid start_mode. Choose 'cold' or 'warm'.")
+        if process_noise_approach not in ['None', 'SNC', 'DMC']:
+            raise ValueError("Invalid process_noise_approach. Must be 'None', 'SNC', or 'DMC'.")
+        if process_noise_approach == 'SNC' and Q is None:
+            raise ValueError("Process noise covariance matrix Q must be provided for SNC approach.")
+
         measurement_data = input_measurement_data.copy()
         raw_state_length = len(initial_state)
         time_vector = measurement_data['time'].values
-        state_estimates = np.zeros((6, len(time_vector)))
-        covariance_estimates = np.zeros((6, 6, len(time_vector)))
+        state_estimates = np.zeros((raw_state_length, len(time_vector)))
+        covariance_estimates = np.zeros((raw_state_length, raw_state_length, len(time_vector)))
         
         if start_mode == 'cold':
             print("Starting EKF in cold start mode.")
             x_hat = initial_x_correction
             P = initial_covariance
-            X_k_0 = initial_state[0:6] + x_hat.T
+            X_k_0 = initial_state[0:raw_state_length] + x_hat.T
             state_estimates[:,0] = X_k_0 + x_hat.T
             covariance_estimates[:,:,0] = P
             ekf_start = 1
@@ -117,11 +133,11 @@ class EKF:
             print("Starting EKF in warm start mode.")
             # Run LKF on initial measurements to get initial state correction
             lkf = LKF(self.integrator, self.measurement_mgrs, initial_earth_spin_angle=self.coordinate_mgr.initial_earth_spin_angle, earth_rotation_rate=self.coordinate_mgr.earth_rotation_rate)
-            [lkf_x_history, lkf_P_history] = lkf.run(initial_state, initial_x_correction, initial_covariance, measurement_data.iloc[0:start_length], Q=Q, R=R)
+            [lkf_x_history, lkf_P_history, residuals_df] = lkf.run(initial_state, initial_x_correction, initial_covariance, measurement_data.iloc[0:start_length], Q=Q, R=R)
                     
             P = lkf_P_history[:,:,-1]
             X_k_0 = lkf_x_history[:,-1]
-            x_hat = np.zeros(6)  # No additional correction after warm start
+            x_hat = np.zeros(raw_state_length)  # No additional correction after warm start
 
             # Save initial LKF output as first state estimates
             state_estimates[:,0:start_length] = lkf_x_history
@@ -134,7 +150,7 @@ class EKF:
             
         else:
             raise ValueError("Invalid start_mode. Choose 'cold' or 'warm'.")
-
+        
         # Reorganize measurement data into a 4D matrix: (measurement_type, measurement_dimension, station_index, time_index)
         measurement_matrix = np.zeros((2,1,len(self.measurement_mgrs),len(time_vector)))  # Assuming 2 measurements per station
         for i, mgr in enumerate(self.measurement_mgrs):
@@ -144,20 +160,21 @@ class EKF:
                 # Compute measurement residual
                 measurement_matrix[:,:,i,j] = np.vstack(truth_measurements[:,j])
 
+        pre_fit_residuals_mat = np.full((len(self.measurement_mgrs)*2, len(time_vector[1:])), np.nan)  # Assuming 2 measurements per station
+        post_fit_residuals_mat = np.full((len(self.measurement_mgrs)*2, len(time_vector[1:])), np.nan)  # Assuming 2 measurements per station
         # Perform EKF estimation process
         for k, time in enumerate(time_vector[1:], start=1):
             
             print(f"EKF Time Step {k}/{len(time_vector)-1}         ", end='\r')
             # Integrate from previous time to current time
             previous_time = time_vector[k-1]
-            integration_state = np.append(X_k_0, initial_state[6])
-            [_, augmented_state_history] = self.integrator.integrate_stm(time, integration_state, teval=[previous_time, time], initial_time=previous_time)
+            [_, augmented_state_history] = self.integrator.integrate_stm(time, X_k_0, teval=[previous_time, time], initial_time=previous_time)
 
             # Separate state and STM
             raw_state = augmented_state_history[:,-1]
-            X_k = raw_state[0:6]
+            X_k = raw_state[0:raw_state_length]
             raw_stm = raw_state[raw_state_length:].reshape((raw_state_length, raw_state_length))
-            phi = raw_stm[0:6,0:6]
+            phi = raw_stm[0:raw_state_length,0:raw_state_length]
 
             # Predict covariance
             predict_P = self.predict(P, phi, Q)
@@ -166,10 +183,8 @@ class EKF:
             current_measurements = measurement_matrix[:,:,:,k]
             if np.isnan(current_measurements).all():
                 # No measurements available, propagate state and covariance
-                x_hat = np.zeros((6,1))  # No correction
+                x_hat = np.zeros((raw_state_length,1))  # No correction
                 P = predict_P
-
-            # Perform measurement update steps
             else:
                 # Determine which stations are visible
                 visible_station_indices = []
@@ -180,19 +195,37 @@ class EKF:
                 # Compute H matrices and measurement residuals for visible stations
                 H_matrices = []
                 measurement_residuals = []
+
+                base_residuals = np.full((len(self.measurement_mgrs), 2), np.nan)  # Assuming 2 measurements per station
                 for i in visible_station_indices:
                     mgr = self.measurement_mgrs[i]
-                    station_state_eci = self.coordinate_mgr.GCS_to_ECI(mgr.lat, mgr.lon, time)
-                    measurement = mgr.simulate_measurements(np.vstack(X_k), np.array([time]), 'ECI', noise=False)
+                    station_state_eci = self.coordinate_mgr.ECEF_to_ECI(mgr.station_state_ecef, time)
+                    measurement = mgr.simulate_measurements(np.vstack(X_k[:6]), np.array([time]), 'ECI', noise=False, ignore_visibility=True)
                         
                     residual = current_measurements[:,:,i] - measurement
-                    [H, _] = measurement_jacobian(X_k, station_state_eci)
-                    measurement_residuals.append(residual)
-                    H_matrices.append(H)
+                    
+                    pre_fit_residuals_mat[2*i:2*i+2, k-1] = residual.flatten()
 
+                    # Set appropriate row in base_residuals for this station
+                    base_residuals[i,:] = residual.flatten()
+                    [H_sc, H_station] = measurement_jacobian(X_k, station_state_eci)
+                    H_total = np.concatenate((H_sc, np.zeros((2, raw_state_length - 6))), axis = 1)  # Pad H_sc to match full state size
+
+                    if 'Stations' in self.integrator.mode:
+                        ecef_to_eci = self.coordinate_mgr.compute_DCM('ECEF', 'ECI', time=time_vector[j])
+                        H_station_ecef = H_station @ ecef_to_eci
+
+                        num_stations = self.integrator.number_of_stations
+                        first_station_partial_index = raw_state_length - 3 * num_stations # Assumes 3 position states per station and they are at the end of the state vector
+                        station_partial_index = first_station_partial_index + i * 3
+                        H_total[:, station_partial_index:station_partial_index+3] = H_station_ecef
+
+                    measurement_residuals.append(residual)
+                    H_matrices.append(H_total)
+                
                 if np.isnan(np.vstack(measurement_residuals)).all():
                     # Treat as if no measurements are available, pure prediction
-                    x_hat = np.zeros((6,1))  # No correction
+                    x_hat = np.zeros((raw_state_length, 1))  # No correction
                     P = predict_P
                 else:
                     stacked_residuals = np.vstack(measurement_residuals)
@@ -206,10 +239,39 @@ class EKF:
                     x_hat, P = self.update(predict_P, stacked_residuals, stacked_H, stacked_R)
             
             # Store estimates
-            state_estimates[:,k+ekf_start-1] = X_k + x_hat.T
+            updated_state = X_k + x_hat.flatten()
+            state_estimates[:,k+ekf_start-1] = updated_state
             covariance_estimates[:,:,k+ekf_start-1] = P
             if np.isnan(x_hat).any():
                 print("NaN detected in state estimate!")
-            X_k_0 = X_k + x_hat.T
-        return state_estimates, covariance_estimates
+            X_k_0 = updated_state
+
+
+            # Post-fit residuals calculation for visible stations
+            for i in visible_station_indices:
+                mgr = self.measurement_mgrs[i]
+                station_state_eci = self.coordinate_mgr.ECEF_to_ECI(mgr.station_state_ecef, time)
+                post_fit_measurement = mgr.simulate_measurements(np.vstack(updated_state[:6]), np.array([time]), 'ECI', noise=False, ignore_visibility=True)
+                post_fit_residual = current_measurements[:,:,i] - post_fit_measurement
+                post_fit_residuals_mat[2*i:2*i+2, k-1] = post_fit_residual.flatten()
+                
+        # Add EKF pre and post fit residuals to existing residuals_df entries
+        for i in range(len(self.measurement_mgrs)):
+            station_name = self.measurement_mgrs[i].station_name
+            
+            # Append pre and post fit residuals to existing entries in residuals_df for this station
+            pre_fits = residuals_df.loc[(residuals_df['iteration'] == 0) & (residuals_df['station'] == station_name), 'pre-fit'].values
+            post_fits = residuals_df.loc[(residuals_df['iteration'] == 0) & (residuals_df['station'] == station_name), 'post-fit'].values
+
+            extended_pre_fits = np.concatenate((pre_fits[0], pre_fit_residuals_mat[2*i:2*i+2,:]), axis=1)
+            extended_post_fits = np.concatenate((post_fits[0], post_fit_residuals_mat[2*i:2*i+2,:]), axis=1)
+
+            pre_fits[0] = extended_pre_fits
+            post_fits[0] = extended_post_fits
+
+            residuals_df.loc[(residuals_df['iteration'] == 0) & (residuals_df['station'] == station_name), 'pre-fit'] = pre_fits
+            residuals_df.loc[(residuals_df['iteration'] == 0) & (residuals_df['station'] == station_name), 'post-fit'] = post_fits
+
+            
+        return state_estimates, covariance_estimates, residuals_df
             

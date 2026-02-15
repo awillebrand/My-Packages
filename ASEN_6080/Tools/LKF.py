@@ -48,7 +48,7 @@ class LKF:
         
         return P_fixed
 
-    def predict(self, x_hat : np.ndarray, P : np.ndarray, phi : np.ndarray, H : np.ndarray, Q : np.ndarray, R : np.ndarray):
+    def predict(self, x_hat : np.ndarray, P : np.ndarray, phi : np.ndarray, H : np.ndarray, R : np.ndarray):
         """
         Perform the prediction step of the Kalman Filter.
 
@@ -61,8 +61,6 @@ class LKF:
             The state transition matrix.
         H : np.ndarray
             The measurement matrix.
-        Q : np.ndarray
-            The process noise covariance matrix.
         R : np.ndarray
             The measurement noise covariance matrix.
 
@@ -74,7 +72,7 @@ class LKF:
         predicted_state = phi @ x_hat
 
         # Predict covariance
-        predicted_covariance = phi @ P @ phi.T + Q
+        predicted_covariance = phi @ P @ phi.T
 
         # # Ensure positive definiteness if predicted covariance is very large
         # if np.any(np.abs(np.diag(predicted_covariance)) > 1e3):
@@ -116,7 +114,15 @@ class LKF:
         
         return updated_state, updated_covariance
     
-    def run(self, initial_state : np.ndarray, initial_x_correction : np.ndarray, initial_covariance : np.ndarray, measurement_data : pd.DataFrame, Q : np.ndarray = 0, R : np.ndarray = 0, max_iterations : int = 1, convergence_threshold : float = 1e-5, considered_measurements : str = 'All'):
+    def run(self, initial_state : np.ndarray,
+            initial_x_correction : np.ndarray,
+            initial_covariance : np.ndarray,
+            measurement_data : pd.DataFrame,
+            Q : np.ndarray = None, R : np.ndarray = 0,
+            max_iterations : int = 1,
+            convergence_threshold : float = 1e-5,
+            considered_measurements : str = 'All',
+            process_noise_approach : str = 'None'):
         """
         Run the Linearized Kalman Filter over a series of measurements.
         Parameters:
@@ -136,12 +142,21 @@ class LKF:
             The maximum number of iterations for the LKF. Default is 1.
         convergence_threshold : float, optional
             The convergence threshold for stopping criteria, linked to mean of residuals. Default is 1e-5 (1 cm).
+        considered_measurements : str, optional
+            A string indicating which measurements to consider in the LKF. Options are 'Range', 'Range Rate', or 'All'. Default is 'All'.
+        process_noise_approach : str, optional
+            A string indicating the approach for handling process noise. Options are 'None' for no process noise, 'SNC' for State Noise Compensation, or 'DMC' for Dynamic Model Compensation. Default is 'None'.
         Returns:
         state_estimates : list
             A list of state estimates at each measurement time.
         covariance_estimates : list
             A list of covariance estimates at each measurement time.
         """
+        if process_noise_approach not in ['None', 'SNC', 'DMC']:
+            raise ValueError("Invalid process_noise_approach. Must be 'None', 'SNC', or 'DMC'.")
+        if process_noise_approach == 'SNC' and Q is None:
+            raise ValueError("Process noise covariance matrix Q must be provided for SNC approach.")
+
         x_bar0 = np.zeros_like(initial_state)
         x_hat = x_bar0.copy()
         P = initial_covariance.copy() 
@@ -149,6 +164,9 @@ class LKF:
         x_0 = initial_state+x_bar0.flatten()
         time_vector = measurement_data['time'].values
 
+        initial_station_positions = []
+        for mgr in self.measurement_mgrs:
+            initial_station_positions.append(mgr.station_state_ecef[0:3])
         if considered_measurements == 'Range':
             R = R[0::2, 0::2].reshape(1,1)  # Extract covariance for range measurements
             meas_number = 1
@@ -230,7 +248,7 @@ class LKF:
 
                 if np.isnan(current_measurement_residuals).all():
                     # No measurements available, propagate state and covariance
-                    x_hat, P, _ = self.predict(x_hat, P, phi, np.zeros((meas_number, raw_state_length)), Q, R)
+                    x_hat, P, _ = self.predict(x_hat, P, phi, np.zeros((meas_number, raw_state_length)), R)
                 else:
                     # Determine which stations are visible
                     visible_station_indices = []
@@ -253,27 +271,27 @@ class LKF:
                     stacked_R = block_diag(*visible_R)
                     
                     # Predict and update steps
-                    x_bar, predict_P, K = self.predict(x_hat, P, phi, stacked_H, Q, stacked_R)
-                    x_hat, P = self.update(x_bar, predict_P, K, stacked_residuals, stacked_H, stacked_R)
-                # Store estimates
 
+                    x_bar, predict_P, K = self.predict(x_hat, P, phi, stacked_H, stacked_R)
+                    x_hat, P = self.update(x_bar, predict_P, K, stacked_residuals, stacked_H, stacked_R)
+
+                # Add process noise
+                if process_noise_approach == 'SNC':
+                    delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
+                    Gamma = delta_t * np.concatenate((0.5 * delta_t * np.eye(3), np.eye(3)), axis=0)
+                    P[0:6, 0:6] = P[0:6, 0:6] + Gamma @ Q @ Gamma.T
+
+                # Store estimates
                 state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
-                # if np.any(np.diag(P) < 0):
-                #     raise ValueError("Covariance matrix has negative diagonal elements.")
                 covariance_estimates[:,:,k] = P
-            # Right before line 281
 
             x_hat0, _, _, _ = np.linalg.lstsq(stm_history[:,:, -1], x_hat, rcond=None)
-            # After line 282
             x_0 += x_hat0.flatten()
 
-            # improved_initial_covariance = np.linalg.inv(stm_history[:,:, -1]) @ P @ np.linalg.inv(stm_history[:,:, -1]).T
-            # P = improved_initial_covariance*10
             P = initial_covariance.copy()  # Reset covariance for next iteration
             
             x_bar0 = x_bar0 - x_hat0.flatten()  # Update x_bar0 for next iteration  
             x_hat = x_bar0.copy()
-            # x_hat = np.zeros_like(x_hat)  # Reset state correction for next iteration
             
             # Add post-fit residuals to DataFrame
             for i, mgr in enumerate(self.measurement_mgrs):
@@ -305,10 +323,14 @@ class LKF:
 
             np.set_printoptions(linewidth=200)
             print(f"Mean measurement residuals after iteration {iteration+1}: {mean_residual.flatten()} meters")
-            # print(f"Current initial state estimate after iteration {iteration+1}: {x_0.flatten()}")
 
             if np.all(np.abs(mean_residual) < convergence_threshold):
                 print("Convergence achieved based on measurement residuals.")
                 break
             
+        # Reset station positions to original values after LKF iterations
+        for i, mgr in enumerate(self.measurement_mgrs):
+            mgr.station_state_ecef[0:3] = initial_station_positions[i]
+            mgr.lat, mgr.lon = self.coordinate_mgr.ECEF_to_GCS(initial_station_positions[i])
+        
         return state_estimates, covariance_estimates, residuals_df
