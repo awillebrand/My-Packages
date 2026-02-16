@@ -51,7 +51,11 @@ estimated_initial_state, estimated_covariance, batch_residuals_df = batch_estima
     max_iterations=3,
     tol=1E-6,
     considered_measurements='All')
-
+print(" ")
+print("Batch LLS Estimated Initial State and Covariance:")
+print(f"Estimated Initial State: {estimated_initial_state}")
+print(f"Estimated Initial Covariance: {estimated_covariance}")
+print(" ")
 lkf = LKF(integrator, station_mgr_list, initial_earth_spin_angle=0.0, earth_rotation_rate=earth_spin_rate)
 lkf_state_history, lkf_covariance_history, lkf_residuals_df = lkf.run(initial_state_estimate,
                                                                       np.zeros_like(initial_state_estimate),
@@ -60,6 +64,12 @@ lkf_state_history, lkf_covariance_history, lkf_residuals_df = lkf.run(initial_st
                                                                       convergence_threshold=1e-9,
                                                                       considered_measurements='All')
 
+print(" ")
+print("LKF Estimated Final State and Covariance:")
+print(f"Estimated Final State: {lkf_state_history[:,-1]}")
+print(f"Estimated Final Covariance: {lkf_covariance_history[:,:,-1]}")
+print(" ")
+breakpoint()
 # Reset measurement managers positions
 for i, mgr in enumerate(batch_estimator.measurement_mgrs):
     mgr.station_state_ecef[0:3] = station_positions_ecef[i]
@@ -184,6 +194,10 @@ for i, mgr in enumerate(station_mgr_list):
 
 # Integrate batch estimated initial state forward for comparison
 [_, batch_estimated_state_history] = integrator.integrate_stm(time_vector[-1], estimated_initial_state, teval=time_vector)
+print("")
+print(f"Batch LLS Final Estimated State: {batch_estimated_state_history[:,-1]}")
+print(" ")
+breakpoint()
 [_, range_batch_estimated_state_history] = integrator.integrate_stm(time_vector[-1], range_estimated_initial_state, teval=time_vector)
 [_, range_rate_batch_estimated_state_history] = integrator.integrate_stm(time_vector[-1], range_rate_estimated_initial_state, teval=time_vector)
 [_, non_fixed_batch_estimated_state_history] = integrator.integrate_stm(time_vector[-1], non_fixed_batch_estimated_initial_state, teval=time_vector)
@@ -252,6 +266,7 @@ for residuals_df, filter_name in zip(residual_df_list, filter_names):
                                     xanchor="left",
                                     x=0.87))
         fig.write_html(f"ASEN_6080/Project1/figures/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}.html")
+        fig.write_image(f"ASEN_6080/Project1/figures/pngs/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}.png")
 
     for iteration in range(residuals_df['iteration'].max()+1):
         # Combine station residuals into a single vector for RMS calculation, this can be done by adding all the station residuals together for the given iteration (since none overlap in timing)
@@ -296,6 +311,7 @@ for residuals_df, filter_name in zip(residual_df_list, filter_names):
                                     xanchor="left",
                                     x=0.87))
         fig.write_html(f"ASEN_6080/Project1/figures/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}.html")
+        fig.write_image(f"ASEN_6080/Project1/figures/pngs/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}.png")
 
 # Plot state history difference for batch LLS and LKF
 state_labels = ['x (km)', 'y (km)', 'z (km)', 'vx (km/s)', 'vy (km/s)', 'vz (km/s)', 'mu (km^3/s^2)', 'J2', 'C_d', 'Station 1 x (km)', 'Station 1 y (km)', 'Station 1 z (km)', 'Station 2 x (km)', 'Station 2 y (km)', 'Station 2 z (km)', 'Station 3 x (km)', 'Station 3 y (km)', 'Station 3 z (km)']
@@ -314,6 +330,7 @@ for state_history, filter_name in zip(time_history_list, filter_names):
                         title_font=dict(size=28))
         fig.update_yaxes(showexponent="all", exponentformat="e")
         fig.write_html(f"ASEN_6080/Project1/figures/{filter_name}_states_{3*i}_{3*i+2}_time_histories.html")
+        fig.write_image(f"ASEN_6080/Project1/figures/pngs/{filter_name}_states_{3*i}_{3*i+2}_time_histories.png")
 
 # Plot trace of satellite state covariance using log scale for better visualization
 fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=('Position Covariance Trace', 'Velocity Covariance Trace'))
@@ -336,6 +353,7 @@ fig.update_layout(title=f"Covariance for Satellite States Over Time",
                                 x=0.87))
 fig.update_yaxes(showexponent="all", exponentformat="e")
 fig.write_html(f"ASEN_6080/Project1/figures/covariance_traces.html")
+fig.write_image(f"ASEN_6080/Project1/figures/pngs/covariance_traces.png")
 
 # Plot covariance ellipse for satellite position at final time step
 batch_center = batch_estimated_state_history[:6,-1]
@@ -365,6 +383,7 @@ fig.update_layout(title=f"Satellite Position Covariance Ellipse",
                                zaxis=dict(showexponent="all", exponentformat="e")))
 
 fig.write_html(f"ASEN_6080/Project1/figures/position_covariance_ellipses.html")
+fig.write_image(f"ASEN_6080/Project1/figures/pngs/position_covariance_ellipses.png")
 
 # Plot covariance ellipse for satellite velocity at final time step
 batch_vel_covariance_ellipse = covariance_ellipse(np.zeros(3), covariance_history[3:6,3:6,-1])
@@ -391,6 +410,7 @@ fig.update_layout(title=f"Satellite Velocity Covariance Ellipse",
                                zaxis=dict(showexponent="all", exponentformat="e")))
 
 fig.write_html(f"ASEN_6080/Project1/figures/velocity_covariance_ellipses.html")
+fig.write_image(f"ASEN_6080/Project1/figures/pngs/velocity_covariance_ellipses.png")
 
 # Plot covariance ellipse to show difference between analyzing range and range rate
 range_center = range_lkf_state_history[:6,-1]
@@ -414,6 +434,7 @@ fig.update_layout(title=f"Position Covariance Ellipses from Analyzing Only Range
                                yaxis=dict(showexponent="all", exponentformat="e"),
                                zaxis=dict(showexponent="all", exponentformat="e")))
 fig.write_html(f"ASEN_6080/Project1/figures/range_vs_range_rate_position_covariance_ellipses.html")
+fig.write_image(f"ASEN_6080/Project1/figures/pngs/range_vs_range_rate_position_covariance_ellipses.png")
 
 range_vel_covariance_ellipse = covariance_ellipse(np.zeros(3), range_lkf_covariance_history[3:6,3:6,-1])
 range_rate_vel_covariance_ellipse = covariance_ellipse(center_diff[3:6], range_rate_lkf_covariance_history[3:6,3:6,-1])
@@ -433,3 +454,4 @@ fig.update_layout(title=f"Velocity Covariance Ellipses from Analyzing Only Range
                                yaxis=dict(showexponent="all", exponentformat="e"),
                                zaxis=dict(showexponent="all", exponentformat="e")))
 fig.write_html(f"ASEN_6080/Project1/figures/range_vs_range_rate_velocity_covariance_ellipses.html")
+fig.write_image(f"ASEN_6080/Project1/figures/pngs/range_vs_range_rate_velocity_covariance_ellipses.png")
