@@ -70,7 +70,6 @@ class LKF:
         """
         # Predict state
         predicted_state = phi @ x_hat
-
         # Predict covariance
         predicted_covariance = phi @ P @ phi.T
 
@@ -157,7 +156,7 @@ class LKF:
             Q_w[i+6, i+6] = Q_ww
 
             # Assign symmetric elements by
-            Q_w = Q_w + Q_w.T - np.diag(Q_w.diagonal())
+        Q_w = Q_w + Q_w.T - np.diag(Q_w.diagonal())
 
         return Q_w
 
@@ -294,6 +293,8 @@ class LKF:
 
             for k, time in enumerate(time_vector):
                 print(f"Processing time step {k+1} of {len(time_vector)}", end='\r')
+                # if k > 13000:
+                #     breakpoint()
                 # Check if measurements are available at this time
                 current_measurement_residuals = measurement_residuals_matrix[:,:,:,k]
                 if k == 0:

@@ -116,7 +116,7 @@ class EKF:
             Q_w[i+6, i+6] = Q_ww
 
             # Assign symmetric elements by
-            Q_w = Q_w + Q_w.T - np.diag(Q_w.diagonal())
+        Q_w = Q_w + Q_w.T - np.diag(Q_w.diagonal())
 
         return Q_w
     
