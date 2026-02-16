@@ -66,7 +66,7 @@ class LKF:
 
         Returns:
         tuple
-            A tuple containing the predicted state, predicted covariance, and Kalman Gain.
+            A tuple containing the predicted state and predicted covariance
         """
         # Predict state
         predicted_state = phi @ x_hat
@@ -77,12 +77,9 @@ class LKF:
         # if np.any(np.abs(np.diag(predicted_covariance)) > 1e3):
         #     predicted_covariance = self.ensure_positive_definite(predicted_covariance)
 
-        # Compute Kalman Gain
-        kalman_gain = predicted_covariance @ H.T @ np.linalg.inv(H @ predicted_covariance @ H.T + R)
-
-        return predicted_state, predicted_covariance, kalman_gain
+        return predicted_state, predicted_covariance
     
-    def update(self, predicted_state : np.ndarray, predicted_covariance : np.ndarray, kalman_gain : np.ndarray, measurement_residual : np.ndarray, H : np.ndarray, R: np.ndarray):
+    def update(self, predicted_state : np.ndarray, predicted_covariance : np.ndarray, measurement_residual : np.ndarray, H : np.ndarray, R: np.ndarray):
         """
         Perform the update step of the Kalman Filter.
 
@@ -91,8 +88,6 @@ class LKF:
             The predicted state estimate.
         predicted_covariance : np.ndarray
             The predicted covariance estimate.
-        kalman_gain : np.ndarray
-            The Kalman Gain matrix
         measurement_residual : np.ndarray
             The measurement residual (innovation).
         H : np.ndarray
@@ -103,6 +98,9 @@ class LKF:
         tuple
             A tuple containing the updated state and updated covariance.
         """
+        # Compute Kalman Gain
+        kalman_gain = predicted_covariance @ H.T @ np.linalg.inv(H @ predicted_covariance @ H.T + R)
+
         # Update state estimate
         updated_state = np.vstack(predicted_state) + kalman_gain @ (measurement_residual - H @ np.vstack(predicted_state))
 
@@ -304,7 +302,7 @@ class LKF:
 
                 if np.isnan(current_measurement_residuals).all():
                     # No measurements available, propagate state and covariance
-                    x_hat, P, _ = self.predict(x_hat, P, phi, np.zeros((meas_number, raw_state_length)), R)
+                    x_hat, P = self.predict(x_hat, P, phi, np.zeros((meas_number, raw_state_length)), R)
                     # Add process noise
                     if process_noise_approach == 'SNC':
                         if Q_frame == 'RIC':
@@ -353,7 +351,7 @@ class LKF:
                     
                     # Predict and update steps
 
-                    x_bar, predict_P, K = self.predict(x_hat, P, phi, stacked_H, stacked_R)
+                    x_bar, predict_P = self.predict(x_hat, P, phi, stacked_H, stacked_R)
 
                     # Add process noise
                     if process_noise_approach == 'SNC':
@@ -379,7 +377,7 @@ class LKF:
                         predict_P[0:6, -3:] = predict_P[0:6, -3:] + Q_w[0:6, 6:]  # Add state-DMC cross covariance
                         predict_P[-3:, 0:6] = predict_P[-3:, 0:6] + Q_w[6:, 0:6]  # Add DMC-state cross covariance
                         predict_P[-3:, -3:] = predict_P[-3:, -3:] + Q_w[6:, 6:]  # Add DMC covariance
-                    x_hat, P = self.update(x_bar, predict_P, K, stacked_residuals, stacked_H, stacked_R)
+                    x_hat, P = self.update(x_bar, predict_P, stacked_residuals, stacked_H, stacked_R)
 
                 # Store estimates
                 state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
