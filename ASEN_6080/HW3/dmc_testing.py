@@ -33,7 +33,7 @@ P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3, 1e-8, 1e-6, 1e-6, 1e-6])**2
 
 beta_mat = np.diag([30/T, 30/T, 30/T])  # Time constants for DMC in seconds
 
-sigma_values = [1e-18, 1e-16, 1e-14, 1e-12, 1e-10, 1e-8, 1e-7, 5e-7, 1e-6, 5e-6, 1e-5]
+sigma_values = [1e-18, 1e-14, 1e-10, 1e-7, 5e-7, 1e-6, 5e-6, 1e-5]
 
 lkf = LKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
 ekf = EKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))

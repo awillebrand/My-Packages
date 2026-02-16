@@ -251,6 +251,7 @@ class Integrator:
 
         # Compute STM derivative
         A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, station_positions_ecef, self.R_e, mode=self.mode, spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
+
         phi_dot = A @ phi
         phi_dot_flat = phi_dot.flatten()
 
@@ -303,3 +304,73 @@ class Integrator:
         t_span = (initial_time, t_final)
         sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval, args=(DMC, beta_mat))
         return sol.t, sol.y
+    
+    def integrate_stm_segmented(self, time_vector, initial_state, DMC=False, beta_mat=None, internal_steps=10):
+        """
+        Integrate the state in one solve_ivp call, then compute step-wise STMs
+        using a fast RK4 loop with STM resets at each output time.
+        """
+        state_length = 6
+        if 'J2' in self.mode:
+            state_length += 1
+        if DMC:
+            state_length += 3
+
+        N = len(time_vector)
+        stm_step_history = np.zeros((state_length, state_length, N))
+        stm_step_history[:, :, 0] = np.eye(state_length)
+
+        # Step 1: Single integration of just the state over the full span
+        state_sol = solve_ivp(
+            lambda t, y: self.equations_of_motion(t, y, DMC=DMC, beta_mat=beta_mat),
+            [time_vector[0], time_vector[-1]],
+            initial_state,
+            method='RK45',
+            rtol=1e-12,
+            atol=1e-14,
+            t_eval=time_vector,
+            dense_output=True
+        )
+
+        reference_state_history = state_sol.y  # state_length × N
+        dense_state = state_sol.sol           # For interpolation at any t
+
+        # Step 2: RK4 loop for STMs — no solve_ivp calls, just raw arithmetic
+        def A_at_t(t):
+            """Compute the A matrix at time t using interpolated state."""
+            state = dense_state(t)
+            J2 = state[self.parameter_indices[self.mode.index('J2')]] if 'J2' in self.mode else 0
+            J3 = state[self.parameter_indices[self.mode.index('J3')]] if 'J3' in self.mode else 0
+            C_d = state[self.parameter_indices[self.mode.index('Drag')]] if 'Drag' in self.mode else 0
+            station_positions_ecef = np.zeros((self.number_of_stations, 3)) if 'Stations' in self.mode else np.array([])
+            return state_jacobian(
+                state[0:3], state[3:6], self.mu, J2, J3, C_d,
+                station_positions_ecef, self.R_e,
+                mode=self.mode, DMC=DMC, beta_mat=beta_mat
+            )
+
+        for i in range(1, N):
+            print(f"Integrating STM for segment {i}/{N-1}...       ", end='\r')
+            t_start = time_vector[i - 1]
+            t_end = time_vector[i]
+            dt = (t_end - t_start) / internal_steps
+            phi = np.eye(state_length)
+
+            for step in range(internal_steps):
+                t = t_start + step * dt
+
+                A1 = A_at_t(t)
+                k1 = A1 @ phi
+
+                A2 = A_at_t(t + 0.5 * dt)
+                k2 = A2 @ (phi + 0.5 * dt * k1)
+                k3 = A2 @ (phi + 0.5 * dt * k2)
+
+                A4 = A_at_t(t + dt)
+                k4 = A4 @ (phi + dt * k3)
+
+                phi = phi + (dt / 6.0) * (k1 + 2*k2 + 2*k3 + k4)
+
+            stm_step_history[:, :, i] = phi
+
+        return reference_state_history, stm_step_history

@@ -236,13 +236,15 @@ class LKF:
             # Integrate over measurement times
             [_, augmented_state_history] = self.integrator.integrate_stm(time_vector[-1], x_0, teval=time_vector, DMC=(process_noise_approach=='DMC'), beta_mat=beta_mat)
 
+            if process_noise_approach == 'DMC' and np.max(beta_mat) > 0.001:
+                print(f"Warning: Large beta values detected in DMC approach. Integrating stepwise stm time history.")
+                [_, stepwise_stm_history] = self.integrator.integrate_stm_segmented(time_vector, x_0, DMC=True, beta_mat=beta_mat)
             # Separate state and STM history
             reference_state_history = augmented_state_history[0:raw_state_length, :]
             stm_history = np.zeros((raw_state_length, raw_state_length, len(time_vector)))
             for i, raw_state in enumerate(augmented_state_history.T):
                 stm = raw_state[raw_state_length:].reshape((raw_state_length, raw_state_length))
                 stm_history[:,:,i] = stm
-
             # Compute measurement residuals and associated H matrices for each station and measurement time
             measurement_residuals_matrix = np.zeros((meas_number,1,len(self.measurement_mgrs),len(time_vector)))  # Assuming 2 measurements per station
             H_matrix = np.zeros((meas_number,raw_state_length,len(self.measurement_mgrs),len(time_vector)))
@@ -288,18 +290,28 @@ class LKF:
             # Perform LKF estimation process
             state_estimates = np.zeros((raw_state_length, len(time_vector)))
             covariance_estimates = np.zeros((raw_state_length, raw_state_length, len(time_vector)))
+            X_k_0 = initial_state[0:raw_state_length] + initial_x_correction.flatten()[0:raw_state_length]
 
             for k, time in enumerate(time_vector):
-                print(f"Processing time step {k+1} of {len(time_vector)}", end='\r')
-                # if k > 13000:
-                #     breakpoint()
-                # Check if measurements are available at this time
+                print(f"Processing time step {k+1} of {len(time_vector)}                       ", end='\r')
                 current_measurement_residuals = measurement_residuals_matrix[:,:,:,k]
-                if k == 0:
-                    phi = stm_history[:,:,k]
+                # Integrate directly between time steps to get phi for bad beta values, otherwise use STM history
+                if process_noise_approach == 'DMC' and np.max(beta_mat) > 0.001:
+                    if k == 0:
+                        phi = np.eye(raw_state_length)
+                    else:
+                        # # Integrate STM from time_vector[k-1] to time_vector[k]
+                        # previous_time = time_vector[k-1]
+                        # [_, augmented_state_history] = self.integrator.integrate_stm(time, X_k_0, teval=[previous_time, time], initial_time=previous_time, DMC=(process_noise_approach=='DMC'), beta_mat=beta_mat)
+                        # phi = augmented_state_history[raw_state_length:, -1].reshape((raw_state_length, raw_state_length))
+                        # X_k_0 = augmented_state_history[0:raw_state_length, -1]
+                        phi = stepwise_stm_history[:,:,k]
                 else:
-                    phi = stm_history[:,:,k] @ np.linalg.inv(stm_history[:,:,k-1])
-
+                    if k == 0:
+                        phi = stm_history[:,:,k]
+                    else:
+                        phi = stm_history[:,:,k] @ np.linalg.inv(stm_history[:,:,k-1])
+                
                 if np.isnan(current_measurement_residuals).all():
                     # No measurements available, propagate state and covariance
                     x_hat, P = self.predict(x_hat, P, phi, np.zeros((meas_number, raw_state_length)), R)
