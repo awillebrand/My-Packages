@@ -21,7 +21,7 @@ def compute_density(r_norm : float, rho_0 : float = 3.614e-13, r_0 : float = 700
 
     return rho
 
-def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : float, C_d : float, station_positions_ecef : np.array, R_e, mode : list = ['BaseMat'], spacecraft_area : float = 3.0E-6, spacecraft_mass : float = 970.0, earth_spin_rate : float = 7.2921158553E-5):
+def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : float, C_d : float, station_positions_ecef : np.array, R_e, mode : list = ['BaseMat'], spacecraft_area : float = 3.0E-6, spacecraft_mass : float = 970.0, earth_spin_rate : float = 7.2921158553E-5, DMC : bool = False, beta_mat : np.ndarray = None):
     """
     This function computes the partial derivatives of the acceleration associated with the J2 and J3 perturbations in a gravitational field and outputs the associated Jacobian.
 
@@ -48,6 +48,10 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
         Cross-sectional area of the spacecraft in m^2. Default is 3.0 m^2.
     spacecraft_mass : float
         Mass of the spacecraft in kg. Default is 970.0 kg.
+    DMC : bool
+        If True, include dynamic model compensation terms in the Jacobian. Default is False.
+    beta_mat : np.ndarray
+        3x3 diagnoal matrix of time constants for dynamic model compensation. Required if DMC is True.
     Returns:
     A : np.Array
         State Jacobian matrix.
@@ -66,6 +70,9 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
     if 'Stations' in mode and len(station_positions_ecef) == 0:
         raise ValueError("Station positions must be provided to include station partials.")
 
+    if DMC and beta_mat is None:
+        raise ValueError("Beta must be provided for dynamic model compensation.")
+    
     x, y, z = r
     r_norm = np.linalg.norm(r)
     u, v, w = V
@@ -205,6 +212,14 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
             #  station partials to A, just adding 3 zero rows and columns per station
             for _ in range(station_positions_ecef.shape[0]):
                 temp_A = np.pad(temp_A, ((0,3),(0,3)), 'constant')
+                
+    if DMC:
+        # Add DMC partials to A
+        D = np.concatenate((np.zeros((3,3)), np.eye(3)), axis=0)
+
+        temp_A = np.pad(temp_A, ((0,3),(0,3)), 'constant')
+        temp_A[0:6, -3:] = D
+        temp_A[-3:, -3:] = -beta_mat
 
     return temp_A
 

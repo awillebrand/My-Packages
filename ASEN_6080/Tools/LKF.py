@@ -48,7 +48,7 @@ class LKF:
         
         return P_fixed
 
-    def predict(self, x_hat : np.ndarray, P : np.ndarray, phi : np.ndarray, H : np.ndarray, Q : np.ndarray, R : np.ndarray):
+    def predict(self, x_hat : np.ndarray, P : np.ndarray, phi : np.ndarray, H : np.ndarray, R : np.ndarray):
         """
         Perform the prediction step of the Kalman Filter.
 
@@ -61,31 +61,25 @@ class LKF:
             The state transition matrix.
         H : np.ndarray
             The measurement matrix.
-        Q : np.ndarray
-            The process noise covariance matrix.
         R : np.ndarray
             The measurement noise covariance matrix.
 
         Returns:
         tuple
-            A tuple containing the predicted state, predicted covariance, and Kalman Gain.
+            A tuple containing the predicted state and predicted covariance
         """
         # Predict state
         predicted_state = phi @ x_hat
-
         # Predict covariance
-        predicted_covariance = phi @ P @ phi.T + Q
+        predicted_covariance = phi @ P @ phi.T
 
         # # Ensure positive definiteness if predicted covariance is very large
         # if np.any(np.abs(np.diag(predicted_covariance)) > 1e3):
         #     predicted_covariance = self.ensure_positive_definite(predicted_covariance)
 
-        # Compute Kalman Gain
-        kalman_gain = predicted_covariance @ H.T @ np.linalg.inv(H @ predicted_covariance @ H.T + R)
-
-        return predicted_state, predicted_covariance, kalman_gain
+        return predicted_state, predicted_covariance
     
-    def update(self, predicted_state : np.ndarray, predicted_covariance : np.ndarray, kalman_gain : np.ndarray, measurement_residual : np.ndarray, H : np.ndarray, R: np.ndarray):
+    def update(self, predicted_state : np.ndarray, predicted_covariance : np.ndarray, measurement_residual : np.ndarray, H : np.ndarray, R: np.ndarray):
         """
         Perform the update step of the Kalman Filter.
 
@@ -94,8 +88,6 @@ class LKF:
             The predicted state estimate.
         predicted_covariance : np.ndarray
             The predicted covariance estimate.
-        kalman_gain : np.ndarray
-            The Kalman Gain matrix
         measurement_residual : np.ndarray
             The measurement residual (innovation).
         H : np.ndarray
@@ -106,6 +98,9 @@ class LKF:
         tuple
             A tuple containing the updated state and updated covariance.
         """
+        # Compute Kalman Gain
+        kalman_gain = predicted_covariance @ H.T @ np.linalg.inv(H @ predicted_covariance @ H.T + R)
+
         # Update state estimate
         updated_state = np.vstack(predicted_state) + kalman_gain @ (measurement_residual - H @ np.vstack(predicted_state))
 
@@ -116,7 +111,64 @@ class LKF:
         
         return updated_state, updated_covariance
     
-    def run(self, initial_state : np.ndarray, initial_x_correction : np.ndarray, initial_covariance : np.ndarray, measurement_data : pd.DataFrame, Q : np.ndarray = 0, R : np.ndarray = 0, max_iterations : int = 1, convergence_threshold : float = 1e-5, considered_measurements : str = 'All'):
+    def compute_DMC_covariance(self, beta_mat : np.ndarray, Q : np.ndarray, delta_t : float):
+        """
+        Compute the process noise covariance matrix for Dynamic Model Compensation (DMC).
+
+        Parameters:
+        beta_mat : np.ndarray
+            A 3x3 diagonal matrix of time constants for DMC.
+        Q : np.ndarray
+            The base process noise covariance matrix.
+        delta_t : float
+            The time step size.
+
+        Returns:
+        Q_w : np.ndarray
+            The process noise covariance matrix for DMC.
+        """
+        beta_list = np.diag(beta_mat)
+        sigma_list = np.sqrt(np.diag(Q))
+
+        Q_w = np.zeros((9, 9))  # Assuming 6 state variables and 3 DMC variables
+        for i, (beta, sigma) in enumerate(zip(beta_list, sigma_list)):
+            # Precompute exponential terms
+            exp_beta = np.exp(-beta * delta_t)
+            exp_2beta = np.exp(-2 * beta * delta_t)
+            leading_term = (sigma**2) / (beta**2)
+
+            # Compute covariance elements using closed-form solutions
+            Q_ii = leading_term * (delta_t**3 / 3 - delta_t**2 / beta + delta_t / beta**2 * (1 - 2*exp_beta) + (1 - exp_2beta) / (2 * beta**3))
+            Q_iv = leading_term * (0.5 * delta_t**2 - delta_t / beta * (1 - exp_beta) + (0.5 - exp_beta + 0.5*exp_2beta) / beta**2)
+            Q_vv = leading_term * (delta_t - (1.5 + 0.5 * exp_2beta - 2*exp_beta) / beta)
+            Q_iw = leading_term * ((1 - exp_2beta) / (2 * beta) - delta_t * exp_beta)
+            Q_vw = leading_term * (0.5 * (1 + exp_2beta) - exp_beta)
+            Q_ww = sigma **2 / (2 * beta) * (1 - exp_2beta)
+
+            # Assign proper values to the covariance matrix
+            Q_w[i, i] = Q_ii
+            Q_w[i, i+3] = Q_iv
+            Q_w[i, i+6] = Q_iw
+            Q_w[i+3, i+3] = Q_vv
+            Q_w[i+3, i+6] = Q_vw
+            Q_w[i+6, i+6] = Q_ww
+
+            # Assign symmetric elements by
+        Q_w = Q_w + Q_w.T - np.diag(Q_w.diagonal())
+
+        return Q_w
+
+    def run(self, initial_state : np.ndarray,
+            initial_x_correction : np.ndarray,
+            initial_covariance : np.ndarray,
+            measurement_data : pd.DataFrame,
+            Q : np.ndarray = None, R : np.ndarray = 0,
+            max_iterations : int = 1,
+            convergence_threshold : float = 1e-5,
+            considered_measurements : str = 'All',
+            process_noise_approach : str = 'None',
+            Q_frame : str = 'ECI',
+            beta_mat : np.ndarray = None):
         """
         Run the Linearized Kalman Filter over a series of measurements.
         Parameters:
@@ -136,12 +188,27 @@ class LKF:
             The maximum number of iterations for the LKF. Default is 1.
         convergence_threshold : float, optional
             The convergence threshold for stopping criteria, linked to mean of residuals. Default is 1e-5 (1 cm).
+        considered_measurements : str, optional
+            A string indicating which measurements to consider in the LKF. Options are 'Range', 'Range Rate', or 'All'. Default is 'All'.
+        process_noise_approach : str, optional
+            A string indicating the approach for handling process noise. Options are 'None' for no process noise, 'SNC' for State Noise Compensation, or 'DMC' for Dynamic Model Compensation. Default is 'None'.
+        Q_frame : str, optional
+            The reference frame of the process noise covariance matrix Q ('ECI' or 'RIC'). Default is 'ECI'.
+        beta_mat : np.ndarray, optional
+            A 3x3 diagonal matrix of time constants for dynamic model compensation. Required if process_noise_approach is 'DMC'. Default is None.
         Returns:
         state_estimates : list
             A list of state estimates at each measurement time.
         covariance_estimates : list
             A list of covariance estimates at each measurement time.
         """
+        if process_noise_approach not in ['None', 'SNC', 'DMC']:
+            raise ValueError("Invalid process_noise_approach. Must be 'None', 'SNC', or 'DMC'.")
+        if process_noise_approach == 'SNC' and Q is None:
+            raise ValueError("Process noise covariance matrix Q must be provided for SNC approach.")
+        if process_noise_approach == 'DMC' and (beta_mat is None or Q is None):
+            raise ValueError("Beta matrix and process noise covariance matrix Q must be provided for DMC approach.")
+
         x_bar0 = np.zeros_like(initial_state)
         x_hat = x_bar0.copy()
         P = initial_covariance.copy() 
@@ -149,6 +216,9 @@ class LKF:
         x_0 = initial_state+x_bar0.flatten()
         time_vector = measurement_data['time'].values
 
+        initial_station_positions = []
+        for mgr in self.measurement_mgrs:
+            initial_station_positions.append(mgr.station_state_ecef[0:3])
         if considered_measurements == 'Range':
             R = R[0::2, 0::2].reshape(1,1)  # Extract covariance for range measurements
             meas_number = 1
@@ -164,15 +234,17 @@ class LKF:
         for iteration in range(max_iterations):
             print(f"Starting LKF iteration {iteration+1} of {max_iterations}                           ")
             # Integrate over measurement times
-            [_, augmented_state_history] = self.integrator.integrate_stm(time_vector[-1], x_0, teval=time_vector)
+            [_, augmented_state_history] = self.integrator.integrate_stm(time_vector[-1], x_0, teval=time_vector, DMC=(process_noise_approach=='DMC'), beta_mat=beta_mat)
 
+            if process_noise_approach == 'DMC' and np.max(beta_mat) > 0.001:
+                print(f"Warning: Large beta values detected in DMC approach. Integrating stepwise stm time history.")
+                [_, stepwise_stm_history] = self.integrator.integrate_stm_segmented(time_vector, x_0, DMC=True, beta_mat=beta_mat)
             # Separate state and STM history
             reference_state_history = augmented_state_history[0:raw_state_length, :]
             stm_history = np.zeros((raw_state_length, raw_state_length, len(time_vector)))
             for i, raw_state in enumerate(augmented_state_history.T):
                 stm = raw_state[raw_state_length:].reshape((raw_state_length, raw_state_length))
                 stm_history[:,:,i] = stm
-
             # Compute measurement residuals and associated H matrices for each station and measurement time
             measurement_residuals_matrix = np.zeros((meas_number,1,len(self.measurement_mgrs),len(time_vector)))  # Assuming 2 measurements per station
             H_matrix = np.zeros((meas_number,raw_state_length,len(self.measurement_mgrs),len(time_vector)))
@@ -214,23 +286,60 @@ class LKF:
                     measurement_residuals_matrix[:,:,i,j] = np.vstack(residual)
                     H_matrix[:,:,i,j] = H_total
 
-                residuals_df = residuals_df._append({'iteration': iteration, 'station': station_name, 'pre-fit': residual_vector, 'post-fit': np.nan}, ignore_index=True)
+                residuals_df = pd.concat([residuals_df, pd.DataFrame({'iteration': iteration, 'station': station_name, 'pre-fit': [residual_vector], 'post-fit': np.nan})], ignore_index=True)
             # Perform LKF estimation process
             state_estimates = np.zeros((raw_state_length, len(time_vector)))
             covariance_estimates = np.zeros((raw_state_length, raw_state_length, len(time_vector)))
+            X_k_0 = initial_state[0:raw_state_length] + initial_x_correction.flatten()[0:raw_state_length]
 
             for k, time in enumerate(time_vector):
-                print(f"Processing time step {k+1} of {len(time_vector)}", end='\r')
-                # Check if measurements are available at this time
+                print(f"Processing time step {k+1} of {len(time_vector)}                       ", end='\r')
                 current_measurement_residuals = measurement_residuals_matrix[:,:,:,k]
-                if k == 0:
-                    phi = stm_history[:,:,k]
+                # Integrate directly between time steps to get phi for bad beta values, otherwise use STM history
+                if process_noise_approach == 'DMC' and np.max(beta_mat) > 0.001:
+                    if k == 0:
+                        phi = np.eye(raw_state_length)
+                    else:
+                        # # Integrate STM from time_vector[k-1] to time_vector[k]
+                        # previous_time = time_vector[k-1]
+                        # [_, augmented_state_history] = self.integrator.integrate_stm(time, X_k_0, teval=[previous_time, time], initial_time=previous_time, DMC=(process_noise_approach=='DMC'), beta_mat=beta_mat)
+                        # phi = augmented_state_history[raw_state_length:, -1].reshape((raw_state_length, raw_state_length))
+                        # X_k_0 = augmented_state_history[0:raw_state_length, -1]
+                        phi = stepwise_stm_history[:,:,k]
                 else:
-                    phi = stm_history[:,:,k] @ np.linalg.inv(stm_history[:,:,k-1])
-
+                    if k == 0:
+                        phi = stm_history[:,:,k]
+                    else:
+                        phi = stm_history[:,:,k] @ np.linalg.inv(stm_history[:,:,k-1])
+                
                 if np.isnan(current_measurement_residuals).all():
                     # No measurements available, propagate state and covariance
-                    x_hat, P, _ = self.predict(x_hat, P, phi, np.zeros((meas_number, raw_state_length)), Q, R)
+                    x_hat, P = self.predict(x_hat, P, phi, np.zeros((meas_number, raw_state_length)), R)
+                    # Add process noise
+                    if process_noise_approach == 'SNC':
+                        if Q_frame == 'RIC':
+                            # Transform Q from RIC to ECI frame
+                            dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time)
+                            Q_eci = dcm.T @ Q @ dcm
+                        elif Q_frame == 'ECI':
+                            Q_eci = Q
+                        delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
+                        Gamma = delta_t * np.concatenate((0.5 * delta_t * np.eye(3), np.eye(3)), axis=0)
+                        P[0:6, 0:6] = P[0:6, 0:6] + Gamma @ Q_eci @ Gamma.T
+                    if process_noise_approach == 'DMC':
+                        if Q_frame == 'RIC':
+                            # Transform Q from RIC to ECI frame
+                            dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time)
+                            Q_eci = dcm.T @ Q @ dcm
+                        elif Q_frame == 'ECI':
+                            Q_eci = Q
+                        delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
+                        Q_w = self.compute_DMC_covariance(beta_mat, Q_eci, delta_t)
+                        P[0:6, 0:6] = P[0:6, 0:6] + Q_w[0:6, 0:6]  # Add only the state covariance portion of Q_w
+                        P[0:6, -3:] = P[0:6, -3:] + Q_w[0:6, 6:]  # Add state-DMC cross covariance
+                        P[-3:, 0:6] = P[-3:, 0:6] + Q_w[6:, 0:6]  # Add DMC-state cross covariance
+                        P[-3:, -3:] = P[-3:, -3:] + Q_w[6:, 6:]  # Add DMC covariance
+                    
                 else:
                     # Determine which stations are visible
                     visible_station_indices = []
@@ -253,27 +362,46 @@ class LKF:
                     stacked_R = block_diag(*visible_R)
                     
                     # Predict and update steps
-                    x_bar, predict_P, K = self.predict(x_hat, P, phi, stacked_H, Q, stacked_R)
-                    x_hat, P = self.update(x_bar, predict_P, K, stacked_residuals, stacked_H, stacked_R)
-                # Store estimates
 
+                    x_bar, predict_P = self.predict(x_hat, P, phi, stacked_H, stacked_R)
+
+                    # Add process noise
+                    if process_noise_approach == 'SNC':
+                        if Q_frame == 'RIC':
+                            # Transform Q from RIC to ECI frame
+                            dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time)
+                            Q_eci = dcm.T @ Q @ dcm
+                        elif Q_frame == 'ECI':
+                            Q_eci = Q
+                        delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
+                        Gamma = delta_t * np.concatenate((0.5 * delta_t * np.eye(3), np.eye(3)), axis=0)
+                        predict_P[0:6, 0:6] = predict_P[0:6, 0:6] + Gamma @ Q_eci @ Gamma.T
+                    if process_noise_approach == 'DMC':
+                        if Q_frame == 'RIC':
+                            # Transform Q from RIC to ECI frame
+                            dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time)
+                            Q_eci = dcm.T @ Q @ dcm
+                        elif Q_frame == 'ECI':
+                            Q_eci = Q
+                        delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
+                        Q_w = self.compute_DMC_covariance(beta_mat, Q_eci, delta_t)
+                        predict_P[0:6, 0:6] = predict_P[0:6, 0:6] + Q_w[0:6, 0:6]  # Add only the state covariance portion of Q_w
+                        predict_P[0:6, -3:] = predict_P[0:6, -3:] + Q_w[0:6, 6:]  # Add state-DMC cross covariance
+                        predict_P[-3:, 0:6] = predict_P[-3:, 0:6] + Q_w[6:, 0:6]  # Add DMC-state cross covariance
+                        predict_P[-3:, -3:] = predict_P[-3:, -3:] + Q_w[6:, 6:]  # Add DMC covariance
+                    x_hat, P = self.update(x_bar, predict_P, stacked_residuals, stacked_H, stacked_R)
+
+                # Store estimates
                 state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
-                # if np.any(np.diag(P) < 0):
-                #     raise ValueError("Covariance matrix has negative diagonal elements.")
                 covariance_estimates[:,:,k] = P
-            # Right before line 281
 
             x_hat0, _, _, _ = np.linalg.lstsq(stm_history[:,:, -1], x_hat, rcond=None)
-            # After line 282
             x_0 += x_hat0.flatten()
 
-            # improved_initial_covariance = np.linalg.inv(stm_history[:,:, -1]) @ P @ np.linalg.inv(stm_history[:,:, -1]).T
-            # P = improved_initial_covariance*10
             P = initial_covariance.copy()  # Reset covariance for next iteration
             
             x_bar0 = x_bar0 - x_hat0.flatten()  # Update x_bar0 for next iteration  
             x_hat = x_bar0.copy()
-            # x_hat = np.zeros_like(x_hat)  # Reset state correction for next iteration
             
             # Add post-fit residuals to DataFrame
             for i, mgr in enumerate(self.measurement_mgrs):
@@ -305,10 +433,14 @@ class LKF:
 
             np.set_printoptions(linewidth=200)
             print(f"Mean measurement residuals after iteration {iteration+1}: {mean_residual.flatten()} meters")
-            # print(f"Current initial state estimate after iteration {iteration+1}: {x_0.flatten()}")
 
             if np.all(np.abs(mean_residual) < convergence_threshold):
                 print("Convergence achieved based on measurement residuals.")
                 break
             
+        # Reset station positions to original values after LKF iterations
+        for i, mgr in enumerate(self.measurement_mgrs):
+            mgr.station_state_ecef[0:3] = initial_station_positions[i]
+            mgr.lat, mgr.lon = self.coordinate_mgr.ECEF_to_GCS(initial_station_positions[i])
+        
         return state_estimates, covariance_estimates, residuals_df

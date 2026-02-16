@@ -96,12 +96,12 @@ class BatchLLSEstimator:
                 residuals = truth_measurements - simulated_measurements
                 
                 # Add pre-fit residuals to DataFrame
-                residuals_df = residuals_df._append(pd.DataFrame({
+                residuals_df = pd.concat([residuals_df, pd.DataFrame({
                     'iteration': iteration,
                     'station': station_name,
                     'pre-fit': [residuals],
                     'post-fit': np.nan  # Placeholder, will be updated after state correction  
-                }), ignore_index=True)
+                })], ignore_index=True)
 
                 for j, residual in enumerate(residuals.T):
                     residuals_matrix[i, j] = residual
