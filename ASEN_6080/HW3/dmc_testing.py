@@ -29,7 +29,7 @@ station_mgr_list = [station_1_mgr, station_2_mgr, station_3_mgr]
 initial_state_deviation = np.array([1.010e-02, -1.218e-01, -1.484e-01,  3.204e-05, -8.320e-05, 1.740e-04,  0.000e+00, 0, 0, 0])
 initial_state = np.concatenate((truth_data['initial_state'].values[0][0:7], np.zeros(3)))  # Augment initial state with zeros for DMC states
 initial_state_guess = initial_state + initial_state_deviation
-P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3, 0, 0, 0, 0])**2
+P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3, 1e-8, 1e-6, 1e-6, 1e-6])**2
 
 beta_mat = np.diag([30/T, 30/T, 30/T])  # Time constants for DMC in seconds
 
