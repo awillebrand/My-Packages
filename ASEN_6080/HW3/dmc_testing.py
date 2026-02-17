@@ -33,8 +33,8 @@ P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3, 1e-8, 1e-6, 1e-6, 1e-6])**2
 
 beta_mat = np.diag([30/T, 30/T, 30/T])  # Time constants for DMC in seconds
 
-sigma_values = [1e-18, 1e-14, 1e-10, 1e-7, 5e-7, 1e-6, 5e-6, 1e-5]
-
+sigma_values = [1e-18, 1e-16, 1e-14, 1e-12, 1e-11, 5e-11, 1e-10, 5e-10, 1e-9, 5e-9, 1e-8, 5e-8, 1e-7, 5e-7, 1e-6, 5e-6, 1e-5]
+sigma_values = [1e-10]
 lkf = LKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
 ekf = EKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
 
@@ -49,16 +49,13 @@ ekf_rms_velocity_error_3D_results = np.zeros(len(sigma_values))
 for sigma in sigma_values:
     print(f"Running LKF with DMC process noise approach and sigma = {sigma:.1e} km/s^2...")
     Q = np.diag([sigma, sigma, sigma])**2
-    lkf_state_history, lkf_covariance_history, lkf_residuals_df = lkf.run(initial_state_guess, np.zeros(10), P_0, measurement_data, R=np.diag(noise_var), max_iterations=3, process_noise_approach='DMC', Q=Q, beta_mat=beta_mat)
+    lkf_state_history, lkf_covariance_history, lkf_residuals_df = lkf.run(initial_state_guess, np.zeros(10), P_0, measurement_data, R=np.diag(noise_var), max_iterations=1, process_noise_approach='DMC', Q=Q, beta_mat=beta_mat)
     ekf_state_history, ekf_covariance_history, ekf_residuals_df = ekf.run(initial_state_guess, np.zeros(10), P_0, measurement_data, R=np.diag(noise_var), start_mode='warm', start_length=1000, process_noise_approach='DMC', Q=Q, beta_mat=beta_mat)
 
     residual_df_list = [lkf_residuals_df, ekf_residuals_df]
     filter_names = ['LKF with DMC', 'EKF with DMC']
     for residuals_df, filter_name in zip(residual_df_list, filter_names):
-        if filter_name == 'LKF with DMC':
-            iteration = 2  # LKF only runs for 3 iterations, so we can only analyze up to iteration 3
-        else:
-             iteration = 0
+        iteration = 0
         
         relevant_residuals = residuals_df[residuals_df['iteration'] == iteration]['post-fit'].values.copy()
         for i in range(len(residuals_df['station'].unique())):
@@ -122,3 +119,248 @@ fig.update_yaxes(title_text='RMS of 3D State Estimation Error (m for position, m
 fig.update_layout(title='RMS of 3D State Estimation Error vs Sigma for LKF and EKF with DMC Approach')
 fig.write_html("ASEN_6080/HW3/figures/dmc_state_error_rms_vs_sigma.html")
 fig.show()
+
+colors_list = ['red', 'green', 'blue']
+residuals_df_list = [lkf_residuals_df, ekf_residuals_df]
+filter_names = ['LKF with DMC', 'EKF with DMC']
+
+for residuals_df, filter_name in zip(residual_df_list, filter_names):
+    for iteration in range(residuals_df['iteration'].max()+1):
+        # Combine station residuals into a single vector for RMS calculation, this can be done by adding all the station residuals together for the given iteration (since none overlap in timing)
+        relevant_residuals = residuals_df[residuals_df['iteration'] == iteration]['pre-fit'].values.copy()
+
+        for i in range(len(residuals_df['station'].unique())):
+            # Set any NaN values to zero for RMS calculation
+            relevant_residuals[i][np.isnan(relevant_residuals[i])] = 0.0
+        
+        # Sum the residuals across stations to get a single residual vector for the iteration
+        combined_residuals = np.sum(relevant_residuals, axis=0)
+
+        # Reset zeros to NaN so they aren't included in RMS calculation
+        combined_residuals[combined_residuals == 0.0] = np.nan
+        
+        # Compute RMS of combined residuals for the iteration
+        rms_range_residual = np.sqrt(np.abs(np.nanmean((combined_residuals[0,:]*1E5) **2))) # Convert from km to cm for RMS calculation
+        rms_range_rate_residual = np.sqrt(np.abs(np.nanmean((combined_residuals[1,:]*1E6) **2))) # Convert from km/s to mm/s for RMS calculation
+
+        # Find mean and standard deviation of range and range rate residuals for the iteration
+        mean_range_residual = np.nanmean(combined_residuals[0,:]*1E3) # Convert from km to m for mean calculation
+        std_range_residual = np.nanstd(combined_residuals[0,:]*1E3) # Convert from km to m for std calculation
+        mean_range_rate_residual = np.nanmean(combined_residuals[1,:]*1E6) # Convert from km/s to mm/s for mean calculation
+        std_range_rate_residual = np.nanstd(combined_residuals[1,:]*1E6) # Convert from km/s to mm/s for std calculation
+        print(f"Pre-fit {filter_name} Iteration {iteration+1}:")
+        print(f"Range Residuals: Mean = {mean_range_residual:.4f} m, Std Dev = {std_range_residual:.4f} m, RMS = {rms_range_residual:.4f} m")
+        print(f"Range Rate Residuals: Mean = {mean_range_rate_residual:.4f} mm/s, Std Dev = {std_range_rate_residual:.4f} mm/s, RMS = {rms_range_rate_residual:.4f} mm/s")
+        print("--------------------------------------------------")
+
+        # Reset zeros to NaN in individual station residuals as well for accurate RMS calculation
+        for i in range(len(residuals_df['station'].unique())):
+            # Set any NaN values to zero for RMS calculation
+            relevant_residuals[i][relevant_residuals[i] == 0.0] = np.nan
+
+        
+        fig = make_subplots(
+            rows=2, cols=2, 
+            shared_xaxes=False,
+            column_widths=[0.85, 0.15],
+            horizontal_spacing=0.06,
+            subplot_titles=(f'Range Residuals (Mean = {mean_range_residual:.4f} m, Std Dev = {std_range_residual:.4f} m, RMS = {rms_range_residual:.4f} m)', 'Distribution',
+                            f'Range Rate Residuals (Mean = {mean_range_rate_residual:.4f} mm/s, Std Dev = {std_range_rate_residual:.4f} mm/s, RMS = {rms_range_rate_residual:.4f} mm/s)', 'Distribution')
+        )
+        
+        # Collect all residuals for histogram
+        all_range_residuals = []
+        all_range_rate_residuals = []
+        
+        for i, station_name in enumerate(residuals_df['station'].unique()):
+            mask = (residuals_df['iteration'] == iteration) & (residuals_df['station'] == station_name)
+            pre_fit_residuals = np.vstack(residuals_df[mask]['pre-fit'])
+            
+            # Add scatter plots (left column)
+            fig.add_trace(go.Scatter(x=time_vector, y=pre_fit_residuals[0,:]*1E3, 
+                                    mode='markers', name=f'{station_name}', 
+                                    marker=dict(color=colors_list[i]), legendgroup=f'group{i}'), 
+                         row=1, col=1)
+            fig.add_trace(go.Scatter(x=time_vector, y=pre_fit_residuals[1,:]*1E6, 
+                                    mode='markers', name=f'{station_name}', 
+                                    marker=dict(color=colors_list[i]), 
+                                    showlegend=False, legendgroup=f'group{i}'), 
+                         row=2, col=1)
+            
+            # Collect valid (non-NaN) residuals for histograms
+            valid_range = pre_fit_residuals[0,:][~np.isnan(pre_fit_residuals[0,:])] * 1E3
+            valid_range_rate = pre_fit_residuals[1,:][~np.isnan(pre_fit_residuals[1,:])] * 1E6
+            all_range_residuals.extend(valid_range)
+            all_range_rate_residuals.extend(valid_range_rate)
+        
+        # Add histograms (right column) - rotated to be vertical
+        fig.add_trace(go.Histogram(y=all_range_residuals, 
+                                  marker=dict(color='lightblue'),
+                                  showlegend=False,
+                                  nbinsy=50), 
+                     row=1, col=2)
+        fig.add_trace(go.Histogram(y=all_range_rate_residuals, 
+                                  marker=dict(color='lightcoral'),
+                                  showlegend=False,
+                                  nbinsy=50), 
+                     row=2, col=2)
+        
+        fig.update_traces(marker=dict(size=4), selector=dict(mode='markers'))
+        fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=1)
+        fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=1)
+        fig.update_xaxes(title_text="Count", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=2)
+        fig.update_xaxes(title_text="Count", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=2)
+        fig.update_yaxes(title_text="Range Residuals (m)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=1, col=1)
+        fig.update_yaxes(title_text="Range Rate Residuals (mm/s)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=2, col=1)
+        fig.update_yaxes(showexponent="all", exponentformat="e", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=2)
+        fig.update_yaxes(showexponent="all", exponentformat="e", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=2)
+        fig.update_annotations(font=dict(size=24))
+        fig.update_layout(title_text=f"{filter_name} Pre-Fit Residuals at Iteration {iteration+1}",
+                        title_font=dict(size=30),
+                        width=1900,  # Increased width to accommodate histograms
+                        height=800,
+                        legend=dict(font=dict(size=22),
+                                    orientation="h",
+                                    yanchor="top",
+                                    y=1.13,
+                                    xanchor="left",
+                                    x=0.7,
+                                    itemsizing='constant'))
+        fig.write_html(f"ASEN_6080/HW3/figures/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}.html")
+        fig.write_image(f"ASEN_6080/HW3/figures/pngs/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}.png")
+
+        # Combine station residuals into a single vector for RMS calculation, this can be done by adding all the station residuals together for the given iteration (since none overlap in timing)
+        relevant_residuals = residuals_df[residuals_df['iteration'] == iteration]['post-fit'].values.copy()
+        for i in range(len(residuals_df['station'].unique())):
+            # Set any NaN values to zero for RMS calculation
+            relevant_residuals[i][np.isnan(relevant_residuals[i])] = 0.0
+        
+        # Sum the residuals across stations to get a single residual vector for the iteration
+        combined_residuals = np.sum(relevant_residuals, axis=0)
+
+        # Reset zeros to NaN so they aren't included in RMS calculation
+        combined_residuals[combined_residuals == 0.0] = np.nan
+        
+        # Compute RMS of combined residuals for the iteration
+        rms_range_residual = np.sqrt(np.abs(np.nanmean((combined_residuals[0,:]*1E3) **2))) # Convert from km to m for RMS calculation
+        rms_range_rate_residual = np.sqrt(np.abs(np.nanmean((combined_residuals[1,:]*1E6) **2))) # Convert from km/s to mm/s for RMS calculation
+
+        mean_range_residual = np.nanmean(combined_residuals[0,:]*1E3) # Convert from km to m for mean calculation
+        std_range_residual = np.nanstd(combined_residuals[0,:]*1E3) # Convert from km to m for std calculation
+        mean_range_rate_residual = np.nanmean(combined_residuals[1,:]*1E6) # Convert from km/s to mm/s for mean calculation
+        std_range_rate_residual = np.nanstd(combined_residuals[1,:]*1E6) # Convert from km/s to mm/s for std calculation
+        print(f"Post-Fit {filter_name} Iteration {iteration+1}:")
+        print(f"Range Residuals: Mean = {mean_range_residual:.4f} m, Std Dev = {std_range_residual:.4f} m, RMS = {rms_range_residual:.4f} m")
+        print(f"Range Rate Residuals: Mean = {mean_range_rate_residual:.4f} mm/s, Std Dev = {std_range_rate_residual:.4f} mm/s, RMS = {rms_range_rate_residual:.4f} mm/s")
+        print("--------------------------------------------------")
+
+        # Reset zeros to NaN in individual station residuals as well for accurate RMS calculation
+        for i in range(len(residuals_df['station'].unique())):
+            # Set any NaN values to zero for RMS calculation
+            relevant_residuals[i][relevant_residuals[i] == 0.0] = np.nan
+
+        fig = make_subplots(
+            rows=2, cols=2, 
+            shared_xaxes=False,
+            column_widths=[0.85, 0.15],
+            horizontal_spacing=0.06,
+            subplot_titles=(f'Range Residuals (Mean = {mean_range_residual:.4f} m, Std Dev = {std_range_residual:.4f} m, RMS = {rms_range_residual:.4f} m)', 'Distribution',
+                            f'Range Rate Residuals (Mean = {mean_range_rate_residual:.4f} mm/s, Std Dev = {std_range_rate_residual:.4f} mm/s, RMS = {rms_range_rate_residual:.4f} mm/s)', 'Distribution')
+        )
+        
+        # Collect all residuals for histogram
+        all_range_residuals = []
+        all_range_rate_residuals = []
+        
+        for i, station_name in enumerate(residuals_df['station'].unique()):
+            mask = (residuals_df['iteration'] == iteration) & (residuals_df['station'] == station_name)
+            post_fit_residuals = np.vstack(residuals_df[mask]['post-fit'])
+            
+            # Add scatter plots (left column)
+            fig.add_trace(go.Scatter(x=time_vector, y=post_fit_residuals[0,:]*1E3, 
+                                    mode='markers', name=f'{station_name}', 
+                                    marker=dict(color=colors_list[i]), legendgroup=f'group{i}'), 
+                         row=1, col=1)
+            fig.add_trace(go.Scatter(x=time_vector, y=post_fit_residuals[1,:]*1E6, 
+                                    mode='markers', name=f'{station_name}', 
+                                    marker=dict(color=colors_list[i]), 
+                                    showlegend=False, legendgroup=f'group{i}'), 
+                         row=2, col=1)
+            
+            # Collect valid (non-NaN) residuals for histograms
+            valid_range = post_fit_residuals[0,:][~np.isnan(post_fit_residuals[0,:])] * 1E3
+            valid_range_rate = post_fit_residuals[1,:][~np.isnan(post_fit_residuals[1,:])] * 1E6
+            all_range_residuals.extend(valid_range)
+            all_range_rate_residuals.extend(valid_range_rate)
+        
+        # Add histograms (right column) - rotated to be vertical
+        fig.add_trace(go.Histogram(y=all_range_residuals, 
+                                  marker=dict(color='lightblue'),
+                                  showlegend=False,
+                                  nbinsy=50), 
+                     row=1, col=2)
+        fig.add_trace(go.Histogram(y=all_range_rate_residuals, 
+                                  marker=dict(color='lightcoral'),
+                                  showlegend=False,
+                                  nbinsy=50), 
+                     row=2, col=2)
+        
+        fig.update_traces(marker=dict(size=4), selector=dict(mode='markers'))
+        fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=1)
+        fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=1)
+        fig.update_xaxes(title_text="Count", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=2)
+        fig.update_xaxes(title_text="Count", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=2)
+        fig.update_yaxes(title_text="Range Residuals (m)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=1, col=1)
+        fig.update_yaxes(title_text="Range Rate Residuals (mm/s)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=2, col=1)
+        fig.update_yaxes(showexponent="all", exponentformat="e", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=2)
+        fig.update_yaxes(showexponent="all", exponentformat="e", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=2)
+        fig.update_annotations(font=dict(size=24))
+        fig.update_layout(title_text=f"{filter_name} Post-Fit Residuals at Iteration {iteration+1}",
+                        title_font=dict(size=30),
+                        width=1900,  # Increased width to accommodate histograms
+                        height=800,
+                        legend=dict(font=dict(size=22),
+                                    orientation="h",
+                                    yanchor="top",
+                                    y=1.13,
+                                    xanchor="left",
+                                    x=0.7,
+                                    itemsizing='constant'))
+        fig.write_html(f"ASEN_6080/HW3/figures/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}.html")
+        fig.write_image(f"ASEN_6080/HW3/figures/pngs/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}.png")
+        
+# Plotting time history of state errors for LKF and EKF with SNC approach
+lkf_state_errors = np.zeros_like(lkf_state_history)  # Initialize state error array
+ekf_state_errors = np.zeros_like(lkf_state_history)  # Initialize state error array
+for k in range(lkf_state_history.shape[1]):
+    lkf_state_errors[:,k] = lkf_state_history[:,k] - truth_data['augmented_state_history'].values[k][0:7]
+    ekf_state_errors[:,k] = ekf_state_history[:,k] - truth_data['augmented_state_history'].values[k][0:7]
+
+fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=('X Position Error', 'Y Position Error', 'Z Position Error'))
+fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_errors[0,:]*1000, mode='lines', name='Position Error', line=dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_errors[1,:]*1000, mode='lines', name='Position Error (SNC)', line=dict(color='blue'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_errors[2,:]*1000, mode='lines', name='Position Error (SNC)', line=dict(color='blue'), showlegend=False), row=3, col=1)
+
+fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(lkf_covariance_history[0,0,:])*1000, mode='lines', name='3-Sigma Bound', line=dict(color='red', dash='dash')), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(lkf_covariance_history[0,0,:])*1000, mode='lines', name='LKF X Position -3-Sigma Bound', line=dict(color='red', dash='dash'), showlegend=False), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(lkf_covariance_history[1,1,:])*1000, mode='lines', name='LKF Y Position 3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(lkf_covariance_history[1,1,:])*1000, mode='lines', name='LKF Y Position -3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(lkf_covariance_history[2,2,:])*1000, mode='lines', name='LKF Z Position 3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=3, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(lkf_covariance_history[2,2,:])*1000, mode='lines', name='LKF Z Position -3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=3, col=1)
+
+fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22))
+fig.update_yaxes(title_text="Position Error (m)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e")
+fig.update_annotations(font=dict(size=24))
+fig.update_layout(title_text="LKF Position Errors with DMC Process Noise Approach",
+                    title_font=dict(size=30),
+                    width=1800,
+                    height=900,
+                    legend=dict(font=dict(size=27),
+                                orientation="h",
+                                yanchor="top",
+                                y=1.1,
+                                xanchor="left",
+                                x=0.7,
+                                itemsizing='constant'))
+fig.write_html(f"ASEN_6080/HW3/figures/lkf_position_errors_dmc.html")
+fig.write_image(f"ASEN_6080/HW3/figures/pngs/lkf_position_errors_dmc.png")

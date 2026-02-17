@@ -40,17 +40,20 @@ ekf_rms_position_error_3D_results = np.zeros(len(sigma_values))
 lkf_rms_velocity_error_3D_results = np.zeros(len(sigma_values))
 ekf_rms_velocity_error_3D_results = np.zeros(len(sigma_values))
 
-optimal_sigma = 1e-8
-Q = np.diag([optimal_sigma, optimal_sigma, optimal_sigma])**2
+frame_list = ['ECI', 'ECI', 'RIC', 'RIC']
+optimal_sigma = 5e-8
+Q = np.diag([optimal_sigma*1.2, optimal_sigma*0.9, optimal_sigma*0.9])**2
 
-lkf_state_history, lkf_covariance_history, lkf_residuals_df = lkf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), max_iterations=1, process_noise_approach='SNC', Q=Q)
-ekf_state_history, ekf_covariance_history, ekf_residuals_df = ekf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), start_mode='warm', start_length=1000, process_noise_approach='SNC', Q=Q)
-
-residual_df_list = [lkf_residuals_df, ekf_residuals_df]
-filter_names = ['LKF with SNC', 'EKF with SNC']
+lkf_state_history, lkf_covariance_history, lkf_residuals_df_eci = lkf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), max_iterations=1, process_noise_approach='SNC', Q=Q, Q_frame='ECI')
+ekf_state_history, ekf_covariance_history, ekf_residuals_df_eci = ekf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), start_mode='warm', start_length=1000, process_noise_approach='SNC', Q=Q, Q_frame='ECI')
+lkf_state_history, lkf_covariance_history, lkf_residuals_df_ric = lkf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), max_iterations=1, process_noise_approach='SNC', Q=Q, Q_frame='RIC')
+ekf_state_history, ekf_covariance_history, ekf_residuals_df_ric = ekf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), start_mode='warm', start_length=1000, process_noise_approach='SNC', Q=Q, Q_frame='RIC')
+frame = 'RIC'
+residual_df_list = [lkf_residuals_df_eci, ekf_residuals_df_eci, lkf_residuals_df_ric, ekf_residuals_df_ric]
+filter_names = ['LKF with SNC (ECI)', 'EKF with SNC (ECI)', 'LKF with SNC (RIC)', 'EKF with SNC (RIC)']
 colors_list = ['red', 'green', 'blue']
 
-for residuals_df, filter_name in zip(residual_df_list, filter_names):
+for residuals_df, filter_name, frame in zip(residual_df_list, filter_names, frame_list):
     for iteration in range(residuals_df['iteration'].max()+1):
         # Combine station residuals into a single vector for RMS calculation, this can be done by adding all the station residuals together for the given iteration (since none overlap in timing)
         relevant_residuals = residuals_df[residuals_df['iteration'] == iteration]['pre-fit'].values.copy()
@@ -152,8 +155,8 @@ for residuals_df, filter_name in zip(residual_df_list, filter_names):
                                     xanchor="left",
                                     x=0.7,
                                     itemsizing='constant'))
-        fig.write_html(f"ASEN_6080/HW3/figures/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}.html")
-        fig.write_image(f"ASEN_6080/HW3/figures/pngs/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}.png")
+        fig.write_html(f"ASEN_6080/HW3/figures/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}_{frame}.html")
+        fig.write_image(f"ASEN_6080/HW3/figures/pngs/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}_{frame}.png")
 
         # Combine station residuals into a single vector for RMS calculation, this can be done by adding all the station residuals together for the given iteration (since none overlap in timing)
         relevant_residuals = residuals_df[residuals_df['iteration'] == iteration]['post-fit'].values.copy()
@@ -252,8 +255,8 @@ for residuals_df, filter_name in zip(residual_df_list, filter_names):
                                     xanchor="left",
                                     x=0.7,
                                     itemsizing='constant'))
-        fig.write_html(f"ASEN_6080/HW3/figures/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}.html")
-        fig.write_image(f"ASEN_6080/HW3/figures/pngs/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}.png")
+        fig.write_html(f"ASEN_6080/HW3/figures/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}_{frame}.html")
+        fig.write_image(f"ASEN_6080/HW3/figures/pngs/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}_{frame}.png")
         
 # Plotting time history of state errors for LKF and EKF with SNC approach
 lkf_state_errors = np.zeros_like(lkf_state_history)  # Initialize state error array
@@ -263,11 +266,11 @@ for k in range(lkf_state_history.shape[1]):
     ekf_state_errors[:,k] = ekf_state_history[:,k] - truth_data['augmented_state_history'].values[k][0:7]
 
 fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=('X Position Error', 'Y Position Error', 'Z Position Error'))
-fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_errors[0,:]*1000, mode='lines', name='Position Error (SNC)', line=dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_errors[0,:]*1000, mode='lines', name='Position Error', line=dict(color='blue')), row=1, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_errors[1,:]*1000, mode='lines', name='Position Error (SNC)', line=dict(color='blue'), showlegend=False), row=2, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_errors[2,:]*1000, mode='lines', name='Position Error (SNC)', line=dict(color='blue'), showlegend=False), row=3, col=1)
 
-fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(lkf_covariance_history[0,0,:])*1000, mode='lines', name='3-Sigma Bound (SNC)', line=dict(color='red', dash='dash')), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(lkf_covariance_history[0,0,:])*1000, mode='lines', name='3-Sigma Bound', line=dict(color='red', dash='dash')), row=1, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(lkf_covariance_history[0,0,:])*1000, mode='lines', name='LKF X Position -3-Sigma Bound', line=dict(color='red', dash='dash'), showlegend=False), row=1, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(lkf_covariance_history[1,1,:])*1000, mode='lines', name='LKF Y Position 3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=2, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(lkf_covariance_history[1,1,:])*1000, mode='lines', name='LKF Y Position -3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=2, col=1)
@@ -288,15 +291,15 @@ fig.update_layout(title_text="LKF Position Errors with SNC Process Noise Approac
                                 xanchor="left",
                                 x=0.7,
                                 itemsizing='constant'))
-fig.write_html("ASEN_6080/HW3/figures/lkf_position_errors_snc.html")
-fig.write_image("ASEN_6080/HW3/figures/pngs/lkf_position_errors_snc.png")
+fig.write_html(f"ASEN_6080/HW3/figures/lkf_position_errors_snc_{frame}.html")
+fig.write_image(f"ASEN_6080/HW3/figures/pngs/lkf_position_errors_snc_{frame}.png")
 
 fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=('X Position Error', 'Y Position Error', 'Z Position Error'))
-fig.add_trace(go.Scatter(x=time_vector, y=ekf_state_errors[0,:]*1000, mode='lines', name='Position Error (SNC)', line=dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=ekf_state_errors[0,:]*1000, mode='lines', name='Position Error', line=dict(color='blue')), row=1, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=ekf_state_errors[1,:]*1000, mode='lines', name='Position Error (SNC)', line=dict(color='blue'), showlegend=False), row=2, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=ekf_state_errors[2,:]*1000, mode='lines', name='Position Error (SNC)', line=dict(color='blue'), showlegend=False), row=3, col=1)
 
-fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(ekf_covariance_history[0,0,:])*1000, mode='lines', name='3-Sigma Bound', line=dict(color='red', dash='dash'), showlegend=False), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(ekf_covariance_history[0,0,:])*1000, mode='lines', name='3-Sigma Bound', line=dict(color='red', dash='dash')), row=1, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(ekf_covariance_history[0,0,:])*1000, mode='lines', line=dict(color='red', dash='dash'), showlegend=False), row=1, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(ekf_covariance_history[1,1,:])*1000, mode='lines', line=dict(color='red', dash='dash'), showlegend=False), row=2, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(ekf_covariance_history[1,1,:])*1000, mode='lines', line=dict(color='red', dash='dash'), showlegend=False), row=2, col=1)
@@ -316,14 +319,14 @@ fig.update_layout(title_text="EKF Position Errors with SNC Process Noise Approac
                                 xanchor="left",
                                 x=0.7,
                                 itemsizing='constant'))
-fig.write_html("ASEN_6080/HW3/figures/ekf_position_errors_snc.html")
-fig.write_image("ASEN_6080/HW3/figures/pngs/ekf_position_errors_snc.png")
+fig.write_html(f"ASEN_6080/HW3/figures/ekf_position_errors_snc_{frame}.html")
+fig.write_image(f"ASEN_6080/HW3/figures/pngs/ekf_position_errors_snc_{frame}.png")
 
 fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=('X Velocity Error', 'Y Velocity Error', 'Z Velocity Error'))
-fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_errors[3,:]*1E6, mode='lines', name='Velocity Error (SNC)', line=dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_errors[3,:]*1E6, mode='lines', name='Velocity Error', line=dict(color='blue')), row=1, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_errors[4,:]*1E6, mode='lines', name='Velocity Error (SNC)', line=dict(color='blue'), showlegend=False), row=2, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_errors[5,:]*1E6, mode='lines', name='Velocity Error (SNC)', line=dict(color='blue'), showlegend=False), row=3, col=1)
-fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(lkf_covariance_history[3,3,:])*1E6, mode='lines', name='3-Sigma Bound (SNC)', line=dict(color='red', dash='dash')), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(lkf_covariance_history[3,3,:])*1E6, mode='lines', name='3-Sigma Bound', line=dict(color='red', dash='dash')), row=1, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(lkf_covariance_history[3,3,:])*1E6, mode='lines', name='LKF X Velocity -3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=1, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(lkf_covariance_history[4,4,:])*1E6, mode='lines', name='LKF Y Velocity 3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=2, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(lkf_covariance_history[4,4,:])*1E6, mode='lines', name='LKF Y Velocity -3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=2, col=1)
@@ -343,14 +346,14 @@ fig.update_layout(title_text="LKF Velocity Errors with SNC Process Noise Approac
                                 xanchor="left",
                                 x=0.7,
                                 itemsizing='constant'))
-fig.write_html("ASEN_6080/HW3/figures/lkf_velocity_errors_snc.html")
-fig.write_image("ASEN_6080/HW3/figures/pngs/lkf_velocity_errors_snc.png")
+fig.write_html(f"ASEN_6080/HW3/figures/lkf_velocity_errors_snc_{frame}.html")
+fig.write_image(f"ASEN_6080/HW3/figures/pngs/lkf_velocity_errors_snc_{frame}.png")
 
 fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=('X Velocity Error', 'Y Velocity Error', 'Z Velocity Error'))
-fig.add_trace(go.Scatter(x=time_vector, y=ekf_state_errors[3,:]*1E6, mode='lines', name='Velocity Error (SNC)', line=dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=ekf_state_errors[3,:]*1E6, mode='lines', name='Velocity Error', line=dict(color='blue')), row=1, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=ekf_state_errors[4,:]*1E6, mode='lines', name='Velocity Error (SNC)', line=dict(color='blue'), showlegend=False), row=2, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=ekf_state_errors[5,:]*1E6, mode='lines', name='Velocity Error (SNC)', line=dict(color='blue'), showlegend=False), row=3, col=1)
-fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(ekf_covariance_history[3,3,:])*1E6, mode='lines', name='3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(ekf_covariance_history[3,3,:])*1E6, mode='lines', name='3-Sigma Bound (SNC)', line=dict(color='red', dash='dash')), row=1, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(ekf_covariance_history[3,3,:])*1E6, mode='lines', line=dict(color='red', dash='dash'), showlegend=False), row=1, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(ekf_covariance_history[4,4,:])*1E6, mode='lines', line=dict(color='red', dash='dash'), showlegend=False), row=2, col=1)
 fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(ekf_covariance_history[4,4,:])*1E6, mode='lines', line=dict(color='red', dash='dash'), showlegend=False), row=2, col=1)
@@ -370,8 +373,8 @@ fig.update_layout(title_text="EKF Velocity Errors with SNC Process Noise Approac
                                 xanchor="left",
                                 x=0.7,
                                 itemsizing='constant'))
-fig.write_html("ASEN_6080/HW3/figures/ekf_velocity_errors_snc.html")
-fig.write_image("ASEN_6080/HW3/figures/pngs/ekf_velocity_errors_snc.png")
+fig.write_html(f"ASEN_6080/HW3/figures/ekf_velocity_errors_snc_{frame}.html")
+fig.write_image(f"ASEN_6080/HW3/figures/pngs/ekf_velocity_errors_snc_{frame}.png")
 
 # for sigma in sigma_values:
 #     print(f"Running LKF with SNC process noise approach and sigma = {sigma:.1e} km/s^2...")

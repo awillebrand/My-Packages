@@ -233,10 +233,20 @@ class EKF:
             # Predict covariance
             predict_P = self.predict(P, phi)
             # Add process noise if using SNC approach
+            if process_noise_approach == 'SNC':
+                    if Q_frame == 'RIC':
+                        # Transform Q from RIC to ECI frame
+                        dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time, orbit_state=X_k)
+                        Q_eci = dcm.T @ Q @ dcm
+                    elif Q_frame == 'ECI':
+                        Q_eci = Q
+                    delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
+                    Gamma = delta_t * np.concatenate((0.5 * delta_t * np.eye(3), np.eye(3)), axis=0)
+                    predict_P[0:6, 0:6] = predict_P[0:6, 0:6] + Gamma @ Q_eci @ Gamma.T
             if process_noise_approach == 'DMC':
                 if Q_frame == 'RIC':
                     # Transform Q from RIC to ECI frame
-                    dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time)
+                    dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time, orbit_state=X_k)
                     Q_eci = dcm.T @ Q @ dcm
                 elif Q_frame == 'ECI':
                     Q_eci = Q
@@ -254,16 +264,6 @@ class EKF:
                 x_hat = np.zeros((raw_state_length,1))  # No correction
                 P = predict_P
             else:
-                if process_noise_approach == 'SNC':
-                    if Q_frame == 'RIC':
-                        # Transform Q from RIC to ECI frame
-                        dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time)
-                        Q_eci = dcm.T @ Q @ dcm
-                    elif Q_frame == 'ECI':
-                        Q_eci = Q
-                    delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
-                    Gamma = delta_t * np.concatenate((0.5 * delta_t * np.eye(3), np.eye(3)), axis=0)
-                    predict_P[0:6, 0:6] = predict_P[0:6, 0:6] + Gamma @ Q_eci @ Gamma.T
                 # Determine which stations are visible
                 visible_station_indices = []
                 for i in range(len(self.measurement_mgrs)):
