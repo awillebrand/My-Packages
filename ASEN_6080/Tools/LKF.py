@@ -263,19 +263,6 @@ class LKF:
                 
                 residual_vector = np.zeros((2, len(time_vector)))
                 for j, time in enumerate(time_vector):
-                    # Replace DMC STM values with analytical values
-                    # if process_noise_approach == 'DMC':
-                    #     for i, beta in enumerate(np.diag(beta_mat)):
-                    #         w_val = np.exp(-beta * (time - time_vector[0]))
-                    #         v_val = (1 - w_val) / beta
-                    #         r_val = (time - time_vector[0]) / beta - v_val / beta
-                    #         # if time > 130000:
-                    #         #     breakpoint()
-                    #         stm_history[:,-3:,j] = 0  # Zero out DMC portion of STM to ensure only analytical values are used
-                    #         stm_history[-3:,:,j] = 0  # Zero out DMC portion of STM to ensure only analytical values are used
-                    #         stm_history[i-3,i-3,j] = w_val
-                    #         stm_history[i+3,i-3,j] = v_val
-                    #         stm_history[i,i-3,j] = r_val
                     # Compute measurement residual
                     residual = truth_measurements[:,j] - simulated_measurements[:,j]
                     residual_vector[:,j] = residual
@@ -313,7 +300,6 @@ class LKF:
 
                 residuals_df = pd.concat([residuals_df, pd.DataFrame({'iteration': iteration, 'station': station_name, 'pre-fit': [residual_vector], 'post-fit': np.nan})], ignore_index=True)
             # Perform LKF estimation process
-            X_k_0 = initial_state[0:raw_state_length] + initial_x_correction.flatten()[0:raw_state_length]
 
             if process_noise_approach == 'DMC':
                 # Re-add state length portion
@@ -330,11 +316,6 @@ class LKF:
                     if k == 0:
                         phi = np.eye(raw_state_length)
                     else:
-                        # # Integrate STM from time_vector[k-1] to time_vector[k]
-                        # previous_time = time_vector[k-1]
-                        # [_, augmented_state_history] = self.integrator.integrate_stm(time, X_k_0, teval=[previous_time, time], initial_time=previous_time, DMC=(process_noise_approach=='DMC'), beta_mat=beta_mat)
-                        # phi = augmented_state_history[raw_state_length:, -1].reshape((raw_state_length, raw_state_length))
-                        # X_k_0 = augmented_state_history[0:raw_state_length, -1]
 
                         phi = stm_history[:,:,k] @ np.linalg.inv(stm_history[:,:,k-1])
                         phi = np.pad(phi, ((0,3),(0,3)))  # Pad phi to account for DMC portion of state
@@ -355,17 +336,6 @@ class LKF:
                 if np.isnan(current_measurement_residuals).all():
                     # No measurements available, propagate state and covariance
                     x_hat, P = self.predict(x_hat, P, phi, np.zeros((meas_number, raw_state_length)), R)
-                    # Add process noise
-                    if process_noise_approach == 'SNC':
-                        if Q_frame == 'RIC':
-                            # Transform Q from RIC to ECI frame
-                            dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time)
-                            Q_eci = dcm.T @ Q @ dcm
-                        elif Q_frame == 'ECI':
-                            Q_eci = Q
-                        delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
-                        Gamma = delta_t * np.concatenate((0.5 * delta_t * np.eye(3), np.eye(3)), axis=0)
-                        P[0:6, 0:6] = P[0:6, 0:6] + Gamma @ Q_eci @ Gamma.T
                     if process_noise_approach == 'DMC':
                         if Q_frame == 'RIC':
                             # Transform Q from RIC to ECI frame
