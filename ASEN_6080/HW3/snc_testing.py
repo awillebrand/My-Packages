@@ -40,7 +40,7 @@ ekf_rms_position_error_3D_results = np.zeros(len(sigma_values))
 lkf_rms_velocity_error_3D_results = np.zeros(len(sigma_values))
 ekf_rms_velocity_error_3D_results = np.zeros(len(sigma_values))
 
-optimal_sigma = 5e-10
+optimal_sigma = 2e-9
 Q = np.diag([optimal_sigma, optimal_sigma, optimal_sigma])**2
 
 lkf_state_history, lkf_covariance_history, lkf_residuals_df = lkf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), max_iterations=1, process_noise_approach='SNC', Q=Q)
