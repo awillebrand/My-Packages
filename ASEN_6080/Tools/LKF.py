@@ -336,16 +336,16 @@ class LKF:
                 if np.isnan(current_measurement_residuals).all():
                     # No measurements available, propagate state and covariance
                     x_hat, P = self.predict(x_hat, P, phi, np.zeros((meas_number, raw_state_length)), R)
-                    if process_noise_approach == 'SNC':
-                        if Q_frame == 'RIC':
-                            # Transform Q from RIC to ECI frame
-                            dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time)
-                            Q_eci = dcm.T @ Q @ dcm
-                        elif Q_frame == 'ECI':
-                            Q_eci = Q
-                        delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
-                        Gamma = delta_t * np.concatenate((0.5 * delta_t * np.eye(3), np.eye(3)), axis=0)
-                        P[0:6, 0:6] = P[0:6, 0:6] + Gamma @ Q_eci @ Gamma.T
+                    # if process_noise_approach == 'SNC':
+                    #     if Q_frame == 'RIC':
+                    #         # Transform Q from RIC to ECI frame
+                    #         dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time)
+                    #         Q_eci = dcm.T @ Q @ dcm
+                    #     elif Q_frame == 'ECI':
+                    #         Q_eci = Q
+                    #     delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
+                    #     Gamma = delta_t * np.concatenate((0.5 * delta_t * np.eye(3), np.eye(3)), axis=0)
+                    #     P[0:6, 0:6] = P[0:6, 0:6] + Gamma @ Q_eci @ Gamma.T
                     if process_noise_approach == 'DMC':
                         if Q_frame == 'RIC':
                             # Transform Q from RIC to ECI frame

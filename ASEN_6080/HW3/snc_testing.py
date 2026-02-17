@@ -24,7 +24,7 @@ station_3_mgr = MeasurementMgr("station_3", station_lat=35.247163, station_lon=2
 station_mgr_list = [station_1_mgr, station_2_mgr, station_3_mgr]
 
 initial_state_deviation = np.array([1.010e-02, -1.218e-01, -1.484e-01,  3.204e-05, -8.320e-05, 1.740e-04,  0.000e+00])
-initial_state_guess = truth_data['initial_state'].values[0][0:7] + initial_state_deviation
+initial_state_guess = truth_data['initial_state'].values[0][0:7]
 P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3, 0])**2
 
 sigma_values = [1e-18, 1e-16, 1e-14, 1e-12, 1e-11, 5e-11, 1e-10, 5e-10, 1e-9, 5e-9, 1e-8, 5e-8, 1e-7, 5e-7, 1e-6, 5e-6, 1e-5]
@@ -40,7 +40,7 @@ ekf_rms_position_error_3D_results = np.zeros(len(sigma_values))
 lkf_rms_velocity_error_3D_results = np.zeros(len(sigma_values))
 ekf_rms_velocity_error_3D_results = np.zeros(len(sigma_values))
 
-optimal_sigma = 2e-9
+optimal_sigma = 1e-8
 Q = np.diag([optimal_sigma, optimal_sigma, optimal_sigma])**2
 
 lkf_state_history, lkf_covariance_history, lkf_residuals_df = lkf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), max_iterations=1, process_noise_approach='SNC', Q=Q)
