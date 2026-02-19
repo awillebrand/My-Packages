@@ -420,6 +420,14 @@ class LKF:
             if apply_smoothing:
                 x_hat_history = state_estimates - reference_state_history
 
+                # Initialize smoothed estimates with filtered estimates
+                smoothed_state_estimates = np.zeros_like(state_estimates)
+                smoothed_covariance_estimates = np.zeros_like(covariance_estimates)
+
+                # Set final smoothed estimates to final filtered estimates
+                smoothed_state_estimates[:,-1] = state_estimates[:,-1]
+                smoothed_covariance_estimates[:,:,-1] = covariance_estimates[:,:,-1]
+
                 # Loop through time steps in reverse order for smoothing
                 for k in range(len(time_vector)-2, -1, -1):
                     x_k = state_estimates[:,k]
@@ -428,16 +436,18 @@ class LKF:
                     phi_k_plus_1 = stm_history[:,:,k+1] @ np.linalg.inv(stm_history[:,:,k]) if k > 0 else stm_history[:,:,k]
 
                     # Compute smoothing gain
+                    breakpoint()
                     s_k = P_k @ phi_k_plus_1.T @ np.linalg.inv(P_k_plus_1)
 
                     # Update smoothed state estimate
-                    x_hat_history[:,k] = x_k + s_k @ (x_hat_history[:,k+1] - phi_k_plus_1 @ x_k)
+                    smoothed_state_estimates[:,k] = x_k + s_k @ (smoothed_state_estimates[:,k+1] - phi_k_plus_1 @ x_k)
 
                     # Update smoothed covariance estimate
-                    covariance_estimates[:,:,k] = P_k + s_k @ (covariance_estimates[:,:,k+1] - P_k_plus_1) @ s_k.T
+                    smoothed_covariance_estimates[:,:,k] = P_k + s_k @ (smoothed_covariance_estimates[:,:,k+1] - P_k_plus_1) @ s_k.T
 
                 # Update state estimates with smoothed values
-                state_estimates = x_hat_history + reference_state_history
+                state_estimates = smoothed_state_estimates + reference_state_history
+                covariance_estimates = smoothed_covariance_estimates
 
             if 'DMC' in process_noise_approach:
                 x_hat0 = np.linalg.solve(stm_history[:,:, -1], x_hat[:-3])
