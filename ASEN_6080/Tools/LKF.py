@@ -169,7 +169,7 @@ class LKF:
             process_noise_approach : str = 'None',
             Q_frame : str = 'ECI',
             beta_mat : np.ndarray = None,
-            apply_smooothing : bool = False):
+            apply_smoothing : bool = False):
         """
         Run the Linearized Kalman Filter over a series of measurements.
         Parameters:
@@ -422,7 +422,6 @@ class LKF:
 
                 # Loop through time steps in reverse order for smoothing
                 for k in range(len(time_vector)-2, -1, -1):
-                    x_k_plus_1 = state_estimates[:,k+1]
                     x_k = state_estimates[:,k]
                     P_k_plus_1 = covariance_estimates[:,:,k+1]
                     P_k = covariance_estimates[:,:,k]
@@ -432,7 +431,7 @@ class LKF:
                     s_k = P_k @ phi_k_plus_1.T @ np.linalg.inv(P_k_plus_1)
 
                     # Update smoothed state estimate
-                    x_hat_history[:,k] = x_hat_history[:,k] + s_k @ (x_hat_history[:,k+1] - phi_k_plus_1 @ x_hat_history[:,k])
+                    x_hat_history[:,k] = x_k + s_k @ (x_hat_history[:,k+1] - phi_k_plus_1 @ x_k)
 
                     # Update smoothed covariance estimate
                     covariance_estimates[:,:,k] = P_k + s_k @ (covariance_estimates[:,:,k+1] - P_k_plus_1) @ s_k.T
