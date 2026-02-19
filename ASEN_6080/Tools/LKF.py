@@ -169,7 +169,7 @@ class LKF:
             process_noise_approach : str = 'None',
             Q_frame : str = 'ECI',
             beta_mat : np.ndarray = None,
-            get_x_hat_history : bool = False):
+            apply_smooothing : bool = False):
         """
         Run the Linearized Kalman Filter over a series of measurements.
         Parameters:
@@ -416,6 +416,30 @@ class LKF:
                 # Store estimates
                 state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
                 covariance_estimates[:,:,k] = P
+
+            if apply_smooothing:
+                x_hat_history = state_estimates - reference_state_history
+
+                # Loop through time steps in reverse order for smoothing
+                for k in range(len(time_vector)-2, -1, -1):
+                    x_k_plus_1 = state_estimates[:,k+1]
+                    x_k = state_estimates[:,k]
+                    P_k_plus_1 = covariance_estimates[:,:,k+1]
+                    P_k = covariance_estimates[:,:,k]
+                    phi_k_plus_1 = stm_history[:,:,k+1] @ np.linalg.inv(stm_history[:,:,k]) if k > 0 else stm_history[:,:,k]
+
+                    # Compute smoothing gain
+                    s_k = P_k @ phi_k_plus_1.T @ np.linalg.inv(P_k_plus_1)
+
+                    # Update smoothed state estimate
+                    x_hat_history[:,k] = x_hat_history[:,k] + s_k @ (x_hat_history[:,k+1] - phi_k_plus_1 @ x_hat_history[:,k])
+
+                    # Update smoothed covariance estimate
+                    covariance_estimates[:,:,k] = P_k + s_k @ (covariance_estimates[:,:,k+1] - P_k_plus_1) @ s_k.T
+
+                # Update state estimates with smoothed values
+                state_estimates = x_hat_history + reference_state_history
+
             if 'DMC' in process_noise_approach:
                 x_hat0 = np.linalg.solve(stm_history[:,:, -1], x_hat[:-3])
                 # Append zeros for DMC portion of state
