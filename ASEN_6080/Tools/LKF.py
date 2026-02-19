@@ -417,7 +417,7 @@ class LKF:
                 state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
                 covariance_estimates[:,:,k] = P
 
-            if apply_smooothing:
+            if apply_smoothing:
                 x_hat_history = state_estimates - reference_state_history
 
                 # Loop through time steps in reverse order for smoothing
