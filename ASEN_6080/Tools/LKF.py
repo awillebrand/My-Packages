@@ -310,6 +310,7 @@ class LKF:
                 raw_state_length += 3
 
             state_estimates = np.zeros((raw_state_length, len(time_vector)))
+            prediction_covariance_estimates = np.zeros((raw_state_length, raw_state_length, len(time_vector)))
             covariance_estimates = np.zeros((raw_state_length, raw_state_length, len(time_vector)))
             for k, time in enumerate(time_vector):
                 print(f"Processing time step {k+1} of {len(time_vector)}                       ", end='\r')
@@ -338,6 +339,8 @@ class LKF:
                 if np.isnan(current_measurement_residuals).all():
                     # No measurements available, propagate state and covariance
                     x_hat, P = self.predict(x_hat, P, phi, np.zeros((meas_number, raw_state_length)), R)
+                    prediction_covariance_estimates[:,:,k] = P
+
                     if process_noise_approach == 'SNC':
                         if Q_frame == 'RIC':
                             # Transform Q from RIC to ECI frame
@@ -386,6 +389,7 @@ class LKF:
                     # Predict and update steps
 
                     x_bar, predict_P = self.predict(x_hat, P, phi, stacked_H, stacked_R)
+                    prediction_covariance_estimates[:,:,k] = predict_P
 
                     # Add process noise
                     if process_noise_approach == 'SNC':
@@ -425,18 +429,17 @@ class LKF:
                 smoothed_covariance_estimates = np.zeros_like(covariance_estimates)
 
                 # Set final smoothed estimates to final filtered estimates
-                smoothed_state_estimates[:,-1] = state_estimates[:,-1]
+                smoothed_state_estimates[:,-1] = x_hat_history[:,-1]
                 smoothed_covariance_estimates[:,:,-1] = covariance_estimates[:,:,-1]
 
                 # Loop through time steps in reverse order for smoothing
                 for k in range(len(time_vector)-2, -1, -1):
-                    x_k = state_estimates[:,k]
-                    P_k_plus_1 = covariance_estimates[:,:,k+1]
+                    x_k = x_hat_history[:,k]
+                    P_k_plus_1 = prediction_covariance_estimates[:,:,k+1]
                     P_k = covariance_estimates[:,:,k]
-                    phi_k_plus_1 = stm_history[:,:,k+1] @ np.linalg.inv(stm_history[:,:,k]) if k > 0 else stm_history[:,:,k]
+                    phi_k_plus_1 = stm_history[:,:,k+1] @ np.linalg.inv(stm_history[:,:,k]) if k > 0 else stm_history[:,:,k+1]
 
                     # Compute smoothing gain
-                    breakpoint()
                     s_k = P_k @ phi_k_plus_1.T @ np.linalg.inv(P_k_plus_1)
 
                     # Update smoothed state estimate
