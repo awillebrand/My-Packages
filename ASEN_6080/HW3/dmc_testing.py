@@ -31,10 +31,10 @@ initial_state = np.concatenate((truth_data['initial_state'].values[0][0:7], np.z
 initial_state_guess = initial_state + initial_state_deviation
 P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3, 1e-8, 1e-6, 1e-6, 1e-6])**2
 
-beta_mat = np.diag([30/T, 30/T, 30/T])  # Time constants for DMC in seconds
+beta_mat = np.diag([5/T, 5/T, 5/T])  # Time constants for DMC in seconds
 
 sigma_values = [1e-18, 1e-16, 1e-14, 1e-12, 1e-11, 5e-11, 1e-10, 5e-10, 1e-9, 5e-9, 1e-8, 5e-8, 1e-7, 5e-7, 1e-6, 5e-6, 1e-5]
-sigma_values = [1e-10]
+sigma_values = [5e-10]
 lkf = LKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
 ekf = EKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
 
@@ -53,7 +53,7 @@ for sigma in sigma_values:
     ekf_state_history, ekf_covariance_history, ekf_residuals_df = ekf.run(initial_state_guess, np.zeros(10), P_0, measurement_data, R=np.diag(noise_var), start_mode='warm', start_length=1000, process_noise_approach='DMC', Q=Q, beta_mat=beta_mat)
 
     residual_df_list = [lkf_residuals_df, ekf_residuals_df]
-    filter_names = ['LKF with DMC', 'EKF with DMC']
+    filter_names = ["LKF with DMC", "EKF with DMC"]
     for residuals_df, filter_name in zip(residual_df_list, filter_names):
         iteration = 0
         
@@ -96,28 +96,81 @@ for sigma in sigma_values:
         lkf_rms_velocity_error_3D_results[sigma_values.index(sigma)] = lkf_rms_velocity_error_3D
         ekf_rms_velocity_error_3D_results[sigma_values.index(sigma)] = ekf_rms_velocity_error_3D
 
+with open("ASEN_6080/HW3/dmc_results.txt", "w") as f:
+    f.write("Sigma Value (km/s^2), LKF Range Residual RMS (m), LKF Range Rate Residual RMS (mm/s), EKF Range Residual RMS (m), EKF Range Rate Residual RMS (mm/s), LKF 3D Position Error RMS (m), EKF 3D Position Error RMS (m), LKF 3D Velocity Error RMS (mm/s), EKF 3D Velocity Error RMS (mm/s)\n")
+    for i, sigma in enumerate(sigma_values):
+        f.write(f"{sigma:.1e}, {lkf_residual_rms_results[i,0]:.4f}, {lkf_residual_rms_results[i,1]:.4f}, {ekf_residual_rms_results[i,0]:.4f}, {ekf_residual_rms_results[i,1]:.4f}, {lkf_rms_position_error_3D_results[i]:.4f}, {ekf_rms_position_error_3D_results[i]:.4f}, {lkf_rms_velocity_error_3D_results[i]:.4f}, {ekf_rms_velocity_error_3D_results[i]:.4f}\n")
+
+with open("ASEN_6080/HW3/dmc_results.txt", "r") as f:
+    lines = f.readlines()
+lkf_residual_rms_results = np.zeros((len(sigma_values), 2))
+ekf_residual_rms_results = np.zeros((len(sigma_values), 2))
+lkf_rms_position_error_3D_results = np.zeros(len(sigma_values))
+ekf_rms_position_error_3D_results = np.zeros(len(sigma_values))
+lkf_rms_velocity_error_3D_results = np.zeros(len(sigma_values))
+ekf_rms_velocity_error_3D_results = np.zeros(len(sigma_values))
+
+for i, line in enumerate(lines[1:]):
+    values = line.strip().split(", ")
+    sigma = float(values[0])
+    lkf_residual_rms_results[i, 0] = float(values[1])
+    lkf_residual_rms_results[i, 1] = float(values[2])
+    ekf_residual_rms_results[i, 0] = float(values[3])
+    ekf_residual_rms_results[i, 1] = float(values[4])
+    lkf_rms_position_error_3D_results[i] = float(values[5])
+    ekf_rms_position_error_3D_results[i] = float(values[6])
+    lkf_rms_velocity_error_3D_results[i] = float(values[7])
+    ekf_rms_velocity_error_3D_results[i] = float(values[8])
+
 # Plot RMS of range and range rate residuals for LKF and EKF with DMC approach
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=sigma_values, y=lkf_residual_rms_results[:,0], mode='markers+lines', name='LKF Range Residual RMS (DMC)'))
-fig.add_trace(go.Scatter(x=sigma_values, y=lkf_residual_rms_results[:,1], mode='markers+lines', name='LKF Range Rate Residual RMS (DMC)'))
-fig.add_trace(go.Scatter(x=sigma_values, y=ekf_residual_rms_results[:,0], mode='markers+lines', name='EKF Range Residual RMS (DMC)'))
-fig.add_trace(go.Scatter(x=sigma_values, y=ekf_residual_rms_results[:,1], mode='markers+lines', name='EKF Range Rate Residual RMS (DMC)'))
-fig.update_xaxes(type='log', title_text='Sigma Value (km/s^2)')
-fig.update_yaxes(title_text='RMS of Post-Fit Residuals (cm for range, mm/s for range rate)', type='log')
-fig.update_layout(title='RMS of Post-Fit Residuals vs Sigma for LKF and EKF with DMC Approach')
-fig.write_html("ASEN_6080/HW3/figures/dmc_residual_rms_vs_sigma.html")
+
+fig = make_subplots(rows=2, cols=1, subplot_titles=('Range Residual RMS vs Sigma', 'Range Rate Residual RMS vs Sigma'))
+fig.add_trace(go.Scatter(x=sigma_values, y=lkf_residual_rms_results[:,0], mode='markers+lines', name='LKF', line=dict(dash='solid', color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=sigma_values, y=ekf_residual_rms_results[:,0], mode='markers+lines', name='EKF', line=dict(dash='solid', color='red')), row=1, col=1)
+fig.add_trace(go.Scatter(x=sigma_values, y=lkf_residual_rms_results[:,1], mode='markers+lines', name='LKF Range Rate Residual RMS', line=dict(dash='solid', color='blue'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=sigma_values, y=ekf_residual_rms_results[:,1], mode='markers+lines', name='EKF Range Rate Residual RMS', line=dict(dash='solid', color='red'), showlegend=False), row=2, col=1)
+fig.update_xaxes(type='log', title_text='Sigma Value (km/s^2)', tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=1, col=1)
+fig.update_xaxes(type='log', title_text='Sigma Value (km/s^2)', tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=2, col=1)
+fig.update_yaxes(title_text='RMS of Range Residuals (m)', type='log', tickfont=dict(size=20), title_font=dict(size=22), row=1, col=1)
+fig.update_yaxes(title_text='RMS of Range Rate Residuals (mm/s)', type='log', tickfont=dict(size=20), title_font=dict(size=22), row=2, col=1)
+fig.update_layout(title='RMS of Post-Fit Residuals vs Sigma for LKF and EKF with DMC',
+                  title_font=dict(size=30),
+                  legend=dict(font=dict(size=28),
+                              yanchor="top",
+                              y=1.13,
+                              xanchor="left",
+                              x=0.9,
+                              itemsizing='constant'),
+                  width=1500,
+                  height=1000)
+fig.update_annotations(font=dict(size=24))
+fig.write_html("ASEN_6080/HW3/figures/dmc_residual_rms_vs_sigma_subplots_tau.html")
+fig.write_image("ASEN_6080/HW3/figures/pngs/dmc_residual_rms_vs_sigma_subplots_tau.png")
 fig.show()
 
-# Plot RMS of 3D position and velocity errors for LKF and EKF with DMC approach
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=sigma_values, y=lkf_rms_position_error_3D_results, mode='markers+lines', name='LKF 3D Position Error RMS (DMC)'))
-fig.add_trace(go.Scatter(x=sigma_values, y=lkf_rms_velocity_error_3D_results, mode='markers+lines', name='LKF 3D Velocity Error RMS (DMC)'))
-fig.add_trace(go.Scatter(x=sigma_values, y=ekf_rms_position_error_3D_results, mode='markers+lines', name='EKF 3D Position Error RMS (DMC)'))
-fig.add_trace(go.Scatter(x=sigma_values, y=ekf_rms_velocity_error_3D_results, mode='markers+lines', name='EKF 3D Velocity Error RMS (DMC)'))
-fig.update_xaxes(type='log', title_text='Sigma Value (km/s^2)')
-fig.update_yaxes(title_text='RMS of 3D State Estimation Error (m for position, mm/s for velocity)', type='log')
-fig.update_layout(title='RMS of 3D State Estimation Error vs Sigma for LKF and EKF with DMC Approach')
-fig.write_html("ASEN_6080/HW3/figures/dmc_state_error_rms_vs_sigma.html")
+# Plot RMS of 3D position and velocity errors for LKF and EKF with SNC approach
+fig = make_subplots(rows=2, cols=1, subplot_titles=('3D Position Error RMS vs Sigma', '3D Velocity Error RMS vs Sigma'))
+fig.add_trace(go.Scatter(x=sigma_values, y=lkf_rms_position_error_3D_results, mode='markers+lines', name='LKF', line=dict(dash='solid', color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=sigma_values, y=ekf_rms_position_error_3D_results, mode='markers+lines', name='EKF', line=dict(dash='solid', color='red')), row=1, col=1)
+fig.add_trace(go.Scatter(x=sigma_values, y=lkf_rms_velocity_error_3D_results, mode='markers+lines', name='LKF 3D Velocity Error RMS', line=dict(dash='solid', color='blue'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=sigma_values, y=ekf_rms_velocity_error_3D_results, mode='markers+lines', name='EKF 3D Velocity Error RMS', line=dict(dash='solid', color='red'), showlegend=False), row=2, col=1)
+fig.update_xaxes(type='log', title_text='Sigma Value (km/s^2)', tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=1, col=1)
+fig.update_xaxes(type='log', title_text='Sigma Value (km/s^2)', tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=2, col=1)
+fig.update_yaxes(title_text='RMS of 3D Position Error (m)', type='log', tickfont=dict(size=20), title_font=dict(size=22), row=1, col=1)
+fig.update_yaxes(title_text='RMS of 3D Velocity Error (mm/s)', type='log', tickfont=dict(size=20), title_font=dict(size=22), row=2, col=1)
+fig.update_layout(title='RMS of 3D State Estimation Error vs Sigma for LKF and EKF with DMC',
+                  title_font=dict(size=30),
+                  legend=dict(font=dict(size=28),
+                              yanchor="top",
+                              y=1.13,
+                              xanchor="left",
+                              x=0.9,
+                              itemsizing='constant'),
+                  width=1500,
+                  height=1000)
+fig.update_annotations(font=dict(size=24))
+fig.write_html("ASEN_6080/HW3/figures/dmc_state_error_rms_vs_sigma_subplots_tau.html")
+fig.write_image("ASEN_6080/HW3/figures/pngs/dmc_state_error_rms_vs_sigma_subplots_tau.png")
 fig.show()
 
 colors_list = ['red', 'green', 'blue']
@@ -226,8 +279,8 @@ for residuals_df, filter_name in zip(residual_df_list, filter_names):
                                     xanchor="left",
                                     x=0.7,
                                     itemsizing='constant'))
-        fig.write_html(f"ASEN_6080/HW3/figures/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}.html")
-        fig.write_image(f"ASEN_6080/HW3/figures/pngs/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}.png")
+        fig.write_html(f"ASEN_6080/HW3/figures/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}_tau.html")
+        fig.write_image(f"ASEN_6080/HW3/figures/pngs/{filter_name.lower().replace(' ','_')}_pre_fit_residuals_iteration_{iteration+1}_tau.png")
 
         # Combine station residuals into a single vector for RMS calculation, this can be done by adding all the station residuals together for the given iteration (since none overlap in timing)
         relevant_residuals = residuals_df[residuals_df['iteration'] == iteration]['post-fit'].values.copy()
@@ -326,15 +379,15 @@ for residuals_df, filter_name in zip(residual_df_list, filter_names):
                                     xanchor="left",
                                     x=0.7,
                                     itemsizing='constant'))
-        fig.write_html(f"ASEN_6080/HW3/figures/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}.html")
-        fig.write_image(f"ASEN_6080/HW3/figures/pngs/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}.png")
+        fig.write_html(f"ASEN_6080/HW3/figures/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}_tau.html")
+        fig.write_image(f"ASEN_6080/HW3/figures/pngs/{filter_name.lower().replace(' ','_')}_post_fit_residuals_iteration_{iteration+1}_tau.png")
         
 # Plotting time history of state errors for LKF and EKF with SNC approach
-lkf_state_errors = np.zeros_like(lkf_state_history)  # Initialize state error array
-ekf_state_errors = np.zeros_like(lkf_state_history)  # Initialize state error array
+lkf_state_errors = np.zeros_like(lkf_state_history[:7,:])  # Initialize state error array
+ekf_state_errors = np.zeros_like(lkf_state_history[:7,:])  # Initialize state error array
 for k in range(lkf_state_history.shape[1]):
-    lkf_state_errors[:,k] = lkf_state_history[:,k] - truth_data['augmented_state_history'].values[k][0:7]
-    ekf_state_errors[:,k] = ekf_state_history[:,k] - truth_data['augmented_state_history'].values[k][0:7]
+    lkf_state_errors[:,k] = lkf_state_history[:7,k] - truth_data['augmented_state_history'].values[k][0:7]
+    ekf_state_errors[:,k] = ekf_state_history[:7,k] - truth_data['augmented_state_history'].values[k][0:7]
 
 fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=('X Position Error', 'Y Position Error', 'Z Position Error'))
 fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_errors[0,:]*1000, mode='lines', name='Position Error', line=dict(color='blue')), row=1, col=1)
@@ -362,5 +415,87 @@ fig.update_layout(title_text="LKF Position Errors with DMC Process Noise Approac
                                 xanchor="left",
                                 x=0.7,
                                 itemsizing='constant'))
-fig.write_html(f"ASEN_6080/HW3/figures/lkf_position_errors_dmc.html")
-fig.write_image(f"ASEN_6080/HW3/figures/pngs/lkf_position_errors_dmc.png")
+fig.write_html(f"ASEN_6080/HW3/figures/lkf_position_errors_dmc_tau.html")
+fig.write_image(f"ASEN_6080/HW3/figures/pngs/lkf_position_errors_dmc_tau.png")
+
+fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=('X Velocity Error', 'Y Velocity Error', 'Z Velocity Error'))
+fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_errors[3,:]*1E6, mode='lines', name='Velocity Error', line=dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_errors[4,:]*1E6, mode='lines', name='Velocity Error (SNC)', line=dict(color='blue'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_errors[5,:]*1E6, mode='lines', name='Velocity Error (SNC)', line=dict(color='blue'), showlegend=False), row=3, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(lkf_covariance_history[3,3,:])*1E6, mode='lines', name='3-Sigma Bound', line=dict(color='red', dash='dash')), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(lkf_covariance_history[3,3,:])*1E6, mode='lines', name='LKF X Velocity -3-Sigma Bound', line=dict(color='red', dash='dash'), showlegend=False), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(lkf_covariance_history[4,4,:])*1E6, mode='lines', name='LKF Y Velocity 3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(lkf_covariance_history[4,4,:])*1E6, mode='lines', name='LKF Y Velocity -3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(lkf_covariance_history[5,5,:])*1E6, mode='lines', name='LKF Z Velocity 3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=3, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(lkf_covariance_history[5,5,:])*1E6, mode='lines', name='LKF Z Velocity -3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=3, col=1)
+fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22))
+fig.update_yaxes(title_text="Velocity Error (mm/s)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e")
+fig.update_annotations(font=dict(size=24))
+fig.update_layout(title_text="LKF Velocity Errors with DMC Process Noise Approach",
+                    title_font=dict(size=30),
+                    width=1800,
+                    height=900,
+                    legend=dict(font=dict(size=27),
+                                orientation="h",
+                                yanchor="top",
+                                y=1.1,
+                                xanchor="left",
+                                x=0.7,
+                                itemsizing='constant'))
+fig.write_html(f"ASEN_6080/HW3/figures/lkf_velocity_errors_dmc_tau.html")
+fig.write_image(f"ASEN_6080/HW3/figures/pngs/lkf_velocity_errors_dmc_tau.png")
+
+fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=('X Position Error', 'Y Position Error', 'Z Position Error'))
+fig.add_trace(go.Scatter(x=time_vector, y=ekf_state_errors[0,:]*1000, mode='lines', name='Position Error', line=dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=ekf_state_errors[1,:]*1000, mode='lines', name='Position Error (SNC)', line=dict(color='blue'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=ekf_state_errors[2,:]*1000, mode='lines', name='Position Error (SNC)', line=dict(color='blue'), showlegend=False), row=3, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(ekf_covariance_history[0,0,:])*1000, mode='lines', name='3-Sigma Bound', line=dict(color='red', dash='dash')), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(ekf_covariance_history[0,0,:])*1000, mode='lines', name='EKF X Position -3-Sigma Bound', line=dict(color='red', dash='dash'), showlegend=False), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(ekf_covariance_history[1,1,:])*1000, mode='lines', name='EKF Y Position 3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(ekf_covariance_history[1,1,:])*1000, mode='lines', name='EKF Y Position -3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(ekf_covariance_history[2,2,:])*1000, mode='lines', name='EKF Z Position 3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=3, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(ekf_covariance_history[2,2,:])*1000, mode='lines', name='EKF Z Position -3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=3, col=1)
+fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22))
+fig.update_yaxes(title_text="Position Error (m)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e")
+fig.update_annotations(font=dict(size=24))
+fig.update_layout(title_text="EKF Position Errors with DMC Process Noise Approach",
+                    title_font=dict(size=30),
+                    width=1800,
+                    height=900,
+                    legend=dict(font=dict(size=27),
+                                orientation="h",
+                                yanchor="top",
+                                y=1.1,
+                                xanchor="left",
+                                x=0.7,
+                                itemsizing='constant'))
+fig.write_html(f"ASEN_6080/HW3/figures/ekf_position_errors_dmc_tau.html")
+fig.write_image(f"ASEN_6080/HW3/figures/pngs/ekf_position_errors_dmc_tau.png")
+
+fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=('X Velocity Error', 'Y Velocity Error', 'Z Velocity Error'))
+fig.add_trace(go.Scatter(x=time_vector, y=ekf_state_errors[3,:]*1E6, mode='lines', name='Velocity Error', line=dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=ekf_state_errors[4,:]*1E6, mode='lines', name='Velocity Error (SNC)', line=dict(color='blue'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=ekf_state_errors[5,:]*1E6, mode='lines', name='Velocity Error (SNC)', line=dict(color='blue'), showlegend=False), row=3, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(ekf_covariance_history[3,3,:])*1E6, mode='lines', name='3-Sigma Bound', line=dict(color='red', dash='dash')), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(ekf_covariance_history[3,3,:])*1E6, mode='lines', name='EKF X Velocity -3-Sigma Bound', line=dict(color='red', dash='dash'), showlegend=False), row=1, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(ekf_covariance_history[4,4,:])*1E6, mode='lines', name='EKF Y Velocity 3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(ekf_covariance_history[4,4,:])*1E6, mode='lines', name='EKF Y Velocity -3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(ekf_covariance_history[5,5,:])*1E6, mode='lines', name='EKF Z Velocity 3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=3, col=1)
+fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(ekf_covariance_history[5,5,:])*1E6, mode='lines', name='EKF Z Velocity -3-Sigma Bound (SNC)', line=dict(color='red', dash='dash'), showlegend=False), row=3, col=1)
+fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22))
+fig.update_yaxes(title_text="Velocity Error (mm/s)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e")
+fig.update_annotations(font=dict(size=24))
+fig.update_layout(title_text="EKF Velocity Errors with DMC Process Noise Approach",
+                    title_font=dict(size=30),
+                    width=1800,
+                    height=900,
+                    legend=dict(font=dict(size=27),
+                                orientation="h",
+                                yanchor="top",
+                                y=1.1,
+                                xanchor="left",
+                                x=0.7,
+                                itemsizing='constant'))
+fig.write_html(f"ASEN_6080/HW3/figures/ekf_velocity_errors_dmc_tau.html")
+fig.write_image(f"ASEN_6080/HW3/figures/pngs/ekf_velocity_errors_dmc_tau.png")
+

@@ -168,7 +168,8 @@ class LKF:
             considered_measurements : str = 'All',
             process_noise_approach : str = 'None',
             Q_frame : str = 'ECI',
-            beta_mat : np.ndarray = None):
+            beta_mat : np.ndarray = None,
+            apply_smooothing : bool = False):
         """
         Run the Linearized Kalman Filter over a series of measurements.
         Parameters:
@@ -196,6 +197,8 @@ class LKF:
             The reference frame of the process noise covariance matrix Q ('ECI' or 'RIC'). Default is 'ECI'.
         beta_mat : np.ndarray, optional
             A 3x3 diagonal matrix of time constants for dynamic model compensation. Required if process_noise_approach is 'DMC'. Default is None.
+        get_x_hat_history : bool, optional
+            Whether to return the history of state correction estimates at each measurement time. Default is False.
         Returns:
         state_estimates : list
             A list of state estimates at each measurement time.
@@ -316,13 +319,12 @@ class LKF:
                     if k == 0:
                         phi = np.eye(raw_state_length)
                     else:
-
                         phi = stm_history[:,:,k] @ np.linalg.inv(stm_history[:,:,k-1])
                         phi = np.pad(phi, ((0,3),(0,3)))  # Pad phi to account for DMC portion of state
                         for i, beta in enumerate(np.diag(beta_mat)):
-                            w_val = np.exp(-beta * (time - time_vector[0]))
+                            w_val = np.exp(-beta * (time - time_vector[k-1]))
                             v_val = (1 - w_val) / beta
-                            r_val = (time - time_vector[0]) / beta - v_val / beta
+                            r_val = (time - time_vector[k-1]) / beta - v_val / beta
 
                             phi[i-3,i-3] = w_val
                             phi[i+3,i-3] = v_val
@@ -414,6 +416,30 @@ class LKF:
                 # Store estimates
                 state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
                 covariance_estimates[:,:,k] = P
+
+            if apply_smooothing:
+                x_hat_history = state_estimates - reference_state_history
+
+                # Loop through time steps in reverse order for smoothing
+                for k in range(len(time_vector)-2, -1, -1):
+                    x_k_plus_1 = state_estimates[:,k+1]
+                    x_k = state_estimates[:,k]
+                    P_k_plus_1 = covariance_estimates[:,:,k+1]
+                    P_k = covariance_estimates[:,:,k]
+                    phi_k_plus_1 = stm_history[:,:,k+1] @ np.linalg.inv(stm_history[:,:,k]) if k > 0 else stm_history[:,:,k]
+
+                    # Compute smoothing gain
+                    s_k = P_k @ phi_k_plus_1.T @ np.linalg.inv(P_k_plus_1)
+
+                    # Update smoothed state estimate
+                    x_hat_history[:,k] = x_hat_history[:,k] + s_k @ (x_hat_history[:,k+1] - phi_k_plus_1 @ x_hat_history[:,k])
+
+                    # Update smoothed covariance estimate
+                    covariance_estimates[:,:,k] = P_k + s_k @ (covariance_estimates[:,:,k+1] - P_k_plus_1) @ s_k.T
+
+                # Update state estimates with smoothed values
+                state_estimates = x_hat_history + reference_state_history
+
             if 'DMC' in process_noise_approach:
                 x_hat0 = np.linalg.solve(stm_history[:,:, -1], x_hat[:-3])
                 # Append zeros for DMC portion of state

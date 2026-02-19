@@ -376,85 +376,85 @@ fig.update_layout(title_text="EKF Velocity Errors with SNC Process Noise Approac
 fig.write_html(f"ASEN_6080/HW3/figures/ekf_velocity_errors_snc_{frame}.html")
 fig.write_image(f"ASEN_6080/HW3/figures/pngs/ekf_velocity_errors_snc_{frame}.png")
 
-# for sigma in sigma_values:
-#     print(f"Running LKF with SNC process noise approach and sigma = {sigma:.1e} km/s^2...")
-#     Q = np.diag([sigma, sigma, sigma])**2
-#     lkf_state_history, lkf_covariance_history, lkf_residuals_df = lkf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), max_iterations=1, process_noise_approach='SNC', Q=Q)
-#     ekf_state_history, ekf_covariance_history, ekf_residuals_df = ekf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), start_mode='warm', start_length=1000, process_noise_approach='SNC', Q=Q)
+for sigma in sigma_values:
+    print(f"Running LKF with SNC process noise approach and sigma = {sigma:.1e} km/s^2...")
+    Q = np.diag([sigma, sigma, sigma])**2
+    lkf_state_history, lkf_covariance_history, lkf_residuals_df = lkf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), max_iterations=1, process_noise_approach='SNC', Q=Q)
+    ekf_state_history, ekf_covariance_history, ekf_residuals_df = ekf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), start_mode='warm', start_length=1000, process_noise_approach='SNC', Q=Q)
 
-#     residual_df_list = [lkf_residuals_df, ekf_residuals_df]
-#     filter_names = ['LKF with SNC', 'EKF with SNC']
-#     for residuals_df, filter_name in zip(residual_df_list, filter_names):
-#         iteration=0
-#         relevant_residuals = residuals_df[residuals_df['iteration'] == iteration]['post-fit'].values.copy()
+    residual_df_list = [lkf_residuals_df, ekf_residuals_df]
+    filter_names = ['LKF with SNC', 'EKF with SNC']
+    for residuals_df, filter_name in zip(residual_df_list, filter_names):
+        iteration=0
+        relevant_residuals = residuals_df[residuals_df['iteration'] == iteration]['post-fit'].values.copy()
 
-#         for i in range(len(residuals_df['station'].unique())):
-#             # Set any NaN values to zero for RMS calculation
-#             relevant_residuals[i][np.isnan(relevant_residuals[i])] = 0.0
+        for i in range(len(residuals_df['station'].unique())):
+            # Set any NaN values to zero for RMS calculation
+            relevant_residuals[i][np.isnan(relevant_residuals[i])] = 0.0
 
-#         # Sum the residuals across stations to get a single residual vector for the iteration
-#         combined_residuals = np.sum(relevant_residuals, axis=0)
+        # Sum the residuals across stations to get a single residual vector for the iteration
+        combined_residuals = np.sum(relevant_residuals, axis=0)
 
-#         # Reset zeros to NaN so they aren't included in RMS calculation
-#         combined_residuals[combined_residuals == 0.0] = np.nan
+        # Reset zeros to NaN so they aren't included in RMS calculation
+        combined_residuals[combined_residuals == 0.0] = np.nan
         
-#         # Compute RMS of combined residuals for the iteration
-#         rms_range_residual = np.sqrt(np.abs(np.nanmean((combined_residuals[0,:]*1E3) **2))) # Convert from km to m for RMS calculation
-#         rms_range_rate_residual = np.sqrt(np.abs(np.nanmean((combined_residuals[1,:]*1E6) **2))) # Convert from km/s to mm/s for RMS calculation
+        # Compute RMS of combined residuals for the iteration
+        rms_range_residual = np.sqrt(np.abs(np.nanmean((combined_residuals[0,:]*1E3) **2))) # Convert from km to m for RMS calculation
+        rms_range_rate_residual = np.sqrt(np.abs(np.nanmean((combined_residuals[1,:]*1E6) **2))) # Convert from km/s to mm/s for RMS calculation
 
-#         if filter_name == 'LKF with SNC':
-#             lkf_residual_rms_results[sigma_values.index(sigma), 0] = rms_range_residual
-#             lkf_residual_rms_results[sigma_values.index(sigma), 1] = rms_range_rate_residual
-#         else:
-#             ekf_residual_rms_results[sigma_values.index(sigma), 0] = rms_range_residual
-#             ekf_residual_rms_results[sigma_values.index(sigma), 1] = rms_range_rate_residual
+        if filter_name == 'LKF with SNC':
+            lkf_residual_rms_results[sigma_values.index(sigma), 0] = rms_range_residual
+            lkf_residual_rms_results[sigma_values.index(sigma), 1] = rms_range_rate_residual
+        else:
+            ekf_residual_rms_results[sigma_values.index(sigma), 0] = rms_range_residual
+            ekf_residual_rms_results[sigma_values.index(sigma), 1] = rms_range_rate_residual
         
-#         # Compute 3D rms error of state estimate at final iteration compared to truth
-#         lkf_state_errors = np.zeros_like(lkf_state_history)  # Initialize state error array
-#         ekf_state_errors = np.zeros_like(lkf_state_history)  # Initialize state error array
-#         for k in range(lkf_state_history.shape[1]):
-#             lkf_state_errors[:,k] = lkf_state_history[:,k] - truth_data['augmented_state_history'].values[k][0:7]
-#             ekf_state_errors[:,k] = ekf_state_history[:,k] - truth_data['augmented_state_history'].values[k][0:7]
+        # Compute 3D rms error of state estimate at final iteration compared to truth
+        lkf_state_errors = np.zeros_like(lkf_state_history)  # Initialize state error array
+        ekf_state_errors = np.zeros_like(lkf_state_history)  # Initialize state error array
+        for k in range(lkf_state_history.shape[1]):
+            lkf_state_errors[:,k] = lkf_state_history[:,k] - truth_data['augmented_state_history'].values[k][0:7]
+            ekf_state_errors[:,k] = ekf_state_history[:,k] - truth_data['augmented_state_history'].values[k][0:7]
 
-#         lkf_rms_position_error_3D = np.sqrt(np.mean(np.sum(lkf_state_errors[0:3,:]**2, axis=0))) * 1000  # in meters
-#         ekf_rms_position_error_3D = np.sqrt(np.mean(np.sum(ekf_state_errors[0:3,:]**2, axis=0))) * 1000  # in meters
-#         lkf_rms_velocity_error_3D = np.sqrt(np.mean(np.sum(lkf_state_errors[3:6,:]**2, axis=0))) * 1e6  # in mm/s
-#         ekf_rms_velocity_error_3D = np.sqrt(np.mean(np.sum(ekf_state_errors[3:6,:]**2, axis=0))) * 1e6  # in mm/s
+        lkf_rms_position_error_3D = np.sqrt(np.mean(np.sum(lkf_state_errors[0:3,:]**2, axis=0))) * 1000  # in meters
+        ekf_rms_position_error_3D = np.sqrt(np.mean(np.sum(ekf_state_errors[0:3,:]**2, axis=0))) * 1000  # in meters
+        lkf_rms_velocity_error_3D = np.sqrt(np.mean(np.sum(lkf_state_errors[3:6,:]**2, axis=0))) * 1e6  # in mm/s
+        ekf_rms_velocity_error_3D = np.sqrt(np.mean(np.sum(ekf_state_errors[3:6,:]**2, axis=0))) * 1e6  # in mm/s
 
-#         lkf_rms_position_error_3D_results[sigma_values.index(sigma)] = lkf_rms_position_error_3D
-#         ekf_rms_position_error_3D_results[sigma_values.index(sigma)] = ekf_rms_position_error_3D
-#         lkf_rms_velocity_error_3D_results[sigma_values.index(sigma)] = lkf_rms_velocity_error_3D
-#         ekf_rms_velocity_error_3D_results[sigma_values.index(sigma)] = ekf_rms_velocity_error_3D
+        lkf_rms_position_error_3D_results[sigma_values.index(sigma)] = lkf_rms_position_error_3D
+        ekf_rms_position_error_3D_results[sigma_values.index(sigma)] = ekf_rms_position_error_3D
+        lkf_rms_velocity_error_3D_results[sigma_values.index(sigma)] = lkf_rms_velocity_error_3D
+        ekf_rms_velocity_error_3D_results[sigma_values.index(sigma)] = ekf_rms_velocity_error_3D
 
-# # Plot RMS of range and range rate residuals for LKF and EKF with SNC approach
+# Plot RMS of range and range rate residuals for LKF and EKF with SNC approach
 
-# fig = make_subplots(rows=2, cols=1, subplot_titles=('Range Residual RMS vs Sigma', 'Range Rate Residual RMS vs Sigma'))
-# fig.add_trace(go.Scatter(x=sigma_values, y=lkf_residual_rms_results[:,0], mode='markers+lines', name='LKF', line=dict(dash='solid', color='blue')), row=1, col=1)
-# fig.add_trace(go.Scatter(x=sigma_values, y=ekf_residual_rms_results[:,0], mode='markers+lines', name='EKF', line=dict(dash='solid', color='red')), row=1, col=1)
-# fig.add_trace(go.Scatter(x=sigma_values, y=lkf_residual_rms_results[:,1], mode='markers+lines', name='LKF Range Rate Residual RMS', line=dict(dash='solid', color='blue'), showlegend=False), row=2, col=1)
-# fig.add_trace(go.Scatter(x=sigma_values, y=ekf_residual_rms_results[:,1], mode='markers+lines', name='EKF Range Rate Residual RMS', line=dict(dash='solid', color='red'), showlegend=False), row=2, col=1)
-# fig.update_xaxes(type='log', title_text='Sigma Value (km/s^2)', tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=1, col=1)
-# fig.update_xaxes(type='log', title_text='Sigma Value (km/s^2)', tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=2, col=1)
-# fig.update_yaxes(title_text='RMS of Range Residuals (m)', type='log', tickfont=dict(size=20), title_font=dict(size=22), row=1, col=1)
-# fig.update_yaxes(title_text='RMS of Range Rate Residuals (mm/s)', type='log', tickfont=dict(size=20), title_font=dict(size=22), row=2, col=1)
-# fig.update_layout(title='RMS of Post-Fit Residuals vs Sigma for LKF and EKF with SNC', title_font=dict(size=30), legend=dict(font=dict(size=22)))
-# fig.update_annotations(font=dict(size=24))
-# fig.write_html("ASEN_6080/HW3/figures/residual_rms_vs_sigma_subplots.html")
-# fig.write_image("ASEN_6080/HW3/figures/pngs/residual_rms_vs_sigma_subplots.png")
-# fig.show()
+fig = make_subplots(rows=2, cols=1, subplot_titles=('Range Residual RMS vs Sigma', 'Range Rate Residual RMS vs Sigma'))
+fig.add_trace(go.Scatter(x=sigma_values, y=lkf_residual_rms_results[:,0], mode='markers+lines', name='LKF', line=dict(dash='solid', color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=sigma_values, y=ekf_residual_rms_results[:,0], mode='markers+lines', name='EKF', line=dict(dash='solid', color='red')), row=1, col=1)
+fig.add_trace(go.Scatter(x=sigma_values, y=lkf_residual_rms_results[:,1], mode='markers+lines', name='LKF Range Rate Residual RMS', line=dict(dash='solid', color='blue'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=sigma_values, y=ekf_residual_rms_results[:,1], mode='markers+lines', name='EKF Range Rate Residual RMS', line=dict(dash='solid', color='red'), showlegend=False), row=2, col=1)
+fig.update_xaxes(type='log', title_text='Sigma Value (km/s^2)', tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=1, col=1)
+fig.update_xaxes(type='log', title_text='Sigma Value (km/s^2)', tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=2, col=1)
+fig.update_yaxes(title_text='RMS of Range Residuals (m)', type='log', tickfont=dict(size=20), title_font=dict(size=22), row=1, col=1)
+fig.update_yaxes(title_text='RMS of Range Rate Residuals (mm/s)', type='log', tickfont=dict(size=20), title_font=dict(size=22), row=2, col=1)
+fig.update_layout(title='RMS of Post-Fit Residuals vs Sigma for LKF and EKF with SNC', title_font=dict(size=30), legend=dict(font=dict(size=22)))
+fig.update_annotations(font=dict(size=24))
+fig.write_html("ASEN_6080/HW3/figures/residual_rms_vs_sigma_subplots.html")
+fig.write_image("ASEN_6080/HW3/figures/pngs/residual_rms_vs_sigma_subplots.png")
+fig.show()
 
-# # Plot RMS of 3D position and velocity errors for LKF and EKF with SNC approach
-# fig = make_subplots(rows=2, cols=1, subplot_titles=('3D Position Error RMS vs Sigma', '3D Velocity Error RMS vs Sigma'))
-# fig.add_trace(go.Scatter(x=sigma_values, y=lkf_rms_position_error_3D_results, mode='markers+lines', name='LKF', line=dict(dash='solid', color='blue')), row=1, col=1)
-# fig.add_trace(go.Scatter(x=sigma_values, y=ekf_rms_position_error_3D_results, mode='markers+lines', name='EKF', line=dict(dash='solid', color='red')), row=1, col=1)
-# fig.add_trace(go.Scatter(x=sigma_values, y=lkf_rms_velocity_error_3D_results, mode='markers+lines', name='LKF 3D Velocity Error RMS', line=dict(dash='solid', color='blue'), showlegend=False), row=2, col=1)
-# fig.add_trace(go.Scatter(x=sigma_values, y=ekf_rms_velocity_error_3D_results, mode='markers+lines', name='EKF 3D Velocity Error RMS', line=dict(dash='solid', color='red'), showlegend=False), row=2, col=1)
-# fig.update_xaxes(type='log', title_text='Sigma Value (km/s^2)', tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=1, col=1)
-# fig.update_xaxes(type='log', title_text='Sigma Value (km/s^2)', tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=2, col=1)
-# fig.update_yaxes(title_text='RMS of 3D Position Error (m)', type='log', tickfont=dict(size=20), title_font=dict(size=22), row=1, col=1)
-# fig.update_yaxes(title_text='RMS of 3D Velocity Error (mm/s)', type='log', tickfont=dict(size=20), title_font=dict(size=22), row=2, col=1)
-# fig.update_layout(title='RMS of 3D State Estimation Error vs Sigma for LKF and EKF with SNC Approach', title_font=dict(size=30), legend=dict(font=dict(size=22)))
-# fig.update_annotations(font=dict(size=24))
-# fig.write_html("ASEN_6080/HW3/figures/state_error_rms_vs_sigma_subplots.html")
-# fig.write_image("ASEN_6080/HW3/figures/pngs/state_error_rms_vs_sigma_subplots.png")
-# fig.show()
+# Plot RMS of 3D position and velocity errors for LKF and EKF with SNC approach
+fig = make_subplots(rows=2, cols=1, subplot_titles=('3D Position Error RMS vs Sigma', '3D Velocity Error RMS vs Sigma'))
+fig.add_trace(go.Scatter(x=sigma_values, y=lkf_rms_position_error_3D_results, mode='markers+lines', name='LKF', line=dict(dash='solid', color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=sigma_values, y=ekf_rms_position_error_3D_results, mode='markers+lines', name='EKF', line=dict(dash='solid', color='red')), row=1, col=1)
+fig.add_trace(go.Scatter(x=sigma_values, y=lkf_rms_velocity_error_3D_results, mode='markers+lines', name='LKF 3D Velocity Error RMS', line=dict(dash='solid', color='blue'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=sigma_values, y=ekf_rms_velocity_error_3D_results, mode='markers+lines', name='EKF 3D Velocity Error RMS', line=dict(dash='solid', color='red'), showlegend=False), row=2, col=1)
+fig.update_xaxes(type='log', title_text='Sigma Value (km/s^2)', tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=1, col=1)
+fig.update_xaxes(type='log', title_text='Sigma Value (km/s^2)', tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=2, col=1)
+fig.update_yaxes(title_text='RMS of 3D Position Error (m)', type='log', tickfont=dict(size=20), title_font=dict(size=22), row=1, col=1)
+fig.update_yaxes(title_text='RMS of 3D Velocity Error (mm/s)', type='log', tickfont=dict(size=20), title_font=dict(size=22), row=2, col=1)
+fig.update_layout(title='RMS of 3D State Estimation Error vs Sigma for LKF and EKF with SNC Approach', title_font=dict(size=30), legend=dict(font=dict(size=22)))
+fig.update_annotations(font=dict(size=24))
+fig.write_html("ASEN_6080/HW3/figures/state_error_rms_vs_sigma_subplots.html")
+fig.write_image("ASEN_6080/HW3/figures/pngs/state_error_rms_vs_sigma_subplots.png")
+fig.show()
