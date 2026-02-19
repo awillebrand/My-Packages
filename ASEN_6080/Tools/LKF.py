@@ -440,7 +440,7 @@ class LKF:
                     phi_k_plus_1 = stm_history[:,:,k+1] @ np.linalg.inv(stm_history[:,:,k]) if k > 0 else stm_history[:,:,k+1]
 
                     # Compute smoothing gain
-                    s_k = P_k @ phi_k_plus_1.T @ np.linalg.inv(P_k_plus_1)
+                    s_k = np.linalg.solve(P_k_plus_1.T, (phi_k_plus_1 @ P_k.T)).T
 
                     # Update smoothed state estimate
                     smoothed_state_estimates[:,k] = x_k + s_k @ (smoothed_state_estimates[:,k+1] - phi_k_plus_1 @ x_k)
