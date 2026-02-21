@@ -86,12 +86,18 @@ for state_name, stats in lkf_error_stats.items():
 
 # Test smoothing with SNC
 
+measurement_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements_J3.pkl")
+truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data_J3.pkl")
+initial_state_guess = truth_data['initial_state'].values[0][0:7]
+
 optimal_sigma = 5e-8
 Q = np.diag([optimal_sigma, optimal_sigma, optimal_sigma])**2
 lkf_estimated_state_history_snc_smoothed, lkf_covariance_history_snc_smoothed, lkf_residuals_df_snc_smoothed = lkf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), max_iterations=1, apply_smoothing=True, Q=Q, process_noise_approach='SNC')
 lkf_estimated_state_history_snc_not_smoothed, lkf_covariance_history_snc_not_smoothed, lkf_residuals_df_snc_not_smoothed = lkf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), max_iterations=1, apply_smoothing=False, Q=Q, process_noise_approach='SNC')
+
 smoothed_snc_lkf_truth_difference = lkf_estimated_state_history_snc_smoothed - truth_state_history
 not_smoothed_snc_lkf_truth_difference = lkf_estimated_state_history_snc_not_smoothed - truth_state_history
+
 snc_position_fig, snc_velocity_fig, snc_error_stats = plot_state_errors(measurement_data['time'].values, smoothed_snc_lkf_truth_difference, lkf_covariance_history_snc_smoothed, "LKF with SNC", "ASEN_6080/HW4/figures", unit_multipliers=[1e3, 1e6], units=['m', 'mm/s'])
 not_smoothed_snc_position_fig, not_smoothed_snc_velocity_fig, not_smoothed_snc_error_stats = plot_state_errors(measurement_data['time'].values, not_smoothed_snc_lkf_truth_difference, lkf_covariance_history_snc_not_smoothed, "LKF with SNC (No Smoothing)", "ASEN_6080/HW4/figures", unit_multipliers=[1e3, 1e6], units=['m', 'mm/s'])
 print("LKF with SNC Error Stats:")
