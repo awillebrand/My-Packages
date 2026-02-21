@@ -197,8 +197,6 @@ class LKF:
             The reference frame of the process noise covariance matrix Q ('ECI' or 'RIC'). Default is 'ECI'.
         beta_mat : np.ndarray, optional
             A 3x3 diagonal matrix of time constants for dynamic model compensation. Required if process_noise_approach is 'DMC'. Default is None.
-        get_x_hat_history : bool, optional
-            Whether to return the history of state correction estimates at each measurement time. Default is False.
         Returns:
         state_estimates : list
             A list of state estimates at each measurement time.
@@ -434,12 +432,12 @@ class LKF:
 
                 # Loop through time steps in reverse order for smoothing
                 for k in range(len(time_vector)-2, -1, -1):
+                    print(f"Smoothing time step {k+1} of {len(time_vector)}                       ", end='\r')
                     x_k = x_hat_history[:,k]
                     P_k_plus_1 = prediction_covariance_estimates[:,:,k+1]
                     P_k = covariance_estimates[:,:,k]
                     phi_k_plus_1 = stm_history[:,:,k+1] @ np.linalg.inv(stm_history[:,:,k]) if k > 0 else stm_history[:,:,k+1]
 
-                    # Compute smoothing gain
                     s_k = np.linalg.solve(P_k_plus_1.T, (phi_k_plus_1 @ P_k.T)).T
 
                     # Update smoothed state estimate

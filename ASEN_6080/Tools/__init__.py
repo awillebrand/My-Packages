@@ -7,6 +7,7 @@ from .measurement_manager import MeasurementMgr
 from .batch_lls_estimator import BatchLLSEstimator
 from .LKF import LKF
 from .EKF import EKF
+from .plotting_functions import plot_residuals, plot_state_errors
 
 __all__ = [
     "state_jacobian",
@@ -18,5 +19,7 @@ __all__ = [
     "MeasurementMgr",
     "BatchLLSEstimator",
     "LKF",
-    "EKF"
+    "EKF",
+    "plot_residuals",
+    "plot_state_errors"
 ]
