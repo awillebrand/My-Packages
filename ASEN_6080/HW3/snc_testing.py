@@ -372,8 +372,8 @@ fig.update_layout(title_text="EKF Velocity Errors with SNC Process Noise Approac
                                 xanchor="left",
                                 x=0.7,
                                 itemsizing='constant'))
-#fig.write_html(f"ASEN_6080/HW3/figures/ekf_velocity_errors_snc.html")
-fig.write_image(f"ASEN_6080/HW3/figures/pngs/ekf_velocity_errors_snc_{frame}.png")
+fig.write_html(f"ASEN_6080/HW3/figures/ekf_velocity_errors_snc.html")
+#fig.write_image(f"ASEN_6080/HW3/figures/pngs/ekf_velocity_errors_snc_{frame}.png")
 
 # for sigma in sigma_values:
 #     print(f"Running LKF with SNC process noise approach and sigma = {sigma:.1e} km/s^2...")
