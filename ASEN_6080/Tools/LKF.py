@@ -337,7 +337,6 @@ class LKF:
                 if np.isnan(current_measurement_residuals).all():
                     # No measurements available, propagate state and covariance
                     x_hat, P = self.predict(x_hat, P, phi, np.zeros((meas_number, raw_state_length)), R)
-                    prediction_covariance_estimates[:,:,k] = P
 
                     if process_noise_approach == 'SNC':
                         if Q_frame == 'RIC':
@@ -362,7 +361,7 @@ class LKF:
                         P[0:6, -3:] = P[0:6, -3:] + Q_w[0:6, 6:]  # Add state-DMC cross covariance
                         P[-3:, 0:6] = P[-3:, 0:6] + Q_w[6:, 0:6]  # Add DMC-state cross covariance
                         P[-3:, -3:] = P[-3:, -3:] + Q_w[6:, 6:]  # Add DMC covariance
-                    
+                    prediction_covariance_estimates[:,:,k] = P
                 else:
                     # Determine which stations are visible
                     visible_station_indices = []
@@ -387,7 +386,6 @@ class LKF:
                     # Predict and update steps
 
                     x_bar, predict_P = self.predict(x_hat, P, phi, stacked_H, stacked_R)
-                    prediction_covariance_estimates[:,:,k] = predict_P
 
                     # Add process noise
                     if process_noise_approach == 'SNC':
@@ -413,8 +411,9 @@ class LKF:
                         predict_P[0:6, -3:] = predict_P[0:6, -3:] + Q_w[0:6, 6:]  # Add state-DMC cross covariance
                         predict_P[-3:, 0:6] = predict_P[-3:, 0:6] + Q_w[6:, 0:6]  # Add DMC-state cross covariance
                         predict_P[-3:, -3:] = predict_P[-3:, -3:] + Q_w[6:, 6:]  # Add DMC covariance
-                    x_hat, P = self.update(x_bar, predict_P, stacked_residuals, stacked_H, stacked_R)
+                    prediction_covariance_estimates[:,:,k] = predict_P
 
+                    x_hat, P = self.update(x_bar, predict_P, stacked_residuals, stacked_H, stacked_R)
                 # Store estimates
                 state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
                 covariance_estimates[:,:,k] = P
@@ -438,7 +437,7 @@ class LKF:
                     P_k = covariance_estimates[:,:,k]
                     phi_k_plus_1 = stm_history[:,:,k+1] @ np.linalg.inv(stm_history[:,:,k]) if k > 0 else stm_history[:,:,k+1]
 
-                    s_k = np.linalg.solve(P_k_plus_1.T, (phi_k_plus_1 @ P_k.T)).T
+                    s_k = np.linalg.solve(P_k_plus_1, (phi_k_plus_1 @ P_k)).T
 
                     # Update smoothed state estimate
                     smoothed_state_estimates[:,k] = x_k + s_k @ (smoothed_state_estimates[:,k+1] - phi_k_plus_1 @ x_k)

@@ -247,7 +247,7 @@ def plot_state_errors(time_vector: np.ndarray, state_errors: np.ndarray, covaria
         error_stats (dict): Dictionary containing mean, standard deviation, and RMS of state errors for each component.
     """
 
-    state_names = ['x', 'y', 'z', 'vx', 'vy', 'vz']
+    state_names = ['X Position', 'Y Position', 'Z Position', 'X Velocity', 'Y Velocity', 'Z Velocity']
     error_stats = {}
     
     pos_fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=[f"{state_names[i]} Error" for i in range(3)])
@@ -267,15 +267,15 @@ def plot_state_errors(time_vector: np.ndarray, state_errors: np.ndarray, covaria
 
         if i < 3:
             pos_fig.add_trace(go.Scatter(x=time_vector, y=state_error, mode='lines', name=f'State Error', line=dict(color='blue'), showlegend=i==0), row=i+1, col=1)
-            pos_fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(covariance_diagonal)*unit_multipliers[0], mode='lines', name=f'{state_names[i]} 3-sigma bound', line=dict(color='red', dash='dash'), showlegend=i==0), row=i+1, col=1)
+            pos_fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(covariance_diagonal)*unit_multipliers[0], mode='lines', name=f'3-sigma bounds', line=dict(color='red', dash='dash'), showlegend=i==0), row=i+1, col=1)
             pos_fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(covariance_diagonal)*unit_multipliers[0], mode='lines', name=f'{state_names[i]} -3-sigma bound', line=dict(color='red', dash='dash'), showlegend=False), row=i+1, col=1)
         else:   
             vel_fig.add_trace(go.Scatter(x=time_vector, y=state_error, mode='lines', name=f'State Error', line=dict(color='blue'), showlegend=i==3), row=i-2, col=1)
-            vel_fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(covariance_diagonal)*unit_multipliers[1], mode='lines', name=f'{state_names[i]} 3-sigma bound', line=dict(color='red', dash='dash'), showlegend=i==3), row=i-2, col=1)
+            vel_fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(covariance_diagonal)*unit_multipliers[1], mode='lines', name=f'3-sigma bounds', line=dict(color='red', dash='dash'), showlegend=i==3), row=i-2, col=1)
             vel_fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(covariance_diagonal)*unit_multipliers[1], mode='lines', name=f'{state_names[i]} -3-sigma bound', line=dict(color='red', dash='dash'), showlegend=False), row=i-2, col=1)
 
     pos_fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22))
-    pos_fig.update_yaxes(title_text=f"Position Error {units[0]}", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e")
+    pos_fig.update_yaxes(title_text=f"Position Error ({units[0]})", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e")
     pos_fig.update_annotations(font=dict(size=24))
     pos_fig.update_layout(title_text=f"{filter_name} Position Estimation Errors",
                         title_font=dict(size=30),
@@ -295,7 +295,7 @@ def plot_state_errors(time_vector: np.ndarray, state_errors: np.ndarray, covaria
         pass
 
     vel_fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22))
-    vel_fig.update_yaxes(title_text=f"Velocity Error {units[1]}", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e")
+    vel_fig.update_yaxes(title_text=f"Velocity Error ({units[1]})", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e")
     vel_fig.update_annotations(font=dict(size=24))
     vel_fig.update_layout(title_text=f"{filter_name} Velocity Estimation Errors",
                         title_font=dict(size=30),

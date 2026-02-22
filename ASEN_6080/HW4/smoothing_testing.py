@@ -60,22 +60,56 @@ lkf_truth_difference = lkf_estimated_state_history - truth_state_history
 batch_truth_difference = batch_estimated_state_history - truth_state_history
 
 # Plotting
-# fig = make_subplots(rows=6, cols=1, shared_xaxes=True, subplot_titles=[f"State Difference: {state_name}" for state_name in ['x', 'y', 'z', 'vx', 'vy', 'vz', 'clock bias']])
-# for i in range(6):
-#     fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=state_difference[i,:], mode='lines', name=f"State Difference: {i}"), row=i+1, col=1)
-# fig.update_layout(height=1800, width=900, title_text="Difference Between LKF and Batch Estimates")
 
 fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=['X Position Difference', 'Y Position Difference', 'Z Position Difference'])
-fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=lkf_truth_difference[0,:], mode='lines', name="LKF - Truth", line=dict(color='blue')), row=1, col=1)
-fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=batch_truth_difference[0,:], mode='lines', name="Batch - Truth", line=dict(color='red')), row=1, col=1)
-fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=lkf_truth_difference[1,:], mode='lines', name="LKF - Truth", line=dict(color='blue'), showlegend=False), row=2, col=1)
-fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=batch_truth_difference[1,:], mode='lines', name="Batch - Truth", line=dict(color='red'), showlegend=False), row=2, col=1)
-fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=lkf_truth_difference[2,:], mode='lines', name="LKF - Truth", line=dict(color='blue'), showlegend=False), row=3, col=1)
-fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=batch_truth_difference[2,:], mode='lines', name="Batch - Truth", line=dict(color='red'), showlegend=False), row=3, col=1)
+fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=lkf_truth_difference[0,:]*1E3, mode='lines', name="LKF - Truth", line=dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=batch_truth_difference[0,:]*1E3, mode='lines', name="Batch - Truth", line=dict(color='red')), row=1, col=1)
+fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=lkf_truth_difference[1,:]*1E3, mode='lines', name="LKF - Truth", line=dict(color='blue'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=batch_truth_difference[1,:]*1E3, mode='lines', name="Batch - Truth", line=dict(color='red'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=lkf_truth_difference[2,:]*1E3, mode='lines', name="LKF - Truth", line=dict(color='blue'), showlegend=False), row=3, col=1)
+fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=batch_truth_difference[2,:]*1E3, mode='lines', name="Batch - Truth", line=dict(color='red'), showlegend=False), row=3, col=1)
+# Match layout of plots generated in plotting_functions.py
+fig.update_layout(title="Position Error for LKF and Batch LLS",
+                  xaxis_title="Time (s)",
+                  yaxis_title="Position Difference (m)",
+                  title_font=dict(size=30),
+                    legend=dict(font=dict(size=22),
+                                orientation="h",
+                                yanchor="top",
+                                y=1.1,
+                                xanchor="left",
+                                x=0.7,
+                                itemsizing='constant'),
+                  height=900, width=1500)
 fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22))
-fig.update_yaxes(title_text="Position Error (km)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e")
-fig.update_layout(height=900, width=1500, title_text="Position Differences Between Estimates and Truth")
-fig.write_html("ASEN_6080/HW4/figures/filter_comparison.html")
+fig.update_yaxes(title_text="Position Error (m)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e")
+fig.write_html("ASEN_6080/HW4/figures/position_filter_comparison.html")
+fig.write_image("ASEN_6080/HW4/figures/pngs/position_filter_comparison.png")
+
+fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=['X Velocity Difference', 'Y Velocity Difference', 'Z Velocity Difference'])
+fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=lkf_truth_difference[3,:]*1E6, mode='lines', name="LKF - Truth", line=dict(color='blue')), row=1, col=1)
+fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=batch_truth_difference[3,:]*1E6, mode='lines', name="Batch - Truth", line=dict(color='red')), row=1, col=1)
+fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=lkf_truth_difference[4,:]*1E6, mode='lines', name="LKF - Truth", line=dict(color='blue'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=batch_truth_difference[4,:]*1E6, mode='lines', name="Batch - Truth", line=dict(color='red'), showlegend=False), row=2, col=1)
+fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=lkf_truth_difference[5,:]*1E6, mode='lines', name="LKF - Truth", line=dict(color='blue'), showlegend=False), row=3, col=1)
+fig.add_trace(go.Scatter(x=measurement_data['time'].values, y=batch_truth_difference[5,:]*1E6, mode='lines', name="Batch - Truth", line=dict(color='red'), showlegend=False), row=3, col=1)
+# Match layout of plots generated in plotting_functions.py
+fig.update_layout(title="Velocity Error for LKF and Batch LLS",
+                  title_font=dict(size=30),
+                    xaxis_title="Time (s)",
+                    yaxis_title="Velocity Difference (mm/s)",
+                    legend=dict(font=dict(size=22),
+                                orientation="h",
+                                yanchor="top",
+                                y=1.1,
+                                xanchor="left",
+                                x=0.7,
+                                itemsizing='constant'),
+                    height=900, width=1500)
+fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22))
+fig.update_yaxes(title_text="Velocity Error (mm/s)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e")
+fig.write_html("ASEN_6080/HW4/figures/velocity_filter_comparison.html")
+fig.write_image("ASEN_6080/HW4/figures/pngs/velocity_filter_comparison.png")
 
 lkf_position_fig, lkf_velocity_fig, lkf_error_stats = plot_state_errors(measurement_data['time'].values, lkf_truth_difference, lkf_covariance_history, "LKF", "ASEN_6080/HW4/figures", unit_multipliers=[1e3, 1e6], units=['m', 'mm/s'])
 # batch_position_fig, batch_velocity_fig, batch_error_stats = plot_state_errors(measurement_data['time'].values, batch_truth_difference, batch_covariance_history, "Batch_LLS", "ASEN_6080/HW4/figures")
@@ -90,20 +124,29 @@ measurement_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/simulated_meas
 truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data_J3.pkl")
 initial_state_guess = truth_data['initial_state'].values[0][0:7]
 
-P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3,0])**2
+# Verify against truth data
+augmented_truth_state = truth_data['augmented_state_history'].values
+
+truth_state_history = np.zeros((7, augmented_truth_state.shape[0]))
+
+for i, state in enumerate(augmented_truth_state):
+    truth_state = state[0:7]
+    truth_state_history[:, i] = truth_state
+
 optimal_sigma = 5e-8
+# optimal_sigma = 1e-10
 Q = np.diag([optimal_sigma, optimal_sigma, optimal_sigma])**2
-#lkf_estimated_state_history_snc_smoothed, lkf_covariance_history_snc_smoothed, lkf_residuals_df_snc_smoothed = lkf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), max_iterations=1, apply_smoothing=True, Q=Q, process_noise_approach='SNC')
+lkf_estimated_state_history_snc_smoothed, lkf_covariance_history_snc_smoothed, lkf_residuals_df_snc_smoothed = lkf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), max_iterations=1, apply_smoothing=True, Q=Q, process_noise_approach='SNC')
 lkf_estimated_state_history_snc_not_smoothed, lkf_covariance_history_snc_not_smoothed, lkf_residuals_df_snc_not_smoothed = lkf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), max_iterations=1, apply_smoothing=False, Q=Q, process_noise_approach='SNC')
 
-#smoothed_snc_lkf_truth_difference = lkf_estimated_state_history_snc_smoothed - truth_state_history
+smoothed_snc_lkf_truth_difference = lkf_estimated_state_history_snc_smoothed - truth_state_history
 not_smoothed_snc_lkf_truth_difference = lkf_estimated_state_history_snc_not_smoothed - truth_state_history
 
-#snc_position_fig, snc_velocity_fig, snc_error_stats = plot_state_errors(measurement_data['time'].values, smoothed_snc_lkf_truth_difference, lkf_covariance_history_snc_smoothed, "LKF with SNC", "ASEN_6080/HW4/figures", unit_multipliers=[1e3, 1e6], units=['m', 'mm/s'])
+snc_position_fig, snc_velocity_fig, snc_error_stats = plot_state_errors(measurement_data['time'].values, smoothed_snc_lkf_truth_difference, lkf_covariance_history_snc_smoothed, "LKF with SNC", "ASEN_6080/HW4/figures", unit_multipliers=[1e3, 1e6], units=['m', 'mm/s'])
 not_smoothed_snc_position_fig, not_smoothed_snc_velocity_fig, not_smoothed_snc_error_stats = plot_state_errors(measurement_data['time'].values, not_smoothed_snc_lkf_truth_difference, lkf_covariance_history_snc_not_smoothed, "LKF with SNC (No Smoothing)", "ASEN_6080/HW4/figures", unit_multipliers=[1e3, 1e6], units=['m', 'mm/s'])
-# print("LKF with SNC Error Stats:")
-# for state_name, stats in snc_error_stats.items():
-#     print(f"{state_name}: Mean Error = {stats['mean']:.3e}, Std Dev = {stats['std']:.3e}, RMS = {stats['rms']:.3e}")
+print("LKF with SNC Error Stats:")
+for state_name, stats in snc_error_stats.items():
+    print(f"{state_name}: Mean Error = {stats['mean']:.3e}, Std Dev = {stats['std']:.3e}, RMS = {stats['rms']:.3e}")
 print("LKF with SNC (No Smoothing) Error Stats:")
 for state_name, stats in not_smoothed_snc_error_stats.items():
     print(f"{state_name}: Mean Error = {stats['mean']:.3e}, Std Dev = {stats['std']:.3e}, RMS = {stats['rms']:.3e}")
