@@ -7,6 +7,7 @@ from .measurement_manager import MeasurementMgr
 from .batch_lls_estimator import BatchLLSEstimator
 from .LKF import LKF
 from .EKF import EKF
+from .SRIF import SRIF
 from .plotting_functions import plot_residuals, plot_state_errors
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "BatchLLSEstimator",
     "LKF",
     "EKF",
+    "SRIF",
     "plot_residuals",
     "plot_state_errors"
 ]
