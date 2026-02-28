@@ -38,6 +38,10 @@ class SRIF:
         np.ndarray
             The whitened measurement vector.
         """
+        if np.isnan(y).all():
+            # Set nan values to zero for whitening, since they will be ignored in the measurement update
+            y = np.zeros_like(y)
+
         # Compute the Cholesky decomposition of R
         V = cholesky(R)
         
@@ -87,29 +91,42 @@ class SRIF:
 
         return A
     
+    # def time_update(self, x_hat : np.ndarray, R : np.ndarray, phi : np.ndarray):
+    #     """
+    #     Perform the time update step of the SRIF.
+    #     Parameters:
+    #     x_hat : np.ndarray
+    #         The current state estimate.
+    #     R : np.ndarray
+    #         The current information matrix.
+    #     phi : np.ndarray
+    #         The STM for the current time step.
+    #     Returns:
+    #     x_bar : np.ndarray
+    #         The predicted state estimate.
+    #     R_bar : np.ndarray
+    #         The predicted information matrix.
+    #     b_bar : np.ndarray
+    #         The predicted information vector.
+    #     """
+
+    #     x_bar = phi @ x_hat
+    #     R_bar = R @ np.linalg.inv(phi)
+    #     b_bar = R_bar @ x_bar
+
+    #     return x_bar, R_bar, b_bar
+
     def time_update(self, x_hat : np.ndarray, R : np.ndarray, phi : np.ndarray):
-        """
-        Perform the time update step of the SRIF.
-        Parameters:
-        x_hat : np.ndarray
-            The current state estimate.
-        R : np.ndarray
-            The current information matrix.
-        phi : np.ndarray
-            The STM for the current time step.
-        Returns:
-        x_bar : np.ndarray
-            The predicted state estimate.
-        R_bar : np.ndarray
-            The predicted information matrix.
-        b_bar : np.ndarray
-            The predicted information vector.
-        """
-
         x_bar = phi @ x_hat
-        R_bar = R @ np.linalg.inv(phi)
+        R_bar_dense = R @ np.linalg.inv(phi)
+        
+        # Re-triangularize R_bar using QR factorization
+        # R_bar_dense = Q @ R_bar_triangular, so R_bar_triangular = Q^T @ R_bar_dense
+        Q, R_bar = np.linalg.qr(R_bar_dense)
+        breakpoint()
+        # Transform the information vector consistently
         b_bar = R_bar @ x_bar
-
+        
         return x_bar, R_bar, b_bar
     
     def measurement_update(self, R_bar : np.ndarray, b_bar : np.ndarray, H : np.ndarray, y : np.ndarray):
@@ -283,9 +300,10 @@ class SRIF:
                     stacked_residuals = np.vstack(visible_residuals)
                     stacked_H = np.vstack(visible_H)
                     stacked_R_noise = block_diag(*visible_R_noise)
-
+                    
                     # Perform time and measurement updates
                     x_bar, R_bar, b_bar = self.time_update(x_hat, R, phi)
+                    
                     x_hat, R, b_bar = self.measurement_update(R_bar, b_bar, stacked_H, stacked_residuals)
 
                 # Recompute covariance estimate from information matrix
@@ -294,7 +312,6 @@ class SRIF:
                 state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
                 covariance_estimates[:,:,k] = P
 
-            # Add post-fit residuals to DataFrame
             # Add post-fit residuals to DataFrame
             for i, mgr in enumerate(self.measurement_mgrs):
                 station_name = self.measurement_mgrs[i].station_name
