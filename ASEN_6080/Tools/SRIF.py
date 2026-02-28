@@ -39,12 +39,12 @@ class SRIF:
             The whitened measurement vector.
         """
         # Compute the Cholesky decomposition of R
-        V = cholesky(R, upper=True)
+        V = cholesky(R)
         
         # Solve for the whitened measurements
-        y_whitened = solve_triangular(V, y, upper=True)
-        H_whitened = solve_triangular(V, H, upper=True).T
-        
+        y_whitened = solve_triangular(V, y)
+        H_whitened = solve_triangular(V, H)
+
         return y_whitened, H_whitened
     
     def householder_transform(self, A : np.ndarray):
@@ -137,7 +137,7 @@ class SRIF:
         A[:R_bar.shape[0], :R_bar.shape[1]] = R_bar
         A[:R_bar.shape[0], -1] = b_bar
         A[R_bar.shape[0]:, :H.shape[1]] = H
-        A[R_bar.shape[0]:, -1] = y
+        A[R_bar.shape[0]:, -1] = y.flatten()
 
         A = self.householder_transform(A)
 
@@ -145,7 +145,7 @@ class SRIF:
         b_new = A[:R_bar.shape[0], -1]
 
         # Since R_new is upper triangular, we can solve for x_hat using back substitution
-        x_hat_new = solve_triangular(R_new, b_new, upper=True)
+        x_hat_new = solve_triangular(R_new, b_new)
 
         return x_hat_new, R_new, b_new
         
@@ -198,7 +198,7 @@ class SRIF:
         residuals_df = pd.DataFrame(columns=['iteration', 'station', 'pre-fit', 'post-fit'])
 
         # Compute information matrix R from initial covariance
-        R = cholesky(np.linalg.inv(initial_covariance), upper=True)
+        R = cholesky(np.linalg.inv(initial_covariance))
 
         for iteration in range(max_iterations):
             [_, augmented_state_history] = self.integrator.integrate_stm(time_vector[-1], x_0, teval=time_vector)
