@@ -39,8 +39,7 @@ class SRIF:
             The whitened measurement vector.
         """
         if np.isnan(y).all():
-            # Set nan values to zero for whitening, since they will be ignored in the measurement update
-            y = np.zeros_like(y)
+            return y, H
 
         # Compute the Cholesky decomposition of R
         V = cholesky(R)
@@ -91,44 +90,35 @@ class SRIF:
 
         return A
     
-    # def time_update(self, x_hat : np.ndarray, R : np.ndarray, phi : np.ndarray):
-    #     """
-    #     Perform the time update step of the SRIF.
-    #     Parameters:
-    #     x_hat : np.ndarray
-    #         The current state estimate.
-    #     R : np.ndarray
-    #         The current information matrix.
-    #     phi : np.ndarray
-    #         The STM for the current time step.
-    #     Returns:
-    #     x_bar : np.ndarray
-    #         The predicted state estimate.
-    #     R_bar : np.ndarray
-    #         The predicted information matrix.
-    #     b_bar : np.ndarray
-    #         The predicted information vector.
-    #     """
+    def time_update(self, x_hat : np.ndarray, R : np.ndarray, phi : np.ndarray, force_triangular : bool = True):
+        """
+        Perform the time update step of the SRIF.
+        Parameters:
+        x_hat : np.ndarray
+            The current state estimate.
+        R : np.ndarray
+            The current information matrix.
+        phi : np.ndarray
+            The STM for the current time step.
+        Returns:
+        x_bar : np.ndarray
+            The predicted state estimate.
+        R_bar : np.ndarray
+            The predicted information matrix.
+        b_bar : np.ndarray
+            The predicted information vector.
+        force_triangular : bool, optional
+            If True, forces the time update to perform a Householder transformation to maintain numerical stability (default is False).
+        """
 
-    #     x_bar = phi @ x_hat
-    #     R_bar = R @ np.linalg.inv(phi)
-    #     b_bar = R_bar @ x_bar
-
-    #     return x_bar, R_bar, b_bar
-
-    def time_update(self, x_hat : np.ndarray, R : np.ndarray, phi : np.ndarray):
         x_bar = phi @ x_hat
-        R_bar_dense = R @ np.linalg.inv(phi)
-        
-        # Re-triangularize R_bar using QR factorization
-        # R_bar_dense = Q @ R_bar_triangular, so R_bar_triangular = Q^T @ R_bar_dense
-        Q, R_bar = np.linalg.qr(R_bar_dense)
-        breakpoint()
-        # Transform the information vector consistently
+        R_bar = R @ np.linalg.inv(phi)
+        if force_triangular:
+            R_bar = self.householder_transform(R_bar)
         b_bar = R_bar @ x_bar
-        
+
         return x_bar, R_bar, b_bar
-    
+
     def measurement_update(self, R_bar : np.ndarray, b_bar : np.ndarray, H : np.ndarray, y : np.ndarray):
         """
         Perform the measurement update step of the SRIF.
@@ -173,7 +163,8 @@ class SRIF:
             measurement_data : pd.DataFrame,
             Q_noise : np.ndarray = None,
             R_noise : np.ndarray = 0,
-            max_iterations : int = 1):
+            max_iterations : int = 1,
+            triangularize_time_update : bool = True):
         """
         Run the SRIF for a given set of measurements.
         Parameters:
@@ -191,6 +182,8 @@ class SRIF:
             The measurement noise covariance matrix (default is 0, which assumes no measurement noise).
         max_iterations : int, optional
             The maximum number of iterations for the filter (default is 1).
+        triangularize_time_update : bool, optional
+            If True, forces the time update to perform a Householder transformation to maintain numerical stability (default is True).
         Returns:
         x_estimates : list
             A list of state estimates at each measurement time step.
@@ -216,7 +209,6 @@ class SRIF:
 
         # Compute information matrix R from initial covariance
         R = cholesky(np.linalg.inv(initial_covariance))
-
         for iteration in range(max_iterations):
             [_, augmented_state_history] = self.integrator.integrate_stm(time_vector[-1], x_0, teval=time_vector)
 
@@ -279,7 +271,7 @@ class SRIF:
 
                 if np.isnan(current_measurement_residuals).all():
                     # No measurements available, propagate x_hat and R using time update only
-                    x_hat, R, b_bar = self.time_update(x_hat, R, phi)
+                    x_hat, R, b_bar = self.time_update(x_hat, R, phi, force_triangular=triangularize_time_update)
                 else:
                     # Determine which station has measurements at this time step
                     visible_station_indices = []
@@ -302,13 +294,12 @@ class SRIF:
                     stacked_R_noise = block_diag(*visible_R_noise)
                     
                     # Perform time and measurement updates
-                    x_bar, R_bar, b_bar = self.time_update(x_hat, R, phi)
-                    
+                    x_bar, R_bar, b_bar = self.time_update(x_hat, R, phi, force_triangular=triangularize_time_update)
                     x_hat, R, b_bar = self.measurement_update(R_bar, b_bar, stacked_H, stacked_residuals)
 
                 # Recompute covariance estimate from information matrix
                 P = np.linalg.inv(R.T @ R)
-
+                
                 state_estimates[:,k] = x_hat.T + reference_state_history[:,k]
                 covariance_estimates[:,:,k] = P
 
