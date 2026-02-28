@@ -90,7 +90,7 @@ class SRIF:
 
         return A
     
-    def time_update(self, x_hat : np.ndarray, R : np.ndarray, phi : np.ndarray, force_triangular : bool = True):
+    def time_update(self, x_hat : np.ndarray, R : np.ndarray, phi : np.ndarray, force_triangular : bool = True, Q_noise : np.ndarray = None, delta_t : float = None):
         """
         Perform the time update step of the SRIF.
         Parameters:
@@ -100,6 +100,8 @@ class SRIF:
             The current information matrix.
         phi : np.ndarray
             The STM for the current time step.
+        Q_noise : np.ndarray, optional
+            The process noise covariance matrix (default is None, which assumes no process noise). 
         Returns:
         x_bar : np.ndarray
             The predicted state estimate.
@@ -110,12 +112,41 @@ class SRIF:
         force_triangular : bool, optional
             If True, forces the time update to perform a Householder transformation to maintain numerical stability (default is False).
         """
+        if Q_noise is not None and delta_t is None:
+            raise ValueError("delta_t must be provided if Q_noise is not None")
 
-        x_bar = phi @ x_hat
-        R_bar = R @ np.linalg.inv(phi)
-        if force_triangular:
-            R_bar = self.householder_transform(R_bar)
-        b_bar = R_bar @ x_bar
+        if Q_noise is None:
+            x_bar = phi @ x_hat
+            R_bar = R @ np.linalg.inv(phi)
+            if force_triangular:
+                R_bar = self.householder_transform(R_bar)
+            b_bar = R_bar @ x_bar
+        else:
+            R_k_tilde = R @ np.linalg.inv(phi)
+            R_u = cholesky(np.linalg.inv(Q_noise))
+            b_hat = R @ x_hat
+            b_bar_u = R_u @ np.zeros((3,1)) # Assuming zero process noise mean
+
+            Gamma = delta_t * np.concatenate((0.5 * delta_t * np.eye(3), np.eye(3)), axis=0)
+
+            # Pad zeros to gamma for non-spacecraft related states if necessary
+            num_additional_states = x_hat.shape[0] - 6
+            if num_additional_states > 0:
+                Gamma = np.pad(Gamma, ((0, num_additional_states), (0, 0)), mode='constant')
+
+            A = np.zeros((Gamma.shape[0] + R_u.shape[0], Gamma.shape[1] + R_k_tilde.shape[1] + 1))
+            A[:R_u.shape[0], :R_u.shape[1]] = R_u
+            A[:R_u.shape[0], -1] = b_bar_u.flatten()
+            A[R_u.shape[0]:, :Gamma.shape[1]] = -R_k_tilde @ Gamma
+            A[R_u.shape[0]:, Gamma.shape[1]:-1] = R_k_tilde
+            A[R_u.shape[0]:, -1] = b_hat.flatten()
+
+            # Householder transform A to get new R_bar and b_bar
+            A = self.householder_transform(A)
+
+            R_bar = A[R_u.shape[0]:, Gamma.shape[1]:-1]
+            b_bar = A[R_u.shape[0]:, -1]
+            x_bar = solve_triangular(R_bar, b_bar)
 
         return x_bar, R_bar, b_bar
 
@@ -139,6 +170,7 @@ class SRIF:
         b_new : np.ndarray
             The updated information vector.
         """
+
         # Format A matrix for Householder transformation with R_bar, b_bar, H, and y
         A = np.zeros((R_bar.shape[0] + H.shape[0], R_bar.shape[1] + 1))
         A[:R_bar.shape[0], :R_bar.shape[1]] = R_bar
@@ -266,12 +298,17 @@ class SRIF:
 
                 if k == 0:
                     phi = stm_history[:,:,k]
+                    delta_t = 0
                 else:
                     phi = stm_history[:,:,k] @ np.linalg.inv(stm_history[:,:,k-1])
+                    delta_t = time_vector[k] - time_vector[k-1]
 
                 if np.isnan(current_measurement_residuals).all():
                     # No measurements available, propagate x_hat and R using time update only
-                    x_hat, R, b_bar = self.time_update(x_hat, R, phi, force_triangular=triangularize_time_update)
+                    if Q_noise is not None:
+                        x_hat, R, b_bar = self.time_update(x_hat, R, phi, force_triangular=triangularize_time_update, Q_noise=Q_noise, delta_t=delta_t)
+                    else:
+                        x_hat, R, b_bar = self.time_update(x_hat, R, phi, force_triangular=triangularize_time_update)
                 else:
                     # Determine which station has measurements at this time step
                     visible_station_indices = []
@@ -294,7 +331,10 @@ class SRIF:
                     stacked_R_noise = block_diag(*visible_R_noise)
                     
                     # Perform time and measurement updates
-                    x_bar, R_bar, b_bar = self.time_update(x_hat, R, phi, force_triangular=triangularize_time_update)
+                    if Q_noise is not None:
+                        x_bar, R_bar, b_bar = self.time_update(x_hat, R, phi, force_triangular=triangularize_time_update, Q_noise=Q_noise, delta_t=delta_t)
+                    else:
+                        x_bar, R_bar, b_bar = self.time_update(x_hat, R, phi, force_triangular=triangularize_time_update)
                     x_hat, R, b_bar = self.measurement_update(R_bar, b_bar, stacked_H, stacked_residuals)
 
                 # Recompute covariance estimate from information matrix
