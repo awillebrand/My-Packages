@@ -4,14 +4,14 @@ import pandas as pd
 import numpy as np
 from plotly.subplots import make_subplots
 
-def plot_residuals(residuals_df : pd.DataFrame, time_vector : np.ndarray, filter_name: str, file_directory : str, colors_list: list = ['red', 'green', 'blue']):
+def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filter_name: str, file_directory : str, colors_list: list = ['red', 'green', 'blue']):
     """
     Plot pre-fit and post-fit residuals for each iteration of the filter, including scatter plots of residuals over time and histograms of residual distributions. Also compute and print mean, standard deviation, and RMS of residuals for each iteration.
     Parameters:
-    residuals_df (pd.DataFrame):
-        DataFrame containing residuals with columns ['iteration', 'station', 'pre-fit', 'post-fit'].
     time_vector (np.ndarray):
         Array of time values corresponding to the residuals.
+    residuals_df (pd.DataFrame):residuals_df (pd.DataFrame):
+        DataFrame containing residuals with columns ['iteration', 'station', 'pre-fit', 'post-fit'].
     filter_name (str):
         Name of the filter being analyzed (e.g., "LKF", "Batch LLS") for plot titles.
     file_directory (str):
@@ -225,7 +225,7 @@ def plot_residuals(residuals_df : pd.DataFrame, time_vector : np.ndarray, filter
         except Exception as e:
             pass
 
-def plot_state_errors(time_vector: np.ndarray, state_errors: np.ndarray, covariance_history : np.array, filter_name: str, file_directory: str, unit_multipliers: list = [1, 1], units = ['km', 'km/s']):
+def plot_state_errors(time_vector: np.ndarray, state_errors: np.ndarray, covariance_history : np.array, filter_name: str, file_directory: str, unit_multipliers: list = [1, 1], units = ['km', 'km/s'], y_axis_limits: list[list] = None):
     """
     Plot state estimation errors over time for each state component, including position and velocity errors. Also compute and print mean, standard deviation, and RMS of state errors for each component.
     Parameters:
@@ -241,12 +241,17 @@ def plot_state_errors(time_vector: np.ndarray, state_errors: np.ndarray, covaria
         Directory where the plots will be saved.
     unit_multipliers (list), optional:
         List of multipliers to convert state errors to desired units for plotting (e.g., [1E3, 1E6] to convert position errors from km to m and velocity errors from km/s to m/s). Default is [1, 1] (no conversion).
+    units (list), optional:
+        List of unit strings corresponding to the state errors for labeling the y-axis (e.g., ["m", "m/s"]). Default is ['km', 'km/s'].
+    y_axis_limits (list[list]), optional:
+        List of [min, max] limits for the y-axis of each subplot, in the same order as the state components. If None, limits will be determined automatically. Default is None.
     Returns:
         pos_fig (go.Figure): Plotly figure object containing position error plots.
         vel_fig (go.Figure): Plotly figure object containing velocity error plots.
         error_stats (dict): Dictionary containing mean, standard deviation, and RMS of state errors for each component.
     """
-
+    state_errors = state_errors.copy()
+    
     state_names = ['X Position', 'Y Position', 'Z Position', 'X Velocity', 'Y Velocity', 'Z Velocity']
     error_stats = {}
     
@@ -276,6 +281,9 @@ def plot_state_errors(time_vector: np.ndarray, state_errors: np.ndarray, covaria
 
     pos_fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22))
     pos_fig.update_yaxes(title_text=f"Position Error ({units[0]})", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e")
+    if y_axis_limits is not None:
+        for i in range(3):
+            pos_fig.update_yaxes(range=y_axis_limits[0], row=i+1, col=1)
     pos_fig.update_annotations(font=dict(size=24))
     pos_fig.update_layout(title_text=f"{filter_name} Position Estimation Errors",
                         title_font=dict(size=30),
@@ -296,6 +304,9 @@ def plot_state_errors(time_vector: np.ndarray, state_errors: np.ndarray, covaria
 
     vel_fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22))
     vel_fig.update_yaxes(title_text=f"Velocity Error ({units[1]})", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e")
+    if y_axis_limits is not None:
+        for i in range(3):
+            vel_fig.update_yaxes(range=y_axis_limits[1], row=i+1, col=1)
     vel_fig.update_annotations(font=dict(size=24))
     vel_fig.update_layout(title_text=f"{filter_name} Velocity Estimation Errors",
                         title_font=dict(size=30),
