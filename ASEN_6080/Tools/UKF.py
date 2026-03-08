@@ -72,7 +72,12 @@ class UKF:
         try:
             sqrt_P = np.linalg.cholesky(P)
         except np.linalg.LinAlgError:
-            raise ValueError("Covariance matrix is not positive definite.")
+            eps = 1e-16
+            P += eps * np.eye(L)
+            try:
+                sqrt_P = np.linalg.cholesky(P)
+            except np.linalg.LinAlgError:
+                raise ValueError("Covariance matrix is not positive definite.")
 
         # Initialize sigma points array
         sigma_points = np.zeros((L, 2 * L + 1))
@@ -226,6 +231,7 @@ class UKF:
         # Update state estimate and covariance
         x_updated = x_bar + K @ (y_meas - y_bar)
         P_updated = P_bar - K @ P_yy @ K.T
+        P_updated = 0.5 * (P_updated + P_updated.T)  # Force symmetry
 
         return x_updated, P_updated
     

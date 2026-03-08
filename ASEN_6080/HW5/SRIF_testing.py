@@ -11,7 +11,7 @@ truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data.pkl")
 J3_measurement_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements_J3.pkl")
 J3_truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data_J3.pkl")
 time_vector=measurement_data['time'].values
-breakpoint()
+
 mu = 3.986004415E5
 R_e = 6378
 J2 = 0.0010826269
