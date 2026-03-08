@@ -154,7 +154,7 @@ class UKF:
         predicted_measurements : np.ndarray
             Matrix of predicted measurements for each sigma point.
         """
-        predicted_measurements = np.zeros(sigma_points.shape)
+        predicted_measurements = np.zeros((2, sigma_points.shape[1]))
 
         for i in range(sigma_points.shape[1]):
             state_i = sigma_points[:, i]
@@ -162,7 +162,7 @@ class UKF:
 
         # Compute the predicted measurement mean
         y_bar = np.dot(predicted_measurements, Wm)
-
+        
         return y_bar, predicted_measurements
     
     def compute_cross_covariances(self, sigma_points : np.ndarray, predicted_measurements : np.ndarray, x_bar : np.ndarray, y_bar : np.ndarray, Wc : np.ndarray, R = None):
@@ -304,13 +304,13 @@ class UKF:
                 P_yy, P_xy = self.compute_cross_covariances(predicted_sigma_points, predicted_measurements, x_bar, y_bar, Wc, R)
 
                 # Measurement update to get updated state mean and covariance
-                x_est, P_est = self.measurement_update(x_bar, P_bar, y_bar, P_yy, P_xy, current_measurements[:, 0])
+                x_est, P_est = self.measurement_update(x_bar, P_bar, y_bar, P_yy, P_xy, current_measurements[mgr_num, :])
             
             # Store estimated state and covariance
             estimated_states[:, k] = x_est
             estimated_covariances[:, :, k] = P_est
 
         print("\nUKF run complete.")
-        
+
         return estimated_states, estimated_covariances
 
