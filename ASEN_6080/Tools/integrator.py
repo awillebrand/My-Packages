@@ -91,7 +91,7 @@ class Integrator:
 
         return a, e, i, LoN, AoP, f
     
-    def equations_of_motion(self, t : float, state : np.ndarray, DMC : bool = False, beta_mat : np.ndarray = None):
+    def equations_of_motion(self, t : float, state : np.ndarray, DMC : bool = False, beta_mat : np.ndarray = None, sigma_points : bool = False):
         """
         Computes the time derivative of the state vector for a spacecraft under various perturbations.
         Parameters:
@@ -103,88 +103,99 @@ class Integrator:
             If True, include dynamic model compensation terms in the equations of motion. Default is False.
         beta_mat : np.ndarray, optional
             3x3 diagonal matrix of time constants for dynamic model compensation. Required if DMC is True. Default is None.
+        sigma_points : bool, optional
+            If True, the input state is of length L(2L+1) and represents the sigma points for the UKF. The function will return the time derivative of each sigma point. Default is False.
         Returns:
         state_dot : np.ndarray
             Time derivative of the state vector.
         """
+        if sigma_points == False:
+            mu = self.mu
+            x, y, z = state[0:3]
+            u, v, w = state[3:6]
+            r = np.sqrt(x**2 + y**2 + z**2)
+            J2 = 0
+            J3 = 0
+            Cd = 0
+            spacecraft_area = 0
+            spacecraft_mass = 1
+            rho = compute_density(r)* 1e9 # Convert from kg/m^3 to kg/km^3 <---- DOUBLE CHECK THIS CONVERSION
+            # Determine J2, J3, and Cd based on mode
+            if 'mu' in self.mode:
+                param_index = self.parameter_indices[self.mode.index('mu')]
+                mu = state[param_index]
+            if 'J2' in self.mode:
+                param_index = self.parameter_indices[self.mode.index('J2')]
+                J2 = state[param_index]
+            if 'J3' in self.mode:
+                param_index = self.parameter_indices[self.mode.index('J3')]
+                J3 = state[param_index]
+            if 'Drag' in self.mode:
+                if self.spacecraft_area is None or self.spacecraft_mass is None:
+                    raise ValueError("Area and mass must be provided for drag calculation.")
+                param_index = self.parameter_indices[self.mode.index('Drag')]
+                Cd = state[param_index]
+                spacecraft_area = self.spacecraft_area
+                spacecraft_mass = self.spacecraft_mass
+            if 'Stations' in self.mode:
+                # Determine number of station variables, this is stored in the parameter_indices value for stations as a list
+                num_station_vars = self.number_of_stations * 3
+                
+            x_dot = u
+            y_dot = v
+            z_dot = w
+            u_dot = -mu * x / r**3 + (3 / 2) * (mu * J2 * self.R_e**2 * x / r**5) * (5 * (z**2 / r**2) - 1) + (5 / 2) * mu * J3 * self.R_e**3 * x * z / r**7 * (7 * z**2 / r**2 - 3)
+            v_dot = -mu * y / r**3 + (3 / 2) * (mu * J2 * self.R_e**2 * y / r**5) * (5 * (z**2 / r**2) - 1) + (5 / 2) * mu * J3 * self.R_e**3 * y * z / r**7 * (7 * z**2 / r**2 - 3)
+            w_dot = -mu * z / r**3 + (3 / 2) * (mu * J2 * self.R_e**2 * z / r**5) * (5 * (z**2 / r**2) - 3) + (5 / 2) * mu * J3 * self.R_e**3 / r**5 * (7 * z**4 / r**4 - 6 * z**2 / r**2 + 3 / 5)
 
-        mu = self.mu
-        x, y, z = state[0:3]
-        u, v, w = state[3:6]
-        r = np.sqrt(x**2 + y**2 + z**2)
-        J2 = 0
-        J3 = 0
-        Cd = 0
-        spacecraft_area = 0
-        spacecraft_mass = 1
-        rho = compute_density(r)* 1e9 # Convert from kg/m^3 to kg/km^3 <---- DOUBLE CHECK THIS CONVERSION
-        # Determine J2, J3, and Cd based on mode
-        if 'mu' in self.mode:
-            param_index = self.parameter_indices[self.mode.index('mu')]
-            mu = state[param_index]
-        if 'J2' in self.mode:
-            param_index = self.parameter_indices[self.mode.index('J2')]
-            J2 = state[param_index]
-        if 'J3' in self.mode:
-            param_index = self.parameter_indices[self.mode.index('J3')]
-            J3 = state[param_index]
-        if 'Drag' in self.mode:
-            if self.spacecraft_area is None or self.spacecraft_mass is None:
-                raise ValueError("Area and mass must be provided for drag calculation.")
-            param_index = self.parameter_indices[self.mode.index('Drag')]
-            Cd = state[param_index]
-            spacecraft_area = self.spacecraft_area
-            spacecraft_mass = self.spacecraft_mass
-        if 'Stations' in self.mode:
-            # Determine number of station variables, this is stored in the parameter_indices value for stations as a list
-            num_station_vars = self.number_of_stations * 3
-            
-        x_dot = u
-        y_dot = v
-        z_dot = w
-        u_dot = -mu * x / r**3 + (3 / 2) * (mu * J2 * self.R_e**2 * x / r**5) * (5 * (z**2 / r**2) - 1) + (5 / 2) * mu * J3 * self.R_e**3 * x * z / r**7 * (7 * z**2 / r**2 - 3)
-        v_dot = -mu * y / r**3 + (3 / 2) * (mu * J2 * self.R_e**2 * y / r**5) * (5 * (z**2 / r**2) - 1) + (5 / 2) * mu * J3 * self.R_e**3 * y * z / r**7 * (7 * z**2 / r**2 - 3)
-        w_dot = -mu * z / r**3 + (3 / 2) * (mu * J2 * self.R_e**2 * z / r**5) * (5 * (z**2 / r**2) - 3) + (5 / 2) * mu * J3 * self.R_e**3 / r**5 * (7 * z**4 / r**4 - 6 * z**2 / r**2 + 3 / 5)
+            if 'Drag' in self.mode:
+                V_rel = np.array([u + self.earth_spin_rate * y, v - self.earth_spin_rate * x, w])
+                u_rel, v_rel, w_rel = V_rel
+                V_rel_norm = np.linalg.norm(np.array([u, v, w]))
+                u_dot_drag = -(rho * Cd * spacecraft_area * V_rel_norm * u_rel) / (2 * spacecraft_mass)
+                v_dot_drag = -(rho * Cd * spacecraft_area * V_rel_norm * v_rel) / (2 * spacecraft_mass)
+                w_dot_drag = -(rho * Cd * spacecraft_area * V_rel_norm * w_rel) / (2 * spacecraft_mass)
 
-        if 'Drag' in self.mode:
-            V_rel = np.array([u + self.earth_spin_rate * y, v - self.earth_spin_rate * x, w])
-            u_rel, v_rel, w_rel = V_rel
-            V_rel_norm = np.linalg.norm(np.array([u, v, w]))
-            u_dot_drag = -(rho * Cd * spacecraft_area * V_rel_norm * u_rel) / (2 * spacecraft_mass)
-            v_dot_drag = -(rho * Cd * spacecraft_area * V_rel_norm * v_rel) / (2 * spacecraft_mass)
-            w_dot_drag = -(rho * Cd * spacecraft_area * V_rel_norm * w_rel) / (2 * spacecraft_mass)
+                u_dot += u_dot_drag
+                v_dot += v_dot_drag
+                w_dot += w_dot_drag
 
-            u_dot += u_dot_drag
-            v_dot += v_dot_drag
-            w_dot += w_dot_drag
+            if DMC:
+                # Add DMC terms to the equations of motion, these are simple linear damping terms on the velocity components with time constants specified by beta_mat
+                w_1, w_2, w_3 = state[-3:]
+                u_dot += w_1
+                v_dot += w_2
+                w_dot += w_3
 
-        if DMC:
-            # Add DMC terms to the equations of motion, these are simple linear damping terms on the velocity components with time constants specified by beta_mat
-            w_1, w_2, w_3 = state[-3:]
-            u_dot += w_1
-            v_dot += w_2
-            w_dot += w_3
+                w_1_dot = -beta_mat[0,0] * w_1
+                w_2_dot = -beta_mat[1,1] * w_2
+                w_3_dot = -beta_mat[2,2] * w_3
 
-            w_1_dot = -beta_mat[0,0] * w_1
-            w_2_dot = -beta_mat[1,1] * w_2
-            w_3_dot = -beta_mat[2,2] * w_3
-
-        output = np.array([x_dot, y_dot, z_dot, u_dot, v_dot, w_dot])
-        if 'mu' in self.mode:
-            output = np.append(output, 0)
-        if 'J2' in self.mode:
-            output = np.append(output, 0)
-        if 'J3' in self.mode:
-            output = np.append(output, 0)
-        if 'Drag' in self.mode:
-            output = np.append(output, 0)
-        if 'Stations' in self.mode:
-            for _ in range(num_station_vars):
+            output = np.array([x_dot, y_dot, z_dot, u_dot, v_dot, w_dot])
+            if 'mu' in self.mode:
                 output = np.append(output, 0)
+            if 'J2' in self.mode:
+                output = np.append(output, 0)
+            if 'J3' in self.mode:
+                output = np.append(output, 0)
+            if 'Drag' in self.mode:
+                output = np.append(output, 0)
+            if 'Stations' in self.mode:
+                for _ in range(num_station_vars):
+                    output = np.append(output, 0)
 
-        if DMC:
-            output = np.append(output, [w_1_dot, w_2_dot, w_3_dot]) 
+            if DMC:
+                output = np.append(output, [w_1_dot, w_2_dot, w_3_dot]) 
 
+        else:
+            L = 0.25 * (-1 + np.sqrt(1 + 8 * len(state)))
+            for i in range(2 * int(L) + 1):
+                state_i = state[i*int(L):(i+1)*int(L)]
+                state_dot_i = self.equations_of_motion(t, state_i, DMC=DMC, beta_mat=beta_mat, sigma_points=False)
+                if i == 0:
+                    output = state_dot_i
+                else:
+                    output = np.hstack((output, state_dot_i))
         return output
     
     def full_dynamics(self, t, augmented_state, DMC : bool = False , beta_mat : np.ndarray = None):
@@ -257,7 +268,7 @@ class Integrator:
 
         return np.hstack((state_dot, phi_dot_flat))
         
-    def integrate_eom(self, t_final, initial_state, teval = None):
+    def integrate_eom(self, t_final, initial_state, teval = None, sigma_points = False):
         """Integrate the equations of motion for the spacecraft.
         Parameters:
         t_final : float
@@ -266,6 +277,8 @@ class Integrator:
             nx1 array of initial spacecraft state in ECI frame. First 6 elements are [x, y, z, u, v, w] in km and km/s.
         teval : np.array, optional
             1xN array of time points at which to store the computed solution. Default is None.
+        sigma_points : bool, optional
+            If True, the initial_state is of length L(2L+1) and represents the sigma points for the UKF. The function will return the time derivative of each sigma point. Default is False.
         Returns:
         time_vector : np.array
             1xN array of time points corresponding to the spacecraft states.
@@ -273,7 +286,7 @@ class Integrator:
             nxN array of spacecraft states over time in ECI frame."""
         
         t_span = (0, t_final)
-        sol = solve_ivp(self.equations_of_motion, t_span, initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval)
+        sol = solve_ivp(self.equations_of_motion, t_span, initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval, args=(False, None, sigma_points))
         return sol.t, sol.y
     
     def integrate_stm(self, t_final, initial_state, phi_0 = None, teval = None, initial_time : float = 0, DMC : bool = False, beta_mat : np.ndarray = None):
@@ -302,5 +315,5 @@ class Integrator:
 
         augmented_initial_state = np.hstack((initial_state, phi_0))
         t_span = (initial_time, t_final)
-        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval, args=(DMC, beta_mat))
+        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval, args=(DMC, beta_mat, False))
         return sol.t, sol.y
