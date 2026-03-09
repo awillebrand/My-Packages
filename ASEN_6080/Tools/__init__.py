@@ -8,6 +8,7 @@ from .batch_lls_estimator import BatchLLSEstimator
 from .LKF import LKF
 from .EKF import EKF
 from .SRIF import SRIF
+from .UKF import UKF
 from .plotting_functions import plot_residuals, plot_state_errors
 
 __all__ = [
@@ -22,6 +23,7 @@ __all__ = [
     "LKF",
     "EKF",
     "SRIF",
+    "UKF",
     "plot_residuals",
     "plot_state_errors"
 ]

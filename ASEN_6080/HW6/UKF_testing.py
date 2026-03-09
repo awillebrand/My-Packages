@@ -2,10 +2,10 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
-from ASEN_6080.Tools import Integrator, MeasurementMgr, SRIF, LKF, plot_state_errors, plot_residuals
+
+from ASEN_6080.Tools import Integrator, MeasurementMgr, UKF, plot_state_errors, plot_residuals
 from plotly.subplots import make_subplots
-import warnings
-warnings.simplefilter('error', RuntimeWarning)
+
 measurement_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements.pkl")
 truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data.pkl")
 J3_measurement_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements_J3.pkl")
@@ -26,6 +26,14 @@ station_mgr_list = [station_1_mgr, station_2_mgr, station_3_mgr]
 
 initial_state_deviation = np.array([1.010e-02, -1.218e-01, -1.484e-01,  3.204e-05, -8.320e-05, 1.740e-04,  0.000e+00])
 initial_state_guess = truth_data['initial_state'].values[0][0:7]+ initial_state_deviation
+
 P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3,1e-10])**2
-Q = optimal_sigma = 5e-8
+R = np.diag(noise_var)
+optimal_sigma = 5e-8
 Q = np.diag([optimal_sigma, optimal_sigma, optimal_sigma])**2
+
+alpha = 1
+beta = 2
+
+ukf = UKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
+ukf_estimated_states, ukf_estimated_covariances = ukf.run(initial_state_guess, P_0, time_vector, measurement_data, alpha=alpha, beta=beta, R=R)
