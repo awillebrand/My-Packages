@@ -73,7 +73,7 @@ class UKF:
             sqrt_P = np.linalg.cholesky(P)
         except np.linalg.LinAlgError:
             eps = 1e-16
-            P += eps * np.eye(L)
+            P = P + eps * np.eye(L)
             try:
                 sqrt_P = np.linalg.cholesky(P)
             except np.linalg.LinAlgError:
@@ -111,7 +111,7 @@ class UKF:
 
         return predicted_sigma_points
     
-    def time_update(self, sigma_points : np.ndarray, Wm : np.ndarray, Wc : np.ndarray, Q = None):
+    def time_update(self, sigma_points : np.ndarray, Wm : np.ndarray, Wc : np.ndarray, Q = None, delta_t = None):
         """
         Performs the time update (prediction step) of the UKF by computing the predicted mean and covariance.
         Parameters:
@@ -139,11 +139,18 @@ class UKF:
             P_pred += Wc[i] * np.outer(diff, diff)
 
         if Q is not None:
-            P_pred += Q
+            Gamma = delta_t * np.concatenate((0.5 * delta_t * np.eye(3), np.eye(3)), axis=0)
+            
+            num_additional_states = x_pred.shape[0] - 6
+            if num_additional_states > 0:
+                Gamma = np.pad(Gamma, ((0, num_additional_states), (0, 0)), mode='constant')
+            Q_augmented = Gamma @ Q @ Gamma.T
+
+            P_pred += Q_augmented
 
         return x_pred, P_pred
     
-    def compute_measurement_prediction(self, sigma_points : np.ndarray, measurement_mgr : MeasurementMgr, Wm : np.ndarray):
+    def compute_measurement_prediction(self, sigma_points : np.ndarray, measurement_mgr : MeasurementMgr, Wm : np.ndarray, time):
         """
         Computes the predicted measurement for each sigma point based on the measurement model.
         Parameters:
@@ -153,6 +160,8 @@ class UKF:
             An instance of the MeasurementMgr class for the specific ground station.
         Wm : np.ndarray
             Weights for the mean, used to compute the predicted measurement mean.
+        time : float
+            Current time step for which to compute the predicted measurements.
         Returns:
         y_bar : np.ndarray
             Single predicted measurement vector computed as the weighted mean of the measurements from each sigma point.
@@ -163,7 +172,7 @@ class UKF:
 
         for i in range(sigma_points.shape[1]):
             state_i = sigma_points[:, i]
-            predicted_measurements[:, i] = measurement_mgr.simulate_measurements(state_i.reshape(-1, 1), np.array([0]), coordinate_frame='ECI', noise=False, ignore_visibility=True).flatten()
+            predicted_measurements[:, i] = measurement_mgr.simulate_measurements(state_i.reshape(-1, 1), np.array([time]), coordinate_frame='ECI', noise=False, ignore_visibility=True).flatten()
 
         # Compute the predicted measurement mean
         y_bar = np.dot(predicted_measurements, Wm)
@@ -235,6 +244,41 @@ class UKF:
 
         return x_updated, P_updated
     
+    def compute_prefit_residuals(self, initial_state : np.ndarray, time_vector : np.ndarray, measurement_data : pd.DataFrame, residuals_df : pd.DataFrame):
+        """
+        Computes the pre-fit residuals for the UKF by simulating measurements based on the initial state and comparing them to the actual measurements.
+        Parameters:
+        initial_state : np.ndarray
+            Initial state vector for the UKF.
+        time_vector : np.ndarray
+            1D array of time points at which to compute the pre-fit residuals.
+        measurement_data : pd.DataFrame
+            DataFrame containing the measurement data.
+        residuals_df : pd.DataFrame
+            DataFrame to which the computed pre-fit residuals will be appended. It should have columns for 'iteration', 'station', 'pre-fit', and 'post-fit'.
+        Returns:
+        residuals : np.ndarray
+            Matrix of pre-fit residuals for each measurement at each time step.
+        """
+
+        [_, reference_state_history] = self.integrator.integrate_eom(time_vector[-1], initial_state, teval=time_vector)
+
+        for i, mgr in enumerate(self.measurement_mgrs):
+            station_name = mgr.station_name
+            truth_measurements = np.vstack(measurement_data[f"{station_name}_measurements"].values).T
+            simulated_measurements = mgr.simulate_measurements(reference_state_history[0:6,:], time_vector, 'ECI', noise=False, ignore_visibility=True)
+            
+            residual_vector = np.zeros((2, len(time_vector)))
+            for j, time in enumerate(time_vector):
+                # Compute measurement residual
+                residual = truth_measurements[:,j] - simulated_measurements[:,j]
+                residual_vector[:,j] = residual
+                # Add pre-fit residuals to DataFrame
+
+            residuals_df = pd.concat([residuals_df, pd.DataFrame({'iteration': 0, 'station': station_name, 'pre-fit': [residual_vector], 'post-fit': np.nan})], ignore_index=True)
+            
+        return residuals_df
+    
     def run(self, initial_state : np.ndarray, initial_covariance : np.ndarray, time_vector : np.ndarray, measurement_data : pd.DataFrame, alpha : float = 1e-3, beta : float = 2, Q = None, R = None):
         """
         Runs the Unscented Kalman Filter (UKF) for state estimation over a given time vector and measurement data.
@@ -267,6 +311,9 @@ class UKF:
         print(f"Alpha: {alpha}")
         print(f"Beta: {beta}")
 
+        # Initialize DataFrame to store residuals
+        residuals_df = pd.DataFrame(columns=['iteration', 'station', 'pre-fit', 'post-fit'])
+
         # Compute UKF weights
         L = len(initial_state)
         Wm, Wc, gamma = self.compute_weights(alpha, beta, L)
@@ -277,6 +324,7 @@ class UKF:
         estimated_states = np.zeros((len(initial_state), len(time_vector)))
         estimated_covariances = np.zeros((len(initial_state), len(initial_state), len(time_vector)))
 
+
         # Begin UKF loop over time vector
         for k, t in enumerate(time_vector):
             print(f"Current Progress: Time = {t:.2f} of {time_vector[-1]} seconds", end='\r')
@@ -284,14 +332,14 @@ class UKF:
             sigma_points = self.compute_sigma_points(x_est, P_est, gamma)
             # Propagate sigma points through process model
             if t == time_vector[0]:
-                estimated_states[:, k] = x_est
-                estimated_covariances[:, :, k] = P_est
-                continue
+                dt = 0
+                predicted_sigma_points = sigma_points
             else:
-                predicted_sigma_points = self.propagate_sigma_points(sigma_points, dt=t - time_vector[k-1])
+                dt=t - time_vector[k-1]
+                predicted_sigma_points = self.propagate_sigma_points(sigma_points, dt=dt)
 
             # Time update to get predicted state mean and covariance
-            x_bar, P_bar = self.time_update(predicted_sigma_points, Wm, Wc, Q)
+            x_bar, P_bar = self.time_update(predicted_sigma_points, Wm, Wc, Q, dt)
 
             # Pull out measurement data for current time step. If all measurements are NaN, skip measurement update
             current_measurements_df = measurement_data.iloc[k].values
@@ -306,7 +354,7 @@ class UKF:
                 measurement_mgr = self.measurement_mgrs[mgr_num]
 
                 # Compute predicted measurement and measurement covariance
-                y_bar, predicted_measurements = self.compute_measurement_prediction(predicted_sigma_points, measurement_mgr, Wm)
+                y_bar, predicted_measurements = self.compute_measurement_prediction(predicted_sigma_points, measurement_mgr, Wm, t)
                 P_yy, P_xy = self.compute_cross_covariances(predicted_sigma_points, predicted_measurements, x_bar, y_bar, Wc, R)
 
                 # Measurement update to get updated state mean and covariance
@@ -318,5 +366,22 @@ class UKF:
 
         print("\nUKF run complete.")
 
-        return estimated_states, estimated_covariances
+        # Add pre-fit residuals to DataFrame
+        residuals_df = self.compute_prefit_residuals(initial_state, time_vector, measurement_data, residuals_df)
+
+        # Add post-fit residuals to DataFrame
+        for i, mgr in enumerate(self.measurement_mgrs):
+            station_name = self.measurement_mgrs[i].station_name
+
+            # Simulate measurements using updated state estimate
+            simulated_measurements = mgr.simulate_measurements(estimated_states[0:6,:], time_vector, 'ECI', noise=False, ignore_visibility=True)
+            truth_measurements = np.vstack(measurement_data[f"{station_name}_measurements"].values).T
+            measurement_residuals = truth_measurements - simulated_measurements
+
+            mask = (residuals_df['iteration'] == 0) & (residuals_df['station'] == station_name)
+
+            idx = residuals_df[mask].index[0]  # Get the index of the matching row
+            residuals_df.at[idx, 'post-fit'] = measurement_residuals
+
+        return estimated_states, estimated_covariances, residuals_df
 

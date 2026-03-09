@@ -6,10 +6,10 @@ import pandas as pd
 from ASEN_6080.Tools import Integrator, MeasurementMgr, UKF, plot_state_errors, plot_residuals
 from plotly.subplots import make_subplots
 
-measurement_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements.pkl")
-truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data.pkl")
-J3_measurement_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements_J3.pkl")
-J3_truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data_J3.pkl")
+measurement_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements_J3.pkl")
+truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data_J3.pkl")
+# J3_measurement_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements_J3.pkl")
+# J3_truth_data = pd.read_pickle("ASEN_6080/HW2/measurement_data/truth_data_J3.pkl")
 time_vector=measurement_data['time'].values
 
 mu = 3.986004415E5
@@ -29,11 +29,36 @@ initial_state_guess = truth_data['initial_state'].values[0][0:7]+ initial_state_
 
 P_0 = np.diag([1, 1, 1, 1e-3, 1e-3, 1e-3,1e-10])**2
 R = np.diag(noise_var)
-optimal_sigma = 5e-8
+optimal_sigma = 5e-8 #< 5e-8
 Q = np.diag([optimal_sigma, optimal_sigma, optimal_sigma])**2
 
 alpha = 1
 beta = 2
 
 ukf = UKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
-ukf_estimated_states, ukf_estimated_covariances = ukf.run(initial_state_guess, P_0, time_vector, measurement_data, alpha=alpha, beta=beta, R=R)
+ukf_estimated_states, ukf_estimated_covariances, ukf_residuals_df = ukf.run(initial_state_guess, P_0, time_vector, measurement_data, alpha=alpha, beta=beta, R=R)
+ukf_estimated_states_Q, ukf_estimated_covariances_Q, ukf_residuals_df_Q = ukf.run(initial_state_guess, P_0, time_vector, measurement_data, alpha=alpha, beta=beta, R=R, Q=Q)
+ukf_estimated_states_alpha, ukf_estimated_covariances_alpha, ukf_residuals_df_alpha = ukf.run(initial_state_guess, P_0, time_vector, measurement_data, alpha=1E-4, beta=beta, R=R)
+
+augmented_truth_state = truth_data['augmented_state_history'].values
+truth_state_history = np.zeros((7, augmented_truth_state.shape[0]))
+
+for i, state in enumerate(augmented_truth_state):
+    truth_state = state[0:7]
+    truth_state_history[:, i] = truth_state
+
+ukf_state_errors = ukf_estimated_states - truth_state_history
+ukf_state_errors_Q = ukf_estimated_states_Q - truth_state_history
+ukf_state_errors_alpha = ukf_estimated_states_alpha - truth_state_history
+
+plot_state_errors(time_vector, ukf_state_errors, ukf_estimated_covariances, "UKF State Estimation Errors", file_directory="ASEN_6080/HW6/figures", unit_multipliers=[1e3, 1e6], units=["m", "mm/s"])
+plot_state_errors(time_vector, ukf_state_errors, ukf_estimated_covariances, "UKF State Estimation Errors (Zoomed)", file_directory="ASEN_6080/HW6/figures", unit_multipliers=[1e3, 1e6], units=["m", "mm/s"], y_axis_limits=[[-1, 1], [-1, 1]])
+plot_residuals(time_vector, ukf_residuals_df, "UKF Measurement Residuals", "ASEN_6080/HW6/figures")
+
+plot_state_errors(time_vector, ukf_state_errors_Q, ukf_estimated_covariances_Q, "UKF State Estimation Errors with Process Noise", file_directory="ASEN_6080/HW6/figures", unit_multipliers=[1e3, 1e6], units=["m", "mm/s"])
+plot_state_errors(time_vector, ukf_state_errors_Q, ukf_estimated_covariances_Q, "UKF State Estimation Errors with Process Noise (Zoomed)", file_directory="ASEN_6080/HW6/figures", unit_multipliers=[1e3, 1e6], units=["m", "mm/s"], y_axis_limits=[[-5, 5], [-5, 5]])
+plot_residuals(time_vector, ukf_residuals_df_Q, "UKF Measurement Residuals with Process Noise", "ASEN_6080/HW6/figures")
+
+plot_state_errors(time_vector, ukf_state_errors_alpha, ukf_estimated_covariances_alpha, "UKF State Estimation Errors with alpha=1E-4", file_directory="ASEN_6080/HW6/figures", unit_multipliers=[1e3, 1e6], units=["m", "mm/s"])
+plot_state_errors(time_vector, ukf_state_errors_alpha, ukf_estimated_covariances_alpha, "UKF State Estimation Errors with alpha=1E-4 (Zoomed)", file_directory="ASEN_6080/HW6/figures", unit_multipliers=[1e3, 1e6], units=["m", "mm/s"], y_axis_limits=[[-200, 200], [-200, 200]])
+plot_residuals(time_vector, ukf_residuals_df_alpha, "UKF Measurement Residuals with alpha=1E-4", "ASEN_6080/HW6/figures")
