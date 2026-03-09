@@ -294,7 +294,7 @@ class UKF:
             x_bar, P_bar = self.time_update(predicted_sigma_points, Wm, Wc, Q)
 
             # Pull out measurement data for current time step. If all measurements are NaN, skip measurement update
-            current_measurements_df = measurement_data[measurement_data['time'] == t].values[0]
+            current_measurements_df = measurement_data.iloc[k].values
             current_measurements = np.vstack((current_measurements_df[1], current_measurements_df[2], current_measurements_df[3]))
 
             if np.isnan(current_measurements).all():
