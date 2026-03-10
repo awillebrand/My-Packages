@@ -315,5 +315,5 @@ class Integrator:
 
         augmented_initial_state = np.hstack((initial_state, phi_0))
         t_span = (initial_time, t_final)
-        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval, args=(DMC, beta_mat, False))
+        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval, args=(DMC, beta_mat))
         return sol.t, sol.y
