@@ -1,12 +1,11 @@
 import numpy as np
-import pandas as pd
 from .generic_functions import keplerian_to_cartesian
 
 class EphemerisMgr:
     """
     This class handles the evaluation of a specific planets states using the methodology employed by classical ephemeris models. All coefficients are with respect to EME2000.
     Attributes:
-        ephemeris_data (pd.DataFrame): A DataFrame containing the ephemeris coefficients for the planetary body.
+        ephemeris_data (dict): A dictionary containing the ephemeris coefficients for the planetary body.
     Methods:
         load_ephemeris_coeffs(planetary_body): Loads the ephemeris coefficients for the specified planetary body. These coefficients are self contained within the class and are based on classical ephemeris models.
         evaluate_state(body, time): Evaluates the state of the specified planetary body at a given time using the loaded ephemeris data.
@@ -139,7 +138,7 @@ class EphemerisMgr:
 
         # Convert epoch from Julian days to centuries and define gravitational parameter of the Sun
         time = (epoch - 2451545.0) / 36525.0
-        mu_s = 132712440017.987;
+        mu_s = 132712440017.987
 
         # Extract coefficients
         L = self.ephemeris_coeffs["L"]
@@ -175,11 +174,7 @@ class EphemerisMgr:
         # Compute true anomaly
         nu_rad = M_rad + C_cen
 
-        # Compute distance r
-        r = a_t * (1 - e_t**2) / (1 + e_t * np.cos(nu_rad))
-
         # Convert distances from AU to km
-        r_km = r * 149597870.7
         a_km = a_t * 149597870.7
 
         # Compute state vector in EME2000 frame

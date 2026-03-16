@@ -1,8 +1,9 @@
 import numpy as np
 from .generic_functions import state_jacobian, compute_density
+from .ephemeris_manager import EphemerisMgr
 from scipy.integrate import solve_ivp
 class Integrator:
-    def __init__(self, mu : float, R_e : float, mode : list = [], parameter_indices : list = [], spacecraft_area : float = None, spacecraft_mass : float = None, number_of_stations : int = 0, earth_spin_rate : float = 7.2921158553E-5):
+    def __init__(self, mu : float, R_e : float, mode : list = [], parameter_indices : list = [], spacecraft_area : float = None, spacecraft_mass : float = None, number_of_stations : int = 0, earth_spin_rate : float = 7.2921158553E-5, solar_flux : float = 1357.0, initial_epoch : float = 0):
         """
         Initializes the Integrator class for spacecraft orbit propagation.
         Parameters:
@@ -20,7 +21,16 @@ class Integrator:
             Mass of the spacecraft in kg, required if 'Drag' is included in mode. Default is None.
         number_of_stations : int, optional
             Number of ground stations being used, required if 'Stations' is included in mode. Default is 0.
+        earth_spin_rate : float, optional
+            Angular velocity of the Earth's rotation in rad/s, used for drag calculations. Default is 7.2921158553E-5 rad/s.
+        solar_flux : float, optional
+            Solar flux at 1 AU in W/m^2, used for solar radiation pressure calculations. Default is 1357.0 W/m^2.
+        initial_epoch : float, optional
+            Initial epoch in Julian days for the integration, used for evaluating planetary positions if needed. Default is 0.
+        Raises:
+            ValueError: If an invalid mode is specified, if the length of mode and parameter_indices do not match, if spacecraft area and mass are not provided for drag calculations, or if the number of stations is not greater than zero when 'Stations' mode is selected.
         """
+
         self.mu = mu
         self.R_e = R_e
         self.mode = mode
@@ -29,6 +39,8 @@ class Integrator:
         self.spacecraft_mass = spacecraft_mass if spacecraft_mass is not None else 1
         self.number_of_stations = number_of_stations
         self.earth_spin_rate = earth_spin_rate
+        self.solar_flux = solar_flux
+        self.initial_epoch = initial_epoch
 
         if set(mode).isdisjoint({'mu', 'J2', 'J3', 'Drag', 'Stations'}):
             raise ValueError("Invalid mode specified. Choose from 'mu', 'J2', 'J3', 'Drag', and/or 'Stations'.")
@@ -87,6 +99,13 @@ class Integrator:
                 Cd = state[param_index]
                 spacecraft_area = self.spacecraft_area
                 spacecraft_mass = self.spacecraft_mass
+            if 'SRP' in self.mode:
+                if self.spacecraft_area is None or self.spacecraft_mass is None:
+                    raise ValueError("Area and mass must be provided for SRP calculation.")
+                param_index = self.parameter_indices[self.mode.index('SRP')]
+                Cr = state[param_index]
+                spacecraft_area = self.spacecraft_area
+                spacecraft_mass = self.spacecraft_mass
             if 'Stations' in self.mode:
                 # Determine number of station variables, this is stored in the parameter_indices value for stations as a list
                 num_station_vars = self.number_of_stations * 3
@@ -109,6 +128,29 @@ class Integrator:
                 u_dot += u_dot_drag
                 v_dot += v_dot_drag
                 w_dot += w_dot_drag
+
+            if 'SRP' in self.mode:
+                P_solar = self.solar_flux / 299792458.0  # Solar radiation pressure at 1 AU in N/m^2
+
+                # For SRP calculation, we need the position of the Sun. We can use the EphemerisMgr to get this based on the initial epoch and current time.
+                ephemeris_mgr = EphemerisMgr('Earth')
+                earth_state = ephemeris_mgr.evaluate_state(self.initial_epoch + t / 86400)  # Convert time from seconds to days for ephemeris evaluation
+                r_sun_earth = earth_state[0:3]  # Position of earth relative to sun in EME2000 frame (km)
+
+                r_earth_sc = np.array([x, y, z])  # Spacecraft position relative to Earth in EME2000 frame (km)
+
+                r_sun_sc = r_sun_earth + r_earth_sc  # Spacecraft position relative to Sun in EME2000 frame (km)
+                r_sun_sc_norm = np.linalg.norm(r_sun_sc)
+
+                # Compute SRP acceleration
+                AU_KM = 149597870.700
+                R_AU = r_sun_sc_norm / AU_KM  # dimensionless
+
+                accel_srp_norm = P_solar * Cr * spacecraft_area / (R_AU**2 * spacecraft_mass) # Convert r_sun_sc_norm from km to m for SRP calculation
+                accel_srp = accel_srp_norm / 1000 * (r_sun_sc / r_sun_sc_norm)  # Acceleration vector in km/s^2
+                u_dot += accel_srp[0]
+                v_dot += accel_srp[1]
+                w_dot += accel_srp[2]
 
             if DMC:
                 # Add DMC terms to the equations of motion, these are simple linear damping terms on the velocity components with time constants specified by beta_mat
