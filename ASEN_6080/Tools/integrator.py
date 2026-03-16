@@ -36,60 +36,10 @@ class Integrator:
             raise ValueError("Length of mode and parameter_indices must be the same.")
         if 'Drag' in mode and (spacecraft_area is None or spacecraft_mass is None):
             raise ValueError("Spacecraft area and mass must be provided for drag calculations.")
+        if 'SRP' in mode and (spacecraft_area is None or spacecraft_mass is None):
+            raise ValueError("Spacecraft area and mass must be provided for SRP calculations.")
         if 'Stations' in mode and number_of_stations <= 0:
             raise ValueError("Number of stations must be greater than zero when 'Stations' mode is selected.")
-
-    def keplerian_to_cartesian(self, a, e, i, LoN, AoP, f):
-        # Compute perifocal radius magnitude
-        r_mag = a * (1 - e**2) / (1 + e * np.cos(f))
-
-        # Compute perifocal radius vector
-        r_perifocal = r_mag * np.array([np.cos(f), np.sin(f), 0])
-
-        # Compute perifocal velocity vector
-        h = np.sqrt(self.mu * a * (1 - e**2))
-        v_perifocal = (self.mu / h) * np.array([-np.sin(f), e + np.cos(f), 0])
-        
-        # Rotation matrices
-        DCM = np.array([[np.cos(LoN) * np.cos(AoP) - np.sin(LoN) * np.sin(AoP) * np.cos(i), -np.cos(LoN) * np.sin(AoP) - np.sin(LoN) * np.cos(AoP) * np.cos(i),  np.sin(LoN) * np.sin(i)],
-                        [np.sin(LoN) * np.cos(AoP) + np.cos(LoN) * np.sin(AoP) * np.cos(i), -np.sin(LoN) * np.sin(AoP) + np.cos(LoN) * np.cos(AoP) * np.cos(i), -np.cos(LoN) * np.sin(i)],
-                        [np.sin(AoP) * np.sin(i), np.cos(AoP) * np.sin(i), np.cos(i)]])
- 
-        # Transform to inertial frame
-        r_inertial = DCM @ r_perifocal
-        v_inertial = DCM @ v_perifocal
-
-        return r_inertial, v_inertial
-    
-    def cartesian_to_keplerian(self, r_vec, v_vec):
-        # Define unit vectors
-        x = np.array([1, 0, 0])
-        y = np.array([0, 1, 0])
-        z = np.array([0, 0, 1])
-
-        # Compute orbital elements
-        h_vec = np.cross(r_vec, v_vec)
-        h = np.linalg.norm(h_vec)
-        h_norm = h_vec / h
-
-        e_vec = (1/self.mu) * np.cross(v_vec, h_vec) - (r_vec / np.linalg.norm(r_vec))
-        e = np.linalg.norm(e_vec)
-        e_norm = e_vec / e
-        e_vec_perp = np.cross(h_norm, e_norm)
-
-        p = np.linalg.norm(h)**2 / self.mu
-        a = p / (1 - e**2)
-        i = np.arccos(np.dot(h_norm, z))
-
-        node_vec = np.cross(z, h_norm) / np.linalg.norm(np.cross(z, h_norm))
-        node_vec_perp = np.cross(h_norm, node_vec)
-
-        LoN = np.arctan2(np.dot(y, node_vec), np.dot(x, node_vec))
-        AoP = np.arctan2(np.dot(e_vec, node_vec_perp), np.dot(e_vec, node_vec))
-    
-        f = np.arctan2(np.dot(r_vec, e_vec_perp), np.dot(r_vec, e_vec))
-
-        return a, e, i, LoN, AoP, f
     
     def equations_of_motion(self, t : float, state : np.ndarray, DMC : bool = False, beta_mat : np.ndarray = None, sigma_points : bool = False):
         """

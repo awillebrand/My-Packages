@@ -320,3 +320,55 @@ def covariance_ellipse(center, cov_matrix, num_points=120):
     ellipse_points = eigenvectors @ np.diag(3*np.sqrt(eigenvalues)) @ np.array([x_sphere.flatten(), y_sphere.flatten(), z_sphere.flatten()])
 
     return ellipse_points.T + center
+
+def keplerian_to_cartesian(mu, a, e, i, LoN, AoP, f):
+    # Compute perifocal radius magnitude
+    r_mag = a * (1 - e**2) / (1 + e * np.cos(f))
+
+    # Compute perifocal radius vector
+    r_perifocal = r_mag * np.array([np.cos(f), np.sin(f), 0])
+
+    # Compute perifocal velocity vector
+    h = np.sqrt(mu * a * (1 - e**2))
+    v_perifocal = (mu / h) * np.array([-np.sin(f), e + np.cos(f), 0])
+    
+    # Rotation matrices
+    DCM = np.array([[np.cos(LoN) * np.cos(AoP) - np.sin(LoN) * np.sin(AoP) * np.cos(i), -np.cos(LoN) * np.sin(AoP) - np.sin(LoN) * np.cos(AoP) * np.cos(i),  np.sin(LoN) * np.sin(i)],
+                    [np.sin(LoN) * np.cos(AoP) + np.cos(LoN) * np.sin(AoP) * np.cos(i), -np.sin(LoN) * np.sin(AoP) + np.cos(LoN) * np.cos(AoP) * np.cos(i), -np.cos(LoN) * np.sin(i)],
+                    [np.sin(AoP) * np.sin(i), np.cos(AoP) * np.sin(i), np.cos(i)]])
+
+    # Transform to inertial frame
+    r_inertial = DCM @ r_perifocal
+    v_inertial = DCM @ v_perifocal
+
+    return r_inertial, v_inertial
+
+def cartesian_to_keplerian(mu, r_vec, v_vec):
+    # Define unit vectors
+    x = np.array([1, 0, 0])
+    y = np.array([0, 1, 0])
+    z = np.array([0, 0, 1])
+
+    # Compute orbital elements
+    h_vec = np.cross(r_vec, v_vec)
+    h = np.linalg.norm(h_vec)
+    h_norm = h_vec / h
+
+    e_vec = (1/mu) * np.cross(v_vec, h_vec) - (r_vec / np.linalg.norm(r_vec))
+    e = np.linalg.norm(e_vec)
+    e_norm = e_vec / e
+    e_vec_perp = np.cross(h_norm, e_norm)
+
+    p = np.linalg.norm(h)**2 / mu
+    a = p / (1 - e**2)
+    i = np.arccos(np.dot(h_norm, z))
+
+    node_vec = np.cross(z, h_norm) / np.linalg.norm(np.cross(z, h_norm))
+    node_vec_perp = np.cross(h_norm, node_vec)
+
+    LoN = np.arctan2(np.dot(y, node_vec), np.dot(x, node_vec))
+    AoP = np.arctan2(np.dot(e_vec, node_vec_perp), np.dot(e_vec, node_vec))
+
+    f = np.arctan2(np.dot(r_vec, e_vec_perp), np.dot(r_vec, e_vec))
+
+    return a, e, i, LoN, AoP, f

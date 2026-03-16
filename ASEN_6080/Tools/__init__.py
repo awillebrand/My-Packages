@@ -5,6 +5,7 @@ from .integrator import Integrator
 from .coordinate_manager import CoordinateMgr
 from .measurement_manager import MeasurementMgr
 from .batch_lls_estimator import BatchLLSEstimator
+from .ephemeris_manager import EphemerisMgr
 from .LKF import LKF
 from .EKF import EKF
 from .SRIF import SRIF
@@ -20,6 +21,7 @@ __all__ = [
     "CoordinateMgr",
     "MeasurementMgr",
     "BatchLLSEstimator",
+    "EphemerisMgr",
     "LKF",
     "EKF",
     "SRIF",
