@@ -10,6 +10,7 @@ from .LKF import LKF
 from .EKF import EKF
 from .SRIF import SRIF
 from .UKF import UKF
+from .consider_cov import ConsiderCov
 from .plotting_functions import plot_residuals, plot_state_errors
 
 __all__ = [
@@ -26,6 +27,7 @@ __all__ = [
     "EKF",
     "SRIF",
     "UKF",
+    "ConsiderCov",
     "plot_residuals",
     "plot_state_errors"
 ]
