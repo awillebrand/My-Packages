@@ -250,6 +250,7 @@ class LKF:
             for i, raw_state in enumerate(augmented_state_history.T):
                 stm = raw_state[raw_state_length:].reshape((raw_state_length, raw_state_length))
                 stm_history[:,:,i] = stm
+                
             # Compute measurement residuals and associated H matrices for each station and measurement time
             measurement_residuals_matrix = np.zeros((meas_number,1,len(self.measurement_mgrs),len(time_vector)))  # Assuming 2 measurements per station
             if process_noise_approach == 'DMC':
