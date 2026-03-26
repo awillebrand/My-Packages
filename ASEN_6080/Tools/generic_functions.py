@@ -57,8 +57,8 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
         State Jacobian matrix.
     """
 
-    if set(mode).isdisjoint({'BaseMat', 'J2', 'J3', 'Drag', 'Stations'}):
-        raise ValueError("Invalid mode specified. Choose from 'Basemat', 'mu', 'J2', 'J3', 'Drag', and/or 'Stations'.")
+    # if set(mode).isdisjoint({'BaseMat', 'J2', 'J3', 'Drag', 'Stations'}):
+    #     raise ValueError("Invalid mode specified. Choose from 'BaseMat', 'mu', 'J2', 'J3', 'Drag', and/or 'Stations'.")
     if mu == 0:
         raise ValueError("mu must be non-zero!")
     if 'J2' in mode and J2 == 0:
@@ -176,7 +176,7 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
                   [0, 0, 0, 0, 0, 0, 0, 0, 0]])
     
     if 'BaseMat' in mode:
-        return A
+        return A[0:6, 0:6]
 
     temp_A = A[0:6, 0:6]
     for value in mode:

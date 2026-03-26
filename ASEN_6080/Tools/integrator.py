@@ -51,8 +51,8 @@ class Integrator:
         self.solar_flux = solar_flux
         self.initial_epoch = initial_epoch
 
-        if set(mode).isdisjoint({'mu', 'J2', 'J3', 'Drag', 'Stations'}):
-            raise ValueError("Invalid mode specified. Choose from 'mu', 'J2', 'J3', 'Drag', and/or 'Stations'.")
+        # if set(mode).isdisjoint({'mu', 'J2', 'J3', 'Drag', 'Stations'}):
+        #     raise ValueError("Invalid mode specified. Choose from 'mu', 'J2', 'J3', 'Drag', and/or 'Stations'.")
         if len(mode) != len(parameter_indices):
             raise ValueError("Length of mode and parameter_indices must be the same.")
         if 'Drag' in mode and (spacecraft_area is None or spacecraft_mass is None):
@@ -256,7 +256,10 @@ class Integrator:
             state_dot = self.equations_of_motion(t, state, DMC=DMC, beta_mat=beta_mat)
 
             # Compute STM derivative
-            A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, station_positions_ecef, self.R_e, mode=self.mode, spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
+            if self.mode == []:
+                A = state_jacobian(state[0:3], state[3:6], mu, 0, 0, 0, station_positions_ecef, self.R_e, mode=['BaseMat'], spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
+            else:
+                A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, station_positions_ecef, self.R_e, mode=self.mode, spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
 
             phi_dot = A @ phi
             phi_dot_flat = phi_dot.flatten()
