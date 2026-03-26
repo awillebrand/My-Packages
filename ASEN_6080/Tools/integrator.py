@@ -251,7 +251,6 @@ class Integrator:
         state = augmented_state[0:state_length]
         if len(consider_parameters) == 0:
             phi_flat = augmented_state[state_length:]
-            breakpoint()
             phi = phi_flat.reshape((state_length, state_length))
             # Compute state derivatives
             state_dot = self.equations_of_motion(t, state, DMC=DMC, beta_mat=beta_mat)
@@ -269,7 +268,7 @@ class Integrator:
             phi = phi_flat.reshape((state_length, state_length))
             theta_flat = augmented_state[state_length+state_length**2:]
             num_consider_parameters = len(consider_parameters)
-            theta = theta_flat.reshape((state_length, num_consider_parameters))
+            theta = theta_flat.reshape((6, num_consider_parameters))
 
             # Compute state derivatives
             state_dot = self.equations_of_motion(t, state, DMC=DMC, beta_mat=beta_mat)
@@ -279,14 +278,14 @@ class Integrator:
             phi_dot = A @ phi
 
             # Compute sensitivity matrix derivative
-            B = np.zeros((state_length, num_consider_parameters))
+            B = np.zeros((6, num_consider_parameters))
 
             for i in range(num_consider_parameters):
                 consider_parameter = consider_parameters[i]
                 parameter_partials = compute_consider_parameter_partials(consider_parameter, state[0:3], state[3:6], mu, J2, J3, Cd, station_positions_ecef, self.R_e, spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass)
                 B[:, i] = parameter_partials
 
-            theta_dot = A @ theta + B
+            theta_dot = A[:6,:6] @ theta + B
 
             phi_dot_flat = phi_dot.flatten()
             theta_dot_flat = theta_dot.flatten()
@@ -373,7 +372,7 @@ class Integrator:
         
         # Initialize theta_dot as zeros
         if theta_0 is None:
-            theta_0 = np.zeros((len(initial_state), len(consider_parameters))).flatten()
+            theta_0 = np.zeros((6, len(consider_parameters))).flatten()
 
         augmented_initial_state = np.hstack((initial_state, phi_0, theta_0))
         t_span = (initial_time, t_final)

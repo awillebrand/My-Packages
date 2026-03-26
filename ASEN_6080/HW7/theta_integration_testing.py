@@ -83,7 +83,7 @@ class TestIntegrateSTMAndThetaNominal(unittest.TestCase):
             T_FINAL, initial_state, consider_parameters=consider_params
         )
 
-        expected_cols = state_len + state_len**2 + state_len * n_consider
+        expected_cols = state_len + state_len**2 + 6 * n_consider
         self.assertEqual(y.shape[0], expected_cols)
         self.assertGreater(t.shape[0], 1, "Integration should produce multiple time steps")
 
@@ -97,7 +97,7 @@ class TestIntegrateSTMAndThetaNominal(unittest.TestCase):
         t, y = integrator.integrate_stm_and_theta(
             T_FINAL, initial_state, consider_parameters=consider_params
         )
-        expected_cols = state_len + state_len**2 + state_len * 1
+        expected_cols = state_len + state_len**2 + 6 * 1
         self.assertEqual(y.shape[0], expected_cols)
 
     # -- Multiple consider parameters: mu and J3 --
@@ -111,7 +111,7 @@ class TestIntegrateSTMAndThetaNominal(unittest.TestCase):
         t, y = integrator.integrate_stm_and_theta(
             T_FINAL, initial_state, consider_parameters=consider_params
         )
-        expected_cols = state_len + state_len**2 + state_len * n_consider
+        expected_cols = state_len + state_len**2 + 6 * n_consider
         self.assertEqual(y.shape[0], expected_cols)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -140,7 +140,8 @@ class TestIntegrationReasonableness(unittest.TestCase):
         n = cls.state_len
         cls.state_final = final[:n]
         cls.phi_final = final[n : n + n**2].reshape((n, n))
-        cls.theta_final = final[n + n**2 :].reshape((n, cls.n_consider))
+
+        cls.theta_final = final[n + n**2 :].reshape((6, cls.n_consider))
 
     # -- State stays in a reasonable LEO regime --
     def test_position_magnitude_reasonable(self):
@@ -185,7 +186,7 @@ class TestIntegrationReasonableness(unittest.TestCase):
         """Theta should be initialised to zero."""
         initial = self.y[:, 0]
         n = self.state_len
-        theta_0 = initial[n + n**2 :].reshape((n, self.n_consider))
+        theta_0 = initial[n + n**2 :].reshape((6, self.n_consider))
         assert_allclose(theta_0, np.zeros_like(theta_0), atol=1e-14)
 
     def test_theta_nonzero_at_tf(self):
@@ -343,6 +344,7 @@ class TestConsiderPartialsMatchJacobian(unittest.TestCase):
         )
         # mode=['mu','J2','Drag'] → A is 9×9: cols 0-5 pos/vel, 6=mu, 7=J2, 8=Drag
         partials = self._get_partials("Drag")
+        breakpoint()
         expected_Cd_col = A_assembled[3:6, 8]  # acceleration rows, Drag column
         assert_allclose(partials[3:6], expected_Cd_col, rtol=1e-12,
                         err_msg="Drag partials don't match assembled A's Cd column")
@@ -370,17 +372,17 @@ class TestFullDynamicsConsiderDerivatives(unittest.TestCase):
 
         # Build an augmented vector at t = 0 (phi = I, theta = 0)
         phi_0 = np.eye(state_len).flatten()
-        theta_0 = np.zeros(state_len * n_consider)
+        theta_0 = np.zeros(6 * n_consider)
         augmented = np.hstack((state, phi_0, theta_0))
 
         deriv = integrator.full_dynamics(0.0, augmented, consider_parameters=consider_params)
 
         # Extract theta_dot from the derivative
         theta_dot_flat = deriv[state_len + state_len**2:]
-        theta_dot = theta_dot_flat.reshape((state_len, n_consider))
+        theta_dot = theta_dot_flat.reshape((6, n_consider))
 
         # Compute expected theta_dot = A @ theta_0_mat + B
-        theta_mat = np.zeros((state_len, n_consider))
+        theta_mat = np.zeros((6, n_consider))
         A = state_jacobian(
             state[:3], state[3:6], MU, J2, J3, CD,
             np.array([]), R_E,
@@ -389,7 +391,7 @@ class TestFullDynamicsConsiderDerivatives(unittest.TestCase):
             spacecraft_mass=integrator.spacecraft_mass,
         )
 
-        B = np.zeros((state_len, n_consider))
+        B = np.zeros((6, n_consider))
         for i, cp in enumerate(consider_params):
             partials = compute_consider_parameter_partials(
                 cp, state[:3], state[3:6], MU, J2, J3, CD,
@@ -400,7 +402,7 @@ class TestFullDynamicsConsiderDerivatives(unittest.TestCase):
             # partials is length 6; pad to state_len (7 here, last row = 0)
             B[:len(partials), i] = partials
 
-        expected_theta_dot = A @ theta_mat + B  # = B when theta_mat is 0
+        expected_theta_dot = A[:6,:6] @ theta_mat + B  # = B when theta_mat is 0
 
         assert_allclose(theta_dot, expected_theta_dot, rtol=1e-10,
                         err_msg="theta_dot from full_dynamics doesn't match A@theta + B")
