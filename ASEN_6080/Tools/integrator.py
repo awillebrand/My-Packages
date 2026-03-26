@@ -1,9 +1,9 @@
 import numpy as np
-from .generic_functions import state_jacobian, compute_density
+from .generic_functions import state_jacobian, compute_density, compute_consider_parameter_partials
 from .ephemeris_manager import EphemerisMgr
 from scipy.integrate import solve_ivp
 class Integrator:
-    def __init__(self, mu : float, R_e : float, mode : list = [], parameter_indices : list = [], spacecraft_area : float = None, spacecraft_mass : float = None, number_of_stations : int = 0, earth_spin_rate : float = 7.2921158553E-5, solar_flux : float = 1357.0, initial_epoch : float = 0):
+    def __init__(self, mu : float, R_e : float, J2 : float = 0, J3 : float = 0, Cd : float = 0, mode : list = [], parameter_indices : list = [], spacecraft_area : float = None, spacecraft_mass : float = None, number_of_stations : int = 0, earth_spin_rate : float = 7.2921158553E-5, solar_flux : float = 1357.0, initial_epoch : float = 0):
         """
         Initializes the Integrator class for spacecraft orbit propagation.
         Parameters:
@@ -11,6 +11,12 @@ class Integrator:
             Gravitational parameter of the central body (e.g., Earth) in km^3/s^2.
         R_e : float
             Radius of the central body (e.g., Earth) in km.
+        J2 : float, optional
+            Second zonal harmonic coefficient for the central body's gravity field. Default is 0 (no J2 perturbation).
+        J3 : float, optional
+            Third zonal harmonic coefficient for the central body's gravity field. Default is 0 (no J3 perturbation).
+        Cd : float, optional
+            Drag coefficient for the spacecraft, used in atmospheric drag calculations. Default is 0 (no drag).
         mode : list, optional
             List of perturbation modes to include in the integration. Options are 'PointMass', 'J2', 'J3', 'Drag', and 'Stations'. Default is an empty list.
         parameter_indices : list, optional
@@ -32,6 +38,9 @@ class Integrator:
         """
 
         self.mu = mu
+        self.J2 = J2
+        self.J3 = J3
+        self.Cd = Cd
         self.R_e = R_e
         self.mode = mode
         self.parameter_indices = parameter_indices
@@ -76,11 +85,11 @@ class Integrator:
             x, y, z = state[0:3]
             u, v, w = state[3:6]
             r = np.sqrt(x**2 + y**2 + z**2)
-            J2 = 0
-            J3 = 0
-            Cd = 0
-            spacecraft_area = 0
-            spacecraft_mass = 1
+            J2 = self.J2
+            J3 = self.J3
+            Cd = self.Cd
+            spacecraft_area = self.spacecraft_area
+            spacecraft_mass = self.spacecraft_mass
             rho = compute_density(r)* 1e9 # Convert from kg/m^3 to kg/km^3 <---- DOUBLE CHECK THIS CONVERSION
             # Determine J2, J3, and Cd based on mode
             if 'mu' in self.mode:
@@ -93,19 +102,11 @@ class Integrator:
                 param_index = self.parameter_indices[self.mode.index('J3')]
                 J3 = state[param_index]
             if 'Drag' in self.mode:
-                if self.spacecraft_area is None or self.spacecraft_mass is None:
-                    raise ValueError("Area and mass must be provided for drag calculation.")
                 param_index = self.parameter_indices[self.mode.index('Drag')]
                 Cd = state[param_index]
-                spacecraft_area = self.spacecraft_area
-                spacecraft_mass = self.spacecraft_mass
             if 'SRP' in self.mode:
-                if self.spacecraft_area is None or self.spacecraft_mass is None:
-                    raise ValueError("Area and mass must be provided for SRP calculation.")
                 param_index = self.parameter_indices[self.mode.index('SRP')]
                 Cr = state[param_index]
-                spacecraft_area = self.spacecraft_area
-                spacecraft_mass = self.spacecraft_mass
             if 'Stations' in self.mode:
                 # Determine number of station variables, this is stored in the parameter_indices value for stations as a list
                 num_station_vars = self.number_of_stations * 3
@@ -190,7 +191,7 @@ class Integrator:
                     output = np.hstack((output, state_dot_i))
         return output
     
-    def full_dynamics(self, t, augmented_state, DMC : bool = False , beta_mat : np.ndarray = None):
+    def full_dynamics(self, t, augmented_state, DMC : bool = False , beta_mat : np.ndarray = None, consider_parameters : list = []):
         """
         Computes the time derivative of the augmented state vector, which includes both the spacecraft state and the state transition matrix (STM) for variational equations.
         Parameters:
@@ -202,6 +203,8 @@ class Integrator:
             If True, include dynamic model compensation terms in the equations of motion. Default is False.
         beta_mat : np.ndarray, optional
             3x3 diagonal matrix of time constants for dynamic model compensation. Required if DMC is True. Default is None.
+        consider_parameters : list, optional
+            List of parameters to compute sensitivity for. This is used to determine what partials need to be computed for theta propagation. Default is an empty list.
         Returns:
         augmented_state_dot : np.ndarray
             Time derivative of the augmented state vector, including both the spacecraft state derivatives and the STM derivatives.
@@ -210,9 +213,9 @@ class Integrator:
 
         # Determine state length based on mode and assign J2 and J3 according to mode
         mu = self.mu
-        J2 = 0
-        J3 = 0
-        Cd = 0
+        J2 = self.J2
+        J3 = self.J3
+        Cd = self.Cd
         station_positions_ecef = np.array([])
         state_length = 6
         # Determine J2, J3, and Cd based on mode
@@ -246,20 +249,48 @@ class Integrator:
             state_length += 3
 
         state = augmented_state[0:state_length]
-        phi_flat = augmented_state[state_length:]
-        phi = phi_flat.reshape((state_length, state_length))
+        if len(consider_parameters) == 0:
+            phi_flat = augmented_state[state_length:]
+            phi = phi_flat.reshape((state_length, state_length))
+            # Compute state derivatives
+            state_dot = self.equations_of_motion(t, state, DMC=DMC, beta_mat=beta_mat)
 
-        # Compute state derivatives
-        state_dot = self.equations_of_motion(t, state, DMC=DMC, beta_mat=beta_mat)
+            # Compute STM derivative
+            A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, station_positions_ecef, self.R_e, mode=self.mode, spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
 
-        # Compute STM derivative
-        A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, station_positions_ecef, self.R_e, mode=self.mode, spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
+            phi_dot = A @ phi
+            phi_dot_flat = phi_dot.flatten()
 
-        phi_dot = A @ phi
-        phi_dot_flat = phi_dot.flatten()
+            return np.hstack((state_dot, phi_dot_flat))
+        else:
+            # If consider parameters are included, we also need to compute the time derivative of the sensitivity matrix, theta_dot = A @ theta + B, where B contains the partial derivatives of the equations of motion with respect to the consider parameters.
+            phi_flat = augmented_state[state_length:state_length+state_length**2]
+            phi = phi_flat.reshape((state_length, state_length))
+            theta_flat = augmented_state[state_length+state_length**2:]
+            num_consider_parameters = len(consider_parameters)
+            theta = theta_flat.reshape((state_length, num_consider_parameters))
 
-        return np.hstack((state_dot, phi_dot_flat))
-        
+            # Compute state derivatives
+            state_dot = self.equations_of_motion(t, state, DMC=DMC, beta_mat=beta_mat)
+
+            # Compute STM derivative
+            A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, station_positions_ecef, self.R_e, mode=self.mode, spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
+            phi_dot = A @ phi
+
+            # Compute sensitivity matrix derivative
+            B = np.zeros((state_length, num_consider_parameters))
+
+            for i in range(num_consider_parameters):
+                consider_parameter = consider_parameters[i]
+                parameter_partials = compute_consider_parameter_partials(consider_parameter, state[0:3], state[3:6], mu, J2, J3, Cd, station_positions_ecef, self.R_e, spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass)
+                B[:, i] = parameter_partials
+
+            theta_dot = A @ theta + B
+
+            phi_dot_flat = phi_dot.flatten()
+            theta_dot_flat = theta_dot.flatten()
+
+            return np.hstack((state_dot, phi_dot_flat, theta_dot_flat))
     def integrate_eom(self, t_final, initial_state, teval = None, sigma_points = False):
         """Integrate the equations of motion for the spacecraft.
         Parameters:
@@ -309,3 +340,42 @@ class Integrator:
         t_span = (initial_time, t_final)
         sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval, args=(DMC, beta_mat))
         return sol.t, sol.y
+    
+    def integrate_stm_and_theta(self, t_final, initial_state, phi_0 = None, theta_0 = None, teval = None, initial_time : float = 0, consider_parameters : list = []):
+        # This function integrates the STM and the sensitivity matrix for the consider parameters, theta. The initial state is augmented by both the STM and theta, and the full_dynamics function is modified to compute the time derivative of both the STM and theta.
+
+        # Determine state length based on mode
+        state_length = 6
+
+        # Determine J2, J3, and Cd based on mode
+        if 'mu' in self.mode:
+            state_length += 1
+        if 'J2' in self.mode:
+            state_length += 1
+        if 'J3' in self.mode:
+            state_length += 1
+        if 'Drag' in self.mode:
+            state_length += 1
+        if 'Stations' in self.mode:
+            param_index = self.parameter_indices[self.mode.index('Stations')]
+            num_station_vars = len(initial_state[param_index:])
+            state_length += num_station_vars
+        
+        if len(consider_parameters) > 0:
+            theta_length = len(consider_parameters)
+        else:
+            theta_length = 0
+
+        # Initialize STM as identity matrix
+        if phi_0 is None:
+            phi_0 = np.eye(state_length).flatten()
+        
+        # Initialize theta_dot as zeros
+        if theta_0 is None:
+            theta_0 = np.zeros((len(initial_state), len(consider_parameters)))
+
+        augmented_initial_state = np.hstack((initial_state, phi_0, theta_0))
+        t_span = (initial_time, t_final)
+        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval)
+        return sol.t, sol.y
+        

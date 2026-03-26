@@ -23,7 +23,7 @@ class ConsiderCov:
         self.measurement_mgrs = measurement_mgr_list
         self.coordinate_mgr = CoordinateMgr(initial_earth_spin_angle=initial_earth_spin_angle, earth_rotation_rate=earth_rotation_rate, R_e = integrator.R_e)
 
-    def time_update(self, x_hat : np.ndarray, P_hat : np.ndarray, S_hat : np.ndarray, phi : np.ndarray, H_x : np.ndarray, H_c : np.ndarray, R : np.ndarray):
+    def time_update(self, x_hat : np.ndarray, P_hat : np.ndarray, S_hat : np.ndarray, theta : np.ndarray, phi : np.ndarray, H_x : np.ndarray, H_c : np.ndarray, R : np.ndarray):
         """
         Perform a time update for the consider covariance matrix.
         Parameters
@@ -33,6 +33,8 @@ class ConsiderCov:
         P_hat : np.ndarray
             The current covariance estimate of the system.
         S_hat : np.ndarray
+            The sensitivity matrix of the system.
+        theta : 
             
         phi : np.ndarray
             The state transition matrix for the system.
@@ -47,12 +49,8 @@ class ConsiderCov:
         P_consider : np.ndarray
             The updated consider covariance matrix after the time update.
         """
+        # Predict state
+        predicted_state = phi @ x_hat
 
-        # Compute the Kalman gain for the consider parameters
-        S = H_x @ P_hat @ H_x.T + R
-        K_c = P_hat @ H_x.T @ np.linalg.inv(S) @ H_c
-
-        # Update the consider covariance matrix
-        P_consider = phi @ P_hat @ phi.T + K_c @ R @ K_c.T
-
-        return P_consider
+        # Predicted covariance
+        predicted_covariance = phi @ P_hat @ phi.T

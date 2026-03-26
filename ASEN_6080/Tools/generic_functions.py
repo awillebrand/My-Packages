@@ -372,3 +372,72 @@ def cartesian_to_keplerian(mu, r_vec, v_vec):
     f = np.arctan2(np.dot(r_vec, e_vec_perp), np.dot(r_vec, e_vec))
 
     return a, e, i, LoN, AoP, f
+
+def compute_consider_parameter_partials(consider_parameter : str, r : np.array, V : np.array, mu : float, J2 : float, J3 : float, C_d : float, station_positions_ecef : np.array, R_e, spacecraft_area : float = 0, spacecraft_mass : float = 1, earth_spin_rate : float = 7.2921158553E-5):
+    """
+    Computes vector partial derivatives of inputted consider parameters based on dynamics. Matches those compute for the A matrix in state_jacobian.
+
+    Parameters:
+    consider_parameter : str
+        String specifying which consider parameter to compute partials for. Options are 'mu', 'J2', 'J3', and/or 'Drag'.
+    r : np.Array
+        Position vector in Cartesian coordinates (x, y, z).
+    v : np.Array
+        Velocity vector in Cartesian coordinates (vx, vy, vz).
+    mu : float
+        Gravitational parameter.
+    J2 : float
+        J2 coefficient.
+    J3 : float
+        J3 coefficient.
+    C_d : float
+        Drag coefficient.
+    station_positions_ecef : np.array
+        Nx3 array of ground station positions in ECEF coordinates, where N is the number of stations.
+    R_e : float
+        Earth's radius.
+    Returns:
+        parameter_partials : np.Array
+            Vector of partial derivatives of the consider parameter with respect to the state vector.
+    """
+    x, y, z = r
+    r_norm = np.linalg.norm(r)
+    u, v, w = V
+    V_norm = np.linalg.norm(V)
+
+    # Drag partials
+    # Convert velocity to relative velocity in ECEF frame by subtracting Earth's rotation
+    V_rel = np.array([u + earth_spin_rate * y, v - earth_spin_rate * x, w])
+    u_rel, v_rel, w_rel = V_rel
+    V_rel_norm = np.linalg.norm(V_rel)
+    rho = compute_density(r_norm) * 1e9 # Convert from kg/m^3 to kg/km^3 <---- DOUBLE CHECK THIS CONVERSION
+
+    # Compute gravity parameter partials
+    a_xmu = -x / r_norm**3 + (3 / 2) * J2 * R_e**2 * x / r_norm ** 5 * (5 * z**2 / r_norm**2 - 1) + (5 / 2) * J3 * R_e**3 * x * z / r_norm**7 * (7 * z**2 / r_norm**2 - 3)
+    a_ymu = -y / r_norm**3 + (3 / 2) * J2 * R_e**2 * y / r_norm ** 5 * (5 * z**2 / r_norm**2 - 1) + (5 / 2) * J3 * R_e**3 * y * z / r_norm**7 * (7 * z**2 / r_norm**2 - 3)
+    a_zmu = -z / r_norm**3 + (3 / 2) * J2 * R_e**2 * z / r_norm ** 5 * (5 * z**2 / r_norm**2 - 3) + (5 / 2) * J3 * R_e**3 / r_norm**5 * (7 * z**4 / r_norm**4 - 6 * z**2 / r_norm**2 + 3 / 5)
+
+    a_xJ2 = (3 / 2) * mu * R_e**2 * x / r_norm**5 * (5 * z**2 / r_norm**2 - 1)
+    a_yJ2 = (3 / 2) * mu * R_e**2 * y / r_norm**5 * (5 * z**2 / r_norm**2 - 1)
+    a_zJ2 = (3 / 2) * mu * R_e**2 * z / r_norm**5 * (5 * z**2 / r_norm**2 - 3)
+
+    a_xJ3 = (5 / 2) * mu * R_e**3 * x * z / r_norm**7 * (7 * z**2 / r_norm**2 - 3)
+    a_yJ3 = (5 / 2) * mu * R_e**3 * y * z / r_norm**7 * (7 * z**2 / r_norm**2 - 3)
+    a_zJ3 = (5 / 2) * mu * R_e**3 / r_norm**5 * (7 * z**4 / r_norm**4 - 6 * z**2 / r_norm**2 + 3 / 5)
+
+    a_xCd = -(rho * spacecraft_area * V_rel_norm * u_rel) / (2*spacecraft_mass)
+    a_yCd = -(rho * spacecraft_area * V_rel_norm * v_rel) / (2*spacecraft_mass)
+    a_zCd = -(rho * spacecraft_area * V_rel_norm * w_rel) / (2*spacecraft_mass)
+
+    if consider_parameter == 'mu':
+        parameter_partials = np.array([0, 0, 0, a_xmu, a_ymu, a_zmu])
+    elif consider_parameter == 'J2':
+        parameter_partials = np.array([0, 0, 0, a_xJ2, a_yJ2, a_zJ2])
+    elif consider_parameter == 'J3':
+        parameter_partials = np.array([0, 0, 0, a_xJ3, a_yJ3, a_zJ3])
+    elif consider_parameter == 'Drag':
+        parameter_partials = np.array([0, 0, 0, a_xCd, a_yCd, a_zCd])
+    else:
+        raise ValueError("Invalid consider parameter. Must be 'mu', 'J2', 'J3', or 'Drag'.")
+    
+    return parameter_partials
