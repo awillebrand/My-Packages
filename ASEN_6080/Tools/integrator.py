@@ -251,6 +251,7 @@ class Integrator:
         state = augmented_state[0:state_length]
         if len(consider_parameters) == 0:
             phi_flat = augmented_state[state_length:]
+            breakpoint()
             phi = phi_flat.reshape((state_length, state_length))
             # Compute state derivatives
             state_dot = self.equations_of_motion(t, state, DMC=DMC, beta_mat=beta_mat)
@@ -372,10 +373,11 @@ class Integrator:
         
         # Initialize theta_dot as zeros
         if theta_0 is None:
-            theta_0 = np.zeros((len(initial_state), len(consider_parameters)))
+            theta_0 = np.zeros((len(initial_state), len(consider_parameters))).flatten()
 
         augmented_initial_state = np.hstack((initial_state, phi_0, theta_0))
         t_span = (initial_time, t_final)
-        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval)
+
+        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval, args=(False, None, consider_parameters))
         return sol.t, sol.y
         
