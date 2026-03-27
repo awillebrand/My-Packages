@@ -225,7 +225,7 @@ def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filte
         except Exception as e:
             pass
 
-def plot_state_errors(time_vector: np.ndarray, state_errors: np.ndarray, covariance_history : np.array, filter_name: str, file_directory: str, unit_multipliers: list = [1, 1], units = ['km', 'km/s'], y_axis_limits: list[list] = None):
+def plot_state_errors(time_vector: np.ndarray, state_errors: np.ndarray, covariance_history : np.array, filter_name: str, file_directory: str, unit_multipliers: list = [1, 1], units = ['km', 'km/s'], y_axis_limits: list[list] = None, sigma_num : int = 3):
     """
     Plot state estimation errors over time for each state component, including position and velocity errors. Also compute and print mean, standard deviation, and RMS of state errors for each component.
     Parameters:
@@ -245,6 +245,8 @@ def plot_state_errors(time_vector: np.ndarray, state_errors: np.ndarray, covaria
         List of unit strings corresponding to the state errors for labeling the y-axis (e.g., ["m", "m/s"]). Default is ['km', 'km/s'].
     y_axis_limits (list[list]), optional:
         List of [min, max] limits for the y-axis of each subplot, in the same order as the state components. If None, limits will be determined automatically. Default is None.
+    sigma_num (int), optional:
+        Number of standard deviations to plot for the covariance bounds (e.g., 3 for 3-sigma bounds). Default is 3.
     Returns:
         pos_fig (go.Figure): Plotly figure object containing position error plots.
         vel_fig (go.Figure): Plotly figure object containing velocity error plots.
@@ -272,12 +274,12 @@ def plot_state_errors(time_vector: np.ndarray, state_errors: np.ndarray, covaria
 
         if i < 3:
             pos_fig.add_trace(go.Scatter(x=time_vector, y=state_error, mode='lines', name=f'State Error', line=dict(color='blue'), showlegend=i==0), row=i+1, col=1)
-            pos_fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(covariance_diagonal)*unit_multipliers[0], mode='lines', name=f'3-sigma bounds', line=dict(color='red', dash='dash'), showlegend=i==0), row=i+1, col=1)
-            pos_fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(covariance_diagonal)*unit_multipliers[0], mode='lines', name=f'{state_names[i]} -3-sigma bound', line=dict(color='red', dash='dash'), showlegend=False), row=i+1, col=1)
+            pos_fig.add_trace(go.Scatter(x=time_vector, y=sigma_num*np.sqrt(covariance_diagonal)*unit_multipliers[0], mode='lines', name=f'{sigma_num}-sigma bounds', line=dict(color='red', dash='dash'), showlegend=i==0), row=i+1, col=1)
+            pos_fig.add_trace(go.Scatter(x=time_vector, y=-sigma_num*np.sqrt(covariance_diagonal)*unit_multipliers[0], mode='lines', name=f'{state_names[i]} -{sigma_num}-sigma bound', line=dict(color='red', dash='dash'), showlegend=False), row=i+1, col=1)
         else:   
             vel_fig.add_trace(go.Scatter(x=time_vector, y=state_error, mode='lines', name=f'State Error', line=dict(color='blue'), showlegend=i==3), row=i-2, col=1)
-            vel_fig.add_trace(go.Scatter(x=time_vector, y=3*np.sqrt(covariance_diagonal)*unit_multipliers[1], mode='lines', name=f'3-sigma bounds', line=dict(color='red', dash='dash'), showlegend=i==3), row=i-2, col=1)
-            vel_fig.add_trace(go.Scatter(x=time_vector, y=-3*np.sqrt(covariance_diagonal)*unit_multipliers[1], mode='lines', name=f'{state_names[i]} -3-sigma bound', line=dict(color='red', dash='dash'), showlegend=False), row=i-2, col=1)
+            vel_fig.add_trace(go.Scatter(x=time_vector, y=sigma_num*np.sqrt(covariance_diagonal)*unit_multipliers[1], mode='lines', name=f'{sigma_num}-sigma bounds', line=dict(color='red', dash='dash'), showlegend=i==3), row=i-2, col=1)
+            vel_fig.add_trace(go.Scatter(x=time_vector, y=-sigma_num*np.sqrt(covariance_diagonal)*unit_multipliers[1], mode='lines', name=f'{state_names[i]} -{sigma_num}-sigma bound', line=dict(color='red', dash='dash'), showlegend=False), row=i-2, col=1)
 
     pos_fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22))
     pos_fig.update_yaxes(title_text=f"Position Error ({units[0]})", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e")

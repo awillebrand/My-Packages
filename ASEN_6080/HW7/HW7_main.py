@@ -43,5 +43,5 @@ for i, state in enumerate(augmented_truth_state):
     truth_state_history[:, i] = truth_state
 
 state_errors = state_estimates - truth_state_history[0:6, :]
-plot_state_errors(time_vector, state_errors, state_covariance_estimates, "Base Covariance", file_directory="ASEN_6080/HW7/figures")
-plot_state_errors(time_vector, state_errors, total_covariance_estimates, "Total Consider Covariance", file_directory="ASEN_6080/HW7/figures")
+plot_state_errors(time_vector, state_errors, state_covariance_estimates, "Base Covariance", file_directory="ASEN_6080/HW7/figures", sigma_num=2, y_axis_limits=[[-0.5, 0.5], [-0.5, 0.5]])
+plot_state_errors(time_vector, state_errors, total_covariance_estimates, "Total Consider Covariance", file_directory="ASEN_6080/HW7/figures", sigma_num=2, y_axis_limits=[[-0.5, 0.5], [-0.5, 0.5]])
