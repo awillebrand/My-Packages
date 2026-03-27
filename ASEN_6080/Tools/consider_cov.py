@@ -219,7 +219,7 @@ class ConsiderCov:
                     stacked_H_x = np.vstack(visible_H_x)
                     stacked_H_c = np.vstack(visible_H_c)
                     stacked_R = block_diag(*visible_R)
-                    x_hat, P_hat, S_hat, x_c_hat, P_c_hat, P_xc_hat = self.measurement_update(initial_state, initial_P, initial_S, P_cc, c, stacked_H_x, stacked_H_c, stacked_R, stacked_residuals)
+                    x_hat, P_hat, S_hat, x_c_hat, P_c_hat, P_xc_hat = self.measurement_update(np.zeros(raw_state_length), initial_P, initial_S, P_cc, c, stacked_H_x, stacked_H_c, stacked_R, stacked_residuals)
                     state_correction_estimates[:,k] = x_hat.flatten()
                     state_covariance_estimates[:,:,k] = P_hat
                     S_estimates[:,:,k] = S_hat
