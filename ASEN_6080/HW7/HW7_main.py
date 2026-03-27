@@ -33,3 +33,15 @@ P_cc = np.array([J3**2]).reshape(1, 1)
 # Run consider covariance analysis
 consider_cov = ConsiderCov(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
 state_estimates, state_covariance_estimates, S_estimates, total_covariance_estimates, psi_history = consider_cov.run(initial_truth_state, P_0, consider_params, initial_S=np.zeros((raw_state_length, len(consider_params))), c=c, P_cc=P_cc, R=R, time_vector=time_vector, measurement_data=measurement_data)
+
+# Plot results
+augmented_truth_state = truth_data['augmented_state_history'].values
+truth_state_history = np.zeros((7, augmented_truth_state.shape[0]))
+
+for i, state in enumerate(augmented_truth_state):
+    truth_state = state[0:7]
+    truth_state_history[:, i] = truth_state
+
+state_errors = state_estimates - truth_state_history[0:6, :]
+plot_state_errors(time_vector, state_errors, state_covariance_estimates, "Base Covariance", file_directory="ASEN_6080/HW7/figures")
+plot_state_errors(time_vector, state_errors, total_covariance_estimates, "Total Consider Covariance", file_directory="ASEN_6080/HW7/figures")

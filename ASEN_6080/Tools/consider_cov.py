@@ -178,7 +178,7 @@ class ConsiderCov:
             psi = np.vstack((top_half, bottom_half))
             psi_history[:,:,i] = psi
         
-        state_estimates = np.zeros((raw_state_length, len(time_vector)))
+        state_correction_estimates = np.zeros((raw_state_length, len(time_vector)))
         state_covariance_estimates = np.zeros((raw_state_length, raw_state_length, len(time_vector)))
         total_covariance_estimates = np.zeros((raw_state_length + len(consider_parameters), raw_state_length + len(consider_parameters), len(time_vector)))
         S_estimates = np.zeros((raw_state_length, len(consider_parameters), len(time_vector)))
@@ -191,7 +191,7 @@ class ConsiderCov:
                 theta = theta_history[:,:,k]
                 if np.isnan(current_measurement_residuals).all():
                     # No measurements available assign initial state and covariance to first time step
-                    state_estimates[:,k] = initial_state
+                    state_correction_estimates[:,k] = np.zeros(raw_state_length)
                     state_covariance_estimates[:,:,k] = initial_P
                     S_estimates[:,:,k] = initial_S
                     total_covariance_estimates[:,:,k] = np.block([[initial_P, initial_S @ P_cc], [P_cc @ initial_S.T, P_cc]])             
@@ -220,7 +220,7 @@ class ConsiderCov:
                     stacked_H_c = np.vstack(visible_H_c)
                     stacked_R = block_diag(*visible_R)
                     x_hat, P_hat, S_hat, x_c_hat, P_c_hat, P_xc_hat = self.measurement_update(initial_state, initial_P, initial_S, P_cc, c, stacked_H_x, stacked_H_c, stacked_R, stacked_residuals)
-                    state_estimates[:,k] = x_hat.flatten()
+                    state_correction_estimates[:,k] = x_hat.flatten()
                     state_covariance_estimates[:,:,k] = P_hat
                     S_estimates[:,:,k] = S_hat
                     total_covariance_estimates[:,:,k] = np.block([[P_c_hat, P_xc_hat], [P_xc_hat.T, P_cc]])
@@ -231,8 +231,8 @@ class ConsiderCov:
 
             if np.isnan(current_measurement_residuals).all() and k > 0:
                 # No measurements available, propagate state and covariance
-                x_bar, P_bar, S_bar, x_c_bar, P_c_bar, P_xc_bar = self.time_update(state_estimates[:,k-1], state_covariance_estimates[:,:,k-1], S_estimates[:,:,k-1], theta, phi, c, P_cc)
-                state_estimates[:,k] = x_bar.flatten()
+                x_bar, P_bar, S_bar, x_c_bar, P_c_bar, P_xc_bar = self.time_update(state_correction_estimates[:,k-1], state_covariance_estimates[:,:,k-1], S_estimates[:,:,k-1], theta, phi, c, P_cc)
+                state_correction_estimates[:,k] = x_bar.flatten()
                 state_covariance_estimates[:,:,k] = P_bar
                 S_estimates[:,:,k] = S_bar
                 total_covariance_estimates[:,:,k] = np.block([[P_c_bar, P_xc_bar], [P_xc_bar.T, P_cc]])
@@ -261,13 +261,14 @@ class ConsiderCov:
                 stacked_H_c = np.vstack(visible_H_c)
                 stacked_R = block_diag(*visible_R)
 
-                x_bar, P_bar, S_bar, x_c_bar, P_c_bar, P_xc_bar = self.time_update(state_estimates[:,k-1], state_covariance_estimates[:,:,k-1], S_estimates[:,:,k-1], theta, phi, c, P_cc)
+                x_bar, P_bar, S_bar, x_c_bar, P_c_bar, P_xc_bar = self.time_update(state_correction_estimates[:,k-1], state_covariance_estimates[:,:,k-1], S_estimates[:,:,k-1], theta, phi, c, P_cc)
                 x_hat, P_x_hat, S_hat, x_c_hat, P_c_hat, P_xc_hat = self.measurement_update(x_bar, P_bar, S_bar, P_cc, c, stacked_H_x, stacked_H_c, stacked_R, stacked_residuals)
 
                 # Add to history list
-                state_estimates[:,k] = x_hat.flatten()
+                state_correction_estimates[:,k] = x_hat.flatten()
                 state_covariance_estimates[:,:,k] = P_x_hat
                 S_estimates[:,:,k] = S_hat
                 total_covariance_estimates[:,:,k] = np.block([[P_c_hat, P_xc_hat], [P_xc_hat.T, P_cc]])
 
+        state_estimates = state_history + state_correction_estimates
         return state_estimates, state_covariance_estimates, S_estimates, total_covariance_estimates, psi_history
