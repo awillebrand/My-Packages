@@ -294,6 +294,7 @@ class Integrator:
             theta_dot_flat = theta_dot.flatten()
 
             return np.hstack((state_dot, phi_dot_flat, theta_dot_flat))
+        
     def integrate_eom(self, t_final, initial_state, teval = None, sigma_points = False):
         """Integrate the equations of motion for the spacecraft.
         Parameters:

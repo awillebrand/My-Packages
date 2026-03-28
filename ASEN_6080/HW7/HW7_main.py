@@ -32,7 +32,37 @@ P_cc = np.array([J3**2]).reshape(1, 1)
 
 # Run consider covariance analysis
 consider_cov = ConsiderCov(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
-state_estimates, state_covariance_estimates, S_estimates, total_covariance_estimates, psi_history = consider_cov.run(initial_truth_state, P_0, consider_params, initial_S=np.zeros((raw_state_length, len(consider_params))), c=c, P_cc=P_cc, R=R, time_vector=time_vector, measurement_data=measurement_data)
+state_estimates, state_covariance_estimates, S_estimates, total_covariance_estimates, psi_history, state_correction_history, stm_history = consider_cov.run(initial_truth_state, P_0, consider_params, initial_S=np.zeros((raw_state_length, len(consider_params))), c=c, P_cc=P_cc, R=R, time_vector=time_vector, measurement_data=measurement_data)
+
+# Map final total covariance and state deviation back to t0 using psi
+psi_tf = psi_history[:,:,-1]
+phi_tf = stm_history[:,:,-1]
+total_covariance_t0 = np.linalg.inv(psi_tf) @ total_covariance_estimates[:,:,-1] @ np.linalg.inv(psi_tf).T
+state_correction_t0 = np.linalg.inv(phi_tf) @ state_correction_history[:,-1]
+
+# Integrate this new initial state forwards
+_, augmented_back_prop_state_history = integrator.integrate_stm(time_vector[-1], initial_truth_state + state_correction_t0, teval = time_vector)
+
+# Separate stm and state from augmented state history
+
+back_prop_state_history = np.zeros((6, augmented_back_prop_state_history.shape[1]))
+stm_history_back_prop = np.zeros((6, 6, augmented_back_prop_state_history.shape[1]))
+psi_history_back_prop = np.zeros((7, 7, augmented_back_prop_state_history.shape[1]))
+
+for i in range(augmented_back_prop_state_history.shape[1]):
+    augmented_state = augmented_back_prop_state_history[:, i]
+    back_prop_state_history[:, i] = augmented_state[0:6]
+    stm_history_back_prop[:,:,i] = augmented_state[6:].reshape(6, 6)
+    # Assemble new psi matrix history
+    top_row = np.hstack((stm_history_back_prop[:,:,i], np.zeros((6, 1))))
+    bottom_row = np.hstack((np.zeros((1, 6)), np.eye(1)))
+    psi_history_back_prop[:,:,i] = np.vstack((top_row, bottom_row))
+
+# Propagate back propagated total covariance forward using psi
+back_prop_total_covariance_estimates = np.zeros_like(total_covariance_estimates)
+for i in range(augmented_back_prop_state_history.shape[1]):
+    psi = psi_history_back_prop[:,:,i]
+    back_prop_total_covariance_estimates[:,:,i] = psi @ total_covariance_t0 @ psi.T
 
 # Plot results
 augmented_truth_state = truth_data['augmented_state_history'].values
@@ -43,10 +73,13 @@ for i, state in enumerate(augmented_truth_state):
     truth_state_history[:, i] = truth_state
 
 state_errors = state_estimates - truth_state_history[0:6, :]
+back_prop_state_errors = back_prop_state_history - truth_state_history[0:6, :]
+
 pos_fig, vel_fig, error_stats = plot_state_errors(time_vector, state_errors, total_covariance_estimates, "Sequential CCA", file_directory="ASEN_6080/HW7/figures", sigma_num=2, y_axis_limits=[[-0.5, 0.5], [-5e-4, 5e-4]])
 
 state_names = ['X Position', 'Y Position', 'Z Position', 'X Velocity', 'Y Velocity', 'Z Velocity']
 sigma_num = 2
+
 for i in range(state_errors[0:6].shape[0]):
     state_error = state_errors[i,:]
     covariance_diagonal = np.abs(state_covariance_estimates[i,i,:])
@@ -70,3 +103,5 @@ vel_fig.update_layout(legend=dict(x=0.51, y=1.12),
                       height=900)
 pos_fig.write_html("ASEN_6080/HW7/figures/consider_cov_position_errors.html")
 vel_fig.write_html("ASEN_6080/HW7/figures/consider_cov_velocity_errors.html")
+
+pos_fig, vel_fig, error_stats = plot_state_errors(time_vector, back_prop_state_errors, back_prop_total_covariance_estimates, "Backwards Propagated CCA", file_directory="ASEN_6080/HW7/figures", sigma_num=2, y_axis_limits=[[-0.5, 0.5], [-5e-4, 5e-4]])

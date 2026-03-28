@@ -271,4 +271,4 @@ class ConsiderCov:
                 total_covariance_estimates[:,:,k] = np.block([[P_c_hat, P_xc_hat], [P_xc_hat.T, P_cc]])
 
         state_estimates = state_history + state_correction_estimates
-        return state_estimates, state_covariance_estimates, S_estimates, total_covariance_estimates, psi_history
+        return state_estimates, state_covariance_estimates, S_estimates, total_covariance_estimates, psi_history, state_correction_estimates, stm_history
