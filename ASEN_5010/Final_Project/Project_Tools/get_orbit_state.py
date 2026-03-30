@@ -48,7 +48,9 @@ def get_orbit_state(orbit_radius : float, raan : float, inc : float, ta : float,
                     [np.sin(theta_3), np.cos(theta_3), 0],
                     [0, 0, 1]])
 
-    DCM = R_3 @ R_2 @ R_1
+    # Combine the rotation matrices to get the overall DCM from RTN to inertial frame.
+    # Note that the order of multiplication is R_1 @ R_2 @ R_3 because we are going from the RTN frame to the inertial frame, which is the reverse of the order of the Euler angles.
+    DCM = R_1 @ R_2 @ R_3
 
     # Transform position and velocity from RTN to inertial frame
     pos = DCM @ r_rtn
