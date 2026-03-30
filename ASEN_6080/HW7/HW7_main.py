@@ -41,6 +41,7 @@ total_covariance_t0 = np.linalg.inv(psi_tf) @ total_covariance_estimates[:,:,-1]
 state_correction_t0 = np.linalg.inv(phi_tf) @ state_correction_history[:,-1]
 
 # Integrate this new initial state forwards
+integrator = Integrator(mu, R_e, J2 = J2, mode=[])
 _, augmented_back_prop_state_history = integrator.integrate_stm(time_vector[-1], initial_truth_state + state_correction_t0, teval = time_vector)
 
 # Separate stm and state from augmented state history
@@ -77,6 +78,10 @@ back_prop_state_errors = back_prop_state_history - truth_state_history[0:6, :]
 
 pos_fig, vel_fig, error_stats = plot_state_errors(time_vector, state_errors, total_covariance_estimates, "Sequential CCA", file_directory="ASEN_6080/HW7/figures", sigma_num=2, y_axis_limits=[[-0.5, 0.5], [-5e-4, 5e-4]])
 
+print("CC Updated Error Stats:")
+for state_name, stats in error_stats.items():
+    print(f"{state_name}: Mean Error = {stats['mean']:.3e}, Std Dev = {stats['std']:.3e}, RMS = {stats['rms']:.3e}")
+
 state_names = ['X Position', 'Y Position', 'Z Position', 'X Velocity', 'Y Velocity', 'Z Velocity']
 sigma_num = 2
 
@@ -105,3 +110,7 @@ pos_fig.write_html("ASEN_6080/HW7/figures/consider_cov_position_errors.html")
 vel_fig.write_html("ASEN_6080/HW7/figures/consider_cov_velocity_errors.html")
 
 pos_fig, vel_fig, error_stats = plot_state_errors(time_vector, back_prop_state_errors, back_prop_total_covariance_estimates, "Backwards Propagated CCA", file_directory="ASEN_6080/HW7/figures", sigma_num=2, y_axis_limits=[[-0.5, 0.5], [-5e-4, 5e-4]])
+
+print("Back Propagated CC Updated Error Stats:")
+for state_name, stats in error_stats.items():
+    print(f"{state_name}: Mean Error = {stats['mean']:.3e}, Std Dev = {stats['std']:.3e}, RMS = {stats['rms']:.3e}")
