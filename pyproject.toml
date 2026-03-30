@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "astro-tools"
 version = "0.1.0"
-description = "Astrodynamics tools for ASEN 6080 - orbit propagation, coordinate transformations, and measurement processing"
+description = "Astrodynamics tools - orbit propagation, coordinate transformations, measurement processing, and filtering"
 requires-python = ">=3.8"
 authors = [
     {name = "awillebrand"}
@@ -23,4 +23,4 @@ dev = [
 
 [tool.setuptools. packages.find]
 where = ["."]
-include = ["ASEN_6080*"]
+include = ["ASEN_6080*", "Tools*"]

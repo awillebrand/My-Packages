@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from ASEN_6080.Tools import Integrator, MeasurementMgr, CoordinateMgr, measurement_jacobian
+from Tools import Integrator, MeasurementMgr, CoordinateMgr, measurement_jacobian
 
 class BatchLLSEstimator:
     def __init__(self, integrator : Integrator, measurement_mgr_list : list, initial_earth_spin_angle : float, earth_rotation_rate : float = 2*np.pi/86164.0905):

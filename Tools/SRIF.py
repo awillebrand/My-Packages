@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from scipy.linalg import cholesky, solve_triangular, block_diag
-from ASEN_6080.Tools import Integrator, MeasurementMgr, CoordinateMgr, measurement_jacobian
+from Tools import Integrator, MeasurementMgr, CoordinateMgr, measurement_jacobian
 
 class SRIF:
     def __init__(self, integrator : Integrator, measurement_mgr_list : list, initial_earth_spin_angle : float, earth_rotation_rate : float = 2*np.pi/86164):

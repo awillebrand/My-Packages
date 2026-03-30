@@ -2,7 +2,7 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
-from ASEN_6080.Tools import Integrator, MeasurementMgr, CoordinateMgr, ConsiderCov, plot_state_errors, plot_residuals
+from Tools import Integrator, MeasurementMgr, CoordinateMgr, ConsiderCov, plot_state_errors, plot_residuals
 from plotly.subplots import make_subplots
 import warnings
 warnings.simplefilter('error', RuntimeWarning)
