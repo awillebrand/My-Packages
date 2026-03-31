@@ -43,7 +43,7 @@ def GMO_pointing_frame_dcm(time : float):
 
     return DCM
 
-def GMO_pointing_frame_angular_velocity(time : float, delta_t : float = 1e-9):
+def GMO_pointing_frame_angular_velocity(time : float, delta_t : float = 1e-8):
     """
     This function calculates the angular velocity of the LMO to GMO pointing frame relative to the inertial frame at a given time.
     This is done using numerical differencing to compute RN/delta_t, where RN is the DCM from inertial to pointing frame.
@@ -68,7 +68,7 @@ def GMO_pointing_frame_angular_velocity(time : float, delta_t : float = 1e-9):
     DCM_dot = (DCM_t_plus_dt - DCM_t) / delta_t
 
     # Compute the angular velocity using the relationship DCM_dot = -omega_tilde @ DCM, where omega_tilde is the skew-symmetric matrix of omega
-    omega_tilde = -DCM_dot @ DCM_t.T
+    omega_tilde = -DCM_t.T @ DCM_dot
 
     # Extract the angular velocity vector from the skew-symmetric matrix
     omega = np.array([-omega_tilde[1, 2], omega_tilde[0, 2], -omega_tilde[0, 1]])
