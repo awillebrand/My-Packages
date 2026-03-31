@@ -17,4 +17,4 @@ print(DCM)
 
 # Write the result to a text file in the coursera_validation_files directory
 with open(os.path.join(os.path.dirname(__file__), '..', 'coursera_validation_files', 'hill_frame_dcm.txt'), 'w') as f:
-    f.write(str(DCM))
+        f.write(' '.join(str(x) for x in DCM.flatten()))
