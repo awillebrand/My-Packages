@@ -14,22 +14,19 @@ def attitude_error_eval(time : float, sigma_BN : np.ndarray, omega_BN : np.ndarr
     sigma_BN : numpy array
         The MRP attitude of the spacecraft relative to the inertial frame at the given time.
     omega_BN : numpy array
-        The angular velocity of the spacecraft relative to the inertial frame expressed in the body frame at the given time in degrees per second.
+        The angular velocity of the spacecraft relative to the inertial frame expressed in the body frame at the given time in rad per second.
     DCM_RN : numpy array
         The direction cosine matrix from the inertial frame to the reference frame (GMO pointing frame) at the given time.
     omega_RN : numpy array
-        The angular velocity of the reference frame (GMO pointing frame) relative to the inertial frame expressed in inertial coordinates at the given time in degrees per second.
+        The angular velocity of the reference frame (GMO pointing frame) relative to the inertial frame expressed in inertial coordinates at the given time in rad per second.
 
     Returns
     -------
     sigma_BR : float
         The MRP attitude error of the spacecraft relative to the reference frame in degrees.
     omega_BR : float
-        The angular velocity error of the spacecraft relative to the reference frame in degrees per second.
+        The angular velocity error of the spacecraft relative to the reference frame in rad per second.
     """
-    # Convert the angular velocities from degrees per second to radians per second
-    omega_BN_rad = np.deg2rad(omega_BN)
-    omega_RN_rad = np.deg2rad(omega_RN)
 
     # Convert the MRP attitude to a DCM
     sigma_tilde = np.array([[0, -sigma_BN[2], sigma_BN[1]], [sigma_BN[2], 0, -sigma_BN[0]], [-sigma_BN[1], sigma_BN[0], 0]])
@@ -72,8 +69,8 @@ def attitude_error_eval(time : float, sigma_BN : np.ndarray, omega_BN : np.ndarr
     sigma_BR = np.array([B1, B2, B3]) / (1 + B0)
 
     # Compute the angular velocity of the spacecraft relative to the reference frame in inertial coordinates
-    omega_RN_body_rad = DCM_BN @ omega_RN_rad
-    omega_BR_rad = omega_BN_rad - omega_RN_body_rad
+    omega_RN_body_rad = DCM_BN @ omega_RN
+    omega_BR_rad = omega_BN - omega_RN_body_rad
 
     # Convert the angular velocity error to degrees per second
     omega_BR = np.rad2deg(omega_BR_rad)
