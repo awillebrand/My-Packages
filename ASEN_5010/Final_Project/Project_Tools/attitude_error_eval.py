@@ -70,10 +70,7 @@ def attitude_error_eval(time : float, sigma_BN : np.ndarray, omega_BN : np.ndarr
 
     # Compute the angular velocity of the spacecraft relative to the reference frame in inertial coordinates
     omega_RN_body_rad = DCM_BN @ omega_RN
-    omega_BR_rad = omega_BN - omega_RN_body_rad
-
-    # Convert the angular velocity error to degrees per second
-    omega_BR = np.rad2deg(omega_BR_rad)
+    omega_BR = omega_BN - omega_RN_body_rad
 
     return sigma_BR, omega_BR
     

@@ -9,13 +9,14 @@ from Testing_Scripts.initial_conditions import sigma_0_LMO, omega_0_LMO
 import numpy as np
 
 # Convert the initial angular velocity from degrees per second to radians per second for use in the attitude error evaluation function
-omega_0_LMO = np.deg2rad(omega_0_LMO)
+omega_0_LMO_rad = np.deg2rad(omega_0_LMO)
 
 # Define time to test the function at
 t = 0
 
 # Get the DCM from inertial to each frame at time t
 DCM_sun = sun_frame_dcm(t)
+breakpoint()
 DCM_nadir = nadir_frame_dcm(t)
 DCM_GMO = GMO_pointing_frame_dcm(t)
 
@@ -25,9 +26,9 @@ omega_nadir = nadir_frame_angular_velocity(t)
 omega_GMO = GMO_pointing_frame_angular_velocity(t)
 
 # Evaluate the attitude error of the spacecraft relative to the sun frame, nadir frame, and GMO pointing frame at time t
-attitude_error_sun_RN, angular_rate_error_sun_RN = attitude_error_eval(t, sigma_0_LMO, omega_0_LMO, DCM_sun, omega_sun)
-attitude_error_nadir_RN, angular_rate_error_nadir_RN = attitude_error_eval(t, sigma_0_LMO, omega_0_LMO, DCM_nadir, omega_nadir)
-attitude_error_GMO_RN, angular_rate_error_GMO_RN = attitude_error_eval(t, sigma_0_LMO, omega_0_LMO, DCM_GMO, omega_GMO)
+attitude_error_sun_RN, angular_rate_error_sun_RN = attitude_error_eval(t, sigma_0_LMO, omega_0_LMO_rad, DCM_sun, omega_sun)
+attitude_error_nadir_RN, angular_rate_error_nadir_RN = attitude_error_eval(t, sigma_0_LMO, omega_0_LMO_rad, DCM_nadir, omega_nadir)
+attitude_error_GMO_RN, angular_rate_error_GMO_RN = attitude_error_eval(t, sigma_0_LMO, omega_0_LMO_rad, DCM_GMO, omega_GMO)
 
 # Print the results
 print("Attitude error relative to sun frame at t =", t, "seconds:", attitude_error_sun_RN)
