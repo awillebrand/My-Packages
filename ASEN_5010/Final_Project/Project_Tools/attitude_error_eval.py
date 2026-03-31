@@ -36,7 +36,7 @@ def attitude_error_eval(time : float, sigma_BN : np.ndarray, omega_BN : np.ndarr
     DCM_BN = np.eye(3) + (8 * sigma_tilde @ sigma_tilde - 4 * (1 - np.dot(sigma_BN, sigma_BN)) * sigma_tilde) / (1 + np.dot(sigma_BN, sigma_BN))**2
 
     # Compute the DCM from the body frame to the reference frame
-    DCM_BR = DCM_RN @ DCM_BN.T
+    DCM_BR = DCM_BN @ DCM_RN.T
 
     # Compute the MRP attitude error from the DCM_BR by first computing the Euler Parameters using Shepard's method and then converting the PRPs to MRPs
     test_B0 = 0.25 * (1 + np.trace(DCM_BR))
@@ -73,7 +73,7 @@ def attitude_error_eval(time : float, sigma_BN : np.ndarray, omega_BN : np.ndarr
 
     # Compute the angular velocity of the spacecraft relative to the reference frame in inertial coordinates
     omega_RN_body_rad = DCM_BN @ omega_RN_rad
-    omega_BR_rad = omega_BN - omega_RN_body_rad
+    omega_BR_rad = omega_BN_rad - omega_RN_body_rad
 
     # Convert the angular velocity error to degrees per second
     omega_BR = np.rad2deg(omega_BR_rad)
