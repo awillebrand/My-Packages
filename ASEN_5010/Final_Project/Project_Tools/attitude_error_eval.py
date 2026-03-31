@@ -72,6 +72,11 @@ def attitude_error_eval(time : float, sigma_BN : np.ndarray, omega_BN : np.ndarr
     omega_RN_body_rad = DCM_BN @ omega_RN
     omega_BR = omega_BN - omega_RN_body_rad
 
+    # Check that the attitude error is less than 180 degrees (i.e. the norm of the MRP attitude error is less than 1)
+    if np.linalg.norm(sigma_BR) > 1:
+        # If so, convert to the shadow set of MRPs to get the equivalent attitude error that is less than 180 degrees
+        sigma_BR = -sigma_BR / np.dot(sigma_BR, sigma_BR)
+
     return sigma_BR, omega_BR
     
 

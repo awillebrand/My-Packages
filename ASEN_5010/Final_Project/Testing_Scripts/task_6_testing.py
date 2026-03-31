@@ -16,7 +16,6 @@ t = 0
 
 # Get the DCM from inertial to each frame at time t
 DCM_sun = sun_frame_dcm(t)
-breakpoint()
 DCM_nadir = nadir_frame_dcm(t)
 DCM_GMO = GMO_pointing_frame_dcm(t)
 
