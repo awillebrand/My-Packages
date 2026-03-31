@@ -39,7 +39,7 @@ def GMO_pointing_frame_dcm(time : float):
     r_3 = np.cross(r_1, r_2)
 
     # Construct the DCM from inertial to pointing frame using the r_1, r_2, and r_3 axes as columns
-    DCM = np.column_stack((r_1, r_2, r_3))
+    DCM = np.array([r_1, r_2, r_3])
 
     return DCM
 
@@ -71,6 +71,6 @@ def GMO_pointing_frame_angular_velocity(time : float, delta_t : float = 1e-9):
     omega_tilde = -DCM_dot @ DCM_t.T
 
     # Extract the angular velocity vector from the skew-symmetric matrix
-    omega = np.array([-omega_tilde[2, 1], omega_tilde[0, 2], -omega_tilde[1, 0]])
+    omega = np.array([-omega_tilde[1, 2], omega_tilde[0, 2], -omega_tilde[0, 1]])
 
     return omega
