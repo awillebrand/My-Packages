@@ -1,7 +1,7 @@
 import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from Project_Tools.hill_frame_dcm import hill_frame_dcm
+from Project_Tools.hill_frame_funcs import hill_frame_dcm
 import numpy as np
 
 def nadir_frame_dcm(time):

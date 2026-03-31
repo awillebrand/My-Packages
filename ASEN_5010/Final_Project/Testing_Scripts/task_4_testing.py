@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from Project_Tools.nadir_frame_dcm import nadir_frame_dcm
-from Project_Tools.hill_frame_dcm import hill_frame_dcm
+from Project_Tools.hill_frame_funcs import hill_frame_dcm, hill_frame_angular_velocity
 from initial_conditions import ta_dot_LMO
 import numpy as np
 
@@ -18,11 +18,7 @@ print(DCM)
 
 # Define the angular velocity of the frame relative to the inertial frame in the nadir frame
 # The angular velocity of the nadir frame is directly related to the angular velocity of the Hill frame, which is equal to the rate of change of the true anomaly (ta_dot_LMO) in this case
-omega_H = np.array([0, 0, np.deg2rad(ta_dot_LMO)])  # Assuming the nadir frame rotates about the z-axis of the Hill frame
-
-# Convert the angular velocity to the inertial frame using the DCM
-HN = hill_frame_dcm(t)  # DCM from inertial to Hill frame
-omega_inertial = HN.T @ omega_H  # Convert angular velocity to inertial frame
+omega_inertial = hill_frame_angular_velocity(t)
 
 # print the angular velocity
 print("Angular velocity of the nadir frame relative to the inertial frame (in nadir frame):", omega_inertial)

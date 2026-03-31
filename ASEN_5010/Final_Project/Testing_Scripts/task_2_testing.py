@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import numpy as np
-from Project_Tools.hill_frame_dcm import hill_frame_dcm
+from ASEN_5010.Final_Project.Project_Tools.hill_frame_funcs import hill_frame_dcm
 from initial_conditions import mu, r_LMO, raan_LMO, inc_LMO, ta_0_LMO, ta_dot_LMO, r_GMO, raan_GMO, inc_GMO, ta_0_GMO, ta_dot_GMO
 
 # Define time to test the function at

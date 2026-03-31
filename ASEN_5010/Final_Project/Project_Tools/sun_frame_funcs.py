@@ -22,3 +22,23 @@ def sun_frame_dcm(time : float):
     DCM = np.array([[-1, 0, 0], [0, 0, 1], [0, 1, 0]])
 
     return DCM
+
+def sun_frame_angular_velocity(time : float):
+    """
+    This function calculates the angular velocity of the Sun frame relative to the inertial frame at a given time.
+    Since the Sun frame is fixed in inertial space, the angular velocity is zero.
+
+    Parameters
+    ----------
+    time : float
+        The time at which to calculate the angular velocity in seconds. Does not affect the result since the Sun frame is fixed in inertial space, but is included for consistency with the other frame DCM functions.
+
+    Returns
+    -------
+    omega : numpy array
+        The angular velocity of the Sun frame relative to the inertial frame in the Sun frame (which is zero).
+    """
+
+    omega = np.array([0, 0, 0])  # Sun frame is fixed in inertial space, so angular velocity is zero
+
+    return omega
