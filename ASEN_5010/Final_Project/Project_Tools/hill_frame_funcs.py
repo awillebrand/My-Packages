@@ -33,29 +33,3 @@ def hill_frame_dcm(time):
     DCM = np.array([r_hat, theta_hat, h_hat])
 
     return DCM
-
-def hill_frame_angular_velocity(time : float, delta_t : float = 1e-8):
-    """
-    This function calculates the angular velocity of the LMO Hill frame relative to the inertial frame at a given time.
-    This is done using numerical differencing to compute RN/delta_t, where RN is the DCM from inertial to Hill frame.
-
-    Parameters
-    ----------
-    time : float
-        The time at which to calculate the angular velocity in seconds.
-    delta_t : float, optional
-        The time step to use for numerical differencing in seconds. Default is 1e-8 seconds.
-
-    Returns
-    -------
-    omega : numpy array
-        The angular velocity of the Hill frame relative to the inertial frame in the Hill frame.
-    """
-
-    omega_H = np.array([0, 0, np.deg2rad(ta_dot_LMO)])  # Assuming the nadir frame rotates about the z-axis of the Hill frame
-
-    # Convert the angular velocity to the inertial frame using the DCM
-    HN = hill_frame_dcm(time)  # DCM from inertial to Hill frame
-    omega = HN.T @ omega_H  # Convert angular velocity to inertial frame
-
-    return omega
