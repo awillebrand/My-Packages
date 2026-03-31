@@ -1,0 +1,84 @@
+import os
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+import numpy as np
+
+def attitude_error_eval(time : float, sigma_BN : np.ndarray, omega_BN : np.ndarray, DCM_RN : np.ndarray, omega_RN : np.ndarray):
+    """
+    This function evaluates the attitude error of the spacecraft at a given time by comparing the provided attitude (sigma_BN and omega_BN) to the expected attitude based on the provided DCM_RN and omega_RN.
+
+    Parameters
+    ----------
+    time : float
+        The time at which to evaluate the attitude error in seconds.
+    sigma_BN : numpy array
+        The MRP attitude of the spacecraft relative to the inertial frame at the given time.
+    omega_BN : numpy array
+        The angular velocity of the spacecraft relative to the inertial frame expressed in the body frame at the given time in degrees per second.
+    DCM_RN : numpy array
+        The direction cosine matrix from the inertial frame to the reference frame (GMO pointing frame) at the given time.
+    omega_RN : numpy array
+        The angular velocity of the reference frame (GMO pointing frame) relative to the inertial frame expressed in inertial coordinates at the given time in degrees per second.
+
+    Returns
+    -------
+    sigma_BR : float
+        The MRP attitude error of the spacecraft relative to the reference frame in degrees.
+    omega_BR : float
+        The angular velocity error of the spacecraft relative to the reference frame in degrees per second.
+    """
+    # Convert the angular velocities from degrees per second to radians per second
+    omega_BN_rad = np.deg2rad(omega_BN)
+    omega_RN_rad = np.deg2rad(omega_RN)
+
+    # Convert the MRP attitude to a DCM
+    sigma_tilde = np.array([[0, -sigma_BN[2], sigma_BN[1]], [sigma_BN[2], 0, -sigma_BN[0]], [-sigma_BN[1], sigma_BN[0], 0]])
+    DCM_BN = np.eye(3) + (8 * sigma_tilde @ sigma_tilde - 4 * (1 - np.dot(sigma_BN, sigma_BN)) * sigma_tilde) / (1 + np.dot(sigma_BN, sigma_BN))**2
+
+    # Compute the DCM from the body frame to the reference frame
+    DCM_BR = DCM_RN @ DCM_BN.T
+
+    # Compute the MRP attitude error from the DCM_BR by first computing the Euler Parameters using Shepard's method and then converting the PRPs to MRPs
+    test_B0 = 0.25 * (1 + np.trace(DCM_BR))
+    test_B1 = 0.25 * (1 + 2 * DCM_BR[0, 0] - np.trace(DCM_BR))
+    test_B2 = 0.25 * (1 + 2 * DCM_BR[1, 1] - np.trace(DCM_BR))
+    test_B3 = 0.25 * (1 + 2 * DCM_BR[2, 2] - np.trace(DCM_BR))
+
+    B = np.array([test_B0, test_B1, test_B2, test_B3])
+    max_index = np.argmax(B)
+
+    if max_index == 0:
+        B0 = np.sqrt(test_B0);
+        B1 = 0.25 * (DCM_BR[1, 2] - DCM_BR[2, 1]) / B0;
+        B2 = 0.25 * (DCM_BR[2, 0] - DCM_BR[0, 2]) / B0;
+        B3 = 0.25 * (DCM_BR[0, 1] - DCM_BR[1, 0]) / B0;
+    elif max_index == 1:
+        B1 = np.sqrt(test_B1);
+        B0 = 0.25 * (DCM_BR[1, 2] - DCM_BR[2, 1]) / B1;
+        B2 = 0.25 * (DCM_BR[0, 1] + DCM_BR[1, 0]) / B1;
+        B3 = 0.25 * (DCM_BR[0, 2] + DCM_BR[2, 0]) / B1;
+    elif max_index == 2:
+        B2 = np.sqrt(test_B2);
+        B0 = 0.25 * (DCM_BR[2, 0] - DCM_BR[0, 2]) / B2;
+        B1 = 0.25 * (DCM_BR[0, 1] + DCM_BR[1, 0]) / B2;
+        B3 = 0.25 * (DCM_BR[1, 2] + DCM_BR[2, 1]) / B2;
+    else:
+        B3 = np.sqrt(test_B3);
+        B0 = 0.25 * (DCM_BR[0, 1] - DCM_BR[1, 0]) / B3;
+        B1 = 0.25 * (DCM_BR[0, 2] + DCM_BR[2, 0]) / B3;
+        B2 = 0.25 * (DCM_BR[1, 2] + DCM_BR[2, 1]) / B3;
+
+    # Convert the Euler Parameters to MRPs
+    sigma_BR = np.array([B1, B2, B3]) / (1 + B0)
+
+    # Compute the angular velocity of the spacecraft relative to the reference frame in inertial coordinates
+    omega_RN_body_rad = DCM_BN @ omega_RN_rad
+    omega_BR_rad = omega_BN - omega_RN_body_rad
+
+    # Convert the angular velocity error to degrees per second
+    omega_BR = np.rad2deg(omega_BR_rad)
+
+    return sigma_BR, omega_BR
+    
+
+

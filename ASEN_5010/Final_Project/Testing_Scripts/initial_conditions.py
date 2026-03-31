@@ -11,7 +11,7 @@ by the testing scripts.
 # Define gravitational parameter for Mars
 mu = 42828.3
 
-# Define initial conditions for LMO and GMO
+# Define initial orbit conditions for LMO and GMO
 r_LMO = 400 + 3396.19
 raan_LMO = 20
 inc_LMO = 30
@@ -23,3 +23,8 @@ raan_GMO = 0
 inc_GMO = 0
 ta_0_GMO = 250
 ta_dot_GMO = np.rad2deg(np.sqrt(mu / r_GMO**3))
+
+# Define initial attitude conditions for the spacecraft
+sigma_0_LMO = np.array([0.3, -0.4, 0.5])
+omega_0_LMO = np.array([1, 1.75, -2.20]) # deg/s
+I_LMO = np.diag([10, 5, 7.5]) # kg*m^2
