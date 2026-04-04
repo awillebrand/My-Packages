@@ -28,7 +28,7 @@ def hill_frame_dcm(time):
     h_vec = np.cross(pos, vel)
     h_hat = h_vec / np.linalg.norm(h_vec)
     theta_hat = np.cross(h_hat, r_hat)
-
+    breakpoint()
     # Construct the DCM from inertial to Hill frame
     DCM = np.array([r_hat, theta_hat, h_hat])
 

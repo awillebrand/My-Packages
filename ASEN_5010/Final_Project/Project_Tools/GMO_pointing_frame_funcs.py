@@ -69,7 +69,7 @@ def GMO_pointing_frame_angular_velocity(time : float, delta_t : float = 1e-8):
 
     # Compute the angular velocity using the relationship DCM_dot = -omega_tilde @ DCM, where omega_tilde is the skew-symmetric matrix of omega
     omega_tilde = -DCM_t.T @ DCM_dot
-
+    breakpoint()
     # Extract the angular velocity vector from the skew-symmetric matrix
     omega = np.array([-omega_tilde[1, 2], omega_tilde[0, 2], -omega_tilde[0, 1]])
 
