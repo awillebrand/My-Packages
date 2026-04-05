@@ -4,13 +4,23 @@ import plotly.express as px
 from constants import mu, R_e, J2, J3, C_d, spacecraft_mass, spacecraft_area
 from Tools import Integrator, MeasurementMgr, CoordinateMgr, covariance_ellipse
 from scenarios import FILE_PATH, time_vec, initial_state, initial_covariance, NUM_TRAJECTORIES
+from multiprocessing import Pool, cpu_count
+import signal
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from tqdm import tqdm
 """
 This script generates Monte Carlo simulations trajectories in LEO (Low Earth Orbit) with mu, J2, and drag effects. The distribution is based on some inputted
 a priori covariance given by the user. It generates plots and statistics of the resulting trajectories for later analysis. The __main__ function is the entry
 point for the script, which sets up the initial conditions, runs the Monte Carlo simulations, and processes the results.
 """
 
-def generate_monte_carlo_trajectories(integrator: Integrator, initial_state : np.ndarray, covariance : np.ndarray, num_traj : int, time_vec : np.ndarray):
+def _integrate_single(args):
+    sampled_state, final_time, time_vec = args
+    integrator = Integrator(mu, R_e, J2=J2, Cd=C_d, spacecraft_mass=spacecraft_mass, spacecraft_area=spacecraft_area)
+
+    return integrator.integrate_eom(final_time, sampled_state, teval=time_vec)
+
+def generate_monte_carlo_trajectories(initial_state : np.ndarray, covariance : np.ndarray, num_traj : int, time_vec : np.ndarray):
     """
     Generates Monte Carlo simulation trajectories for a spacecraft in LEO.
 
@@ -31,15 +41,39 @@ def generate_monte_carlo_trajectories(integrator: Integrator, initial_state : np
     trajectories : list of np.ndarray
         A list of state vectors for each trajectory at each time step.
     """
-    trajectories = []
+    # trajectories = []
+    # final_time = time_vec[-1]
+    # for i in range(num_traj):
+    #     print(f"Generating trajectory {i+1}/{num_traj}")
+    #     # Sample initial state from the covariance
+    #     sampled_state = np.random.multivariate_normal(initial_state, covariance)
+    #     # Integrate the trajectory
+    #     traj = integrator.integrate_eom(final_time, sampled_state, teval=time_vec)
+    #     trajectories.append(traj)
+    # return trajectories
+
     final_time = time_vec[-1]
-    for i in range(num_traj):
-        print(f"Generating trajectory {i+1}/{num_traj}")
-        # Sample initial state from the covariance
-        sampled_state = np.random.multivariate_normal(initial_state, covariance)
-        # Integrate the trajectory
-        traj = integrator.integrate_eom(final_time, sampled_state, teval=time_vec)
-        trajectories.append(traj)
+    sampled_states = [
+        np.random.multivariate_normal(initial_state, covariance)
+        for _ in range(num_traj)
+    ]
+    args = [(s, final_time, time_vec) for s in sampled_states]
+    
+    # Workers ignore SIGINT — let the parent handle it
+    with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
+        futures = [executor.submit(_integrate_single, a) for a in args]
+        try:
+            for future in tqdm(as_completed(futures), total=num_traj, desc="Monte Carlo"):
+                print(f"\rGenerating trajectory {i}/{num_traj}", end="", flush=True)
+                trajectories.append(future.result())
+        except KeyboardInterrupt:
+            print("\nCaught Ctrl+C — cancelling remaining work...")
+            for f in futures:
+                f.cancel()
+            # Force kill all worker processes immediately
+            executor.shutdown(wait=False, cancel_futures=True)
+            raise
+    print()
     return trajectories
 
 def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, time_vec : np.ndarray, trajectories: list, file_path: str):
@@ -150,9 +184,10 @@ if __name__ == "__main__":
     This section will define the initial state, covariance, number of trajectories, and time vector for the simulation. It will then
     call the functions to generate the trajectories and analyze the results, ultimately saving the generated figures to disk for later review.
     """
-
     integrator = Integrator(mu, R_e, J2=J2, Cd=C_d, spacecraft_mass=spacecraft_mass, spacecraft_area=spacecraft_area)
     nominal_trajectory = integrator.integrate_eom(time_vec[-1], initial_state, teval=time_vec)
-    trajectories = generate_monte_carlo_trajectories(integrator, initial_state, initial_covariance, NUM_TRAJECTORIES, time_vec)
+    trajectories = generate_monte_carlo_trajectories(initial_state, initial_covariance, NUM_TRAJECTORIES, time_vec)
     figures, analysis_results = analyze_monte_carlo_results(nominal_trajectory, time_vec, trajectories, FILE_PATH)
 
+    # Save the trajectories to a file for later analysis
+    np.save(f"{FILE_PATH}/monte_carlo_trajectories.npy", trajectories)
