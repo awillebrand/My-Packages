@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from constants import mu, R_e, J2, J3, C_d, spacecraft_mass, spacecraft_area
 from Tools import Integrator, MeasurementMgr, CoordinateMgr, covariance_ellipse
-
+from scenarios import FILE_PATH, time_vec, initial_state, initial_covariance, NUM_TRAJECTORIES
 """
 This script generates Monte Carlo simulations trajectories in LEO (Low Earth Orbit) with mu, J2, and drag effects. The distribution is based on some inputted
 a priori covariance given by the user. It generates plots and statistics of the resulting trajectories for later analysis. The __main__ function is the entry
@@ -34,6 +34,7 @@ def generate_monte_carlo_trajectories(integrator: Integrator, initial_state : np
     trajectories = []
     final_time = time_vec[-1]
     for i in range(num_traj):
+        print(f"Generating trajectory {i+1}/{num_traj}")
         # Sample initial state from the covariance
         sampled_state = np.random.multivariate_normal(initial_state, covariance)
         # Integrate the trajectory
@@ -41,7 +42,7 @@ def generate_monte_carlo_trajectories(integrator: Integrator, initial_state : np
         trajectories.append(traj)
     return trajectories
 
-def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, nominal_covariance_history : np.ndarray, time_vec : np.ndarray, trajectories: list, file_path: str):
+def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, time_vec : np.ndarray, trajectories: list, file_path: str):
     """
     Analyzes the results of Monte Carlo simulation trajectories. Performs several processes for every 4 hours of data:
     1. Plot all trajectories, the nominal trajectory, the covariance ellipses, and the mean trajectory.
@@ -53,8 +54,6 @@ def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, nominal_covaria
     ----------
     nominal_trajectory : np.ndarray
         The nominal trajectory of the spacecraft for comparison.
-    nominal_covariance_history : np.ndarray
-        The nominal covariance history of the spacecraft for comparison.
     time_vec : np.ndarray
         The time vector corresponding to the trajectories and covariance history.
     trajectories : list of np.ndarray
@@ -147,5 +146,13 @@ def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, nominal_covaria
 
 if __name__ == "__main__":
     """
-    Entry point to the script.
+    Entry point to the script. The user can set up the initial conditions, run the Monte Carlo simulations, and process the results.
+    This section will define the initial state, covariance, number of trajectories, and time vector for the simulation. It will then
+    call the functions to generate the trajectories and analyze the results, ultimately saving the generated figures to disk for later review.
     """
+
+    integrator = Integrator(mu, R_e, J2=J2, Cd=C_d, spacecraft_mass=spacecraft_mass, spacecraft_area=spacecraft_area)
+    nominal_trajectory = integrator.integrate_eom(time_vec[-1], initial_state, teval=time_vec)
+    trajectories = generate_monte_carlo_trajectories(integrator, initial_state, initial_covariance, NUM_TRAJECTORIES, time_vec)
+    figures, analysis_results = analyze_monte_carlo_results(nominal_trajectory, time_vec, trajectories, FILE_PATH)
+
