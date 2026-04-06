@@ -4,7 +4,7 @@ import plotly.express as px
 from constants import mu, R_e, J2, J3, C_d, spacecraft_mass, spacecraft_area
 from Tools import Integrator, MeasurementMgr, CoordinateMgr, covariance_ellipse, UKF
 from scenarios import FILE_PATH, time_vec, initial_state, initial_covariance, NUM_TRAJECTORIES
-
+np.set_printoptions(linewidth=200)
 """
 This file runs CKF and UKF propagation on the initial covariance to analyze the validity
 of the covariance propagation using CKF and UKF methods. Data from the Monte Carlo simulations
@@ -13,7 +13,7 @@ is used as a reference to evaluate the accuracy of the covariance propagation.
 
 def load_in_mc_data(file_path: str):
     """
-    Loads Monte Carlo simulation data from a specified file path.
+    Loads Monte Carlo simulation data from a specified file path and only pulls states from 4 hour intervals.
 
     Parameters
     ----------
@@ -25,7 +25,10 @@ def load_in_mc_data(file_path: str):
     np.ndarray
         A numpy array containing the loaded Monte Carlo simulation trajectories.
     """
-    return np.load(file_path)
+
+    mc_data = np.load(file_path)
+    four_hour_indices = [i for i, t in enumerate(time_vec) if t % (4 * 3600) == 0]
+    return mc_data[:, :, four_hour_indices]
 
 def propagate_covariance_ckf(initial_covariance: np.ndarray, time_vec: np.ndarray):
     """
@@ -50,21 +53,19 @@ def propagate_covariance_ckf(initial_covariance: np.ndarray, time_vec: np.ndarra
     integrator = Integrator(mu=mu, R_e=R_e, J2=J2, Cd=C_d, spacecraft_mass=spacecraft_mass, spacecraft_area=spacecraft_area)
     final_time = time_vec[-1]
 
-    augmented_state_history = integrator.integrate_stm(final_time, initial_state, teval=time_vec)
+    _, augmented_state_history = integrator.integrate_stm(final_time, initial_state, teval=time_vec)
 
     # Separate the state transition matrix (STM) history from the augmented state history
-    stm_history = augmented_state_history[:, 6:].reshape(-1, 6, 6)
+    state_estimate = augmented_state_history[:6,:]  # Extract the state estimates (first 6 rows)
+    stm_history = augmented_state_history[6:,:].reshape(-1, 6, 6)
 
     # Propagate the covariance using the STM history
     num_steps = stm_history.shape[0]
     
-    ckf_state_estimate = np.zeros((6, num_steps))
     propagated_covariances = np.zeros((6, 6, num_steps))
     for i in range(num_steps):
-        ckf_state_estimate[:, i] = stm_history[i] @ initial_state
         propagated_covariances[:,:, i] = stm_history[i] @ initial_covariance @ stm_history[i].T
-
-    return ckf_state_estimate, propagated_covariances
+    return state_estimate, propagated_covariances
 
 def propagate_covariance_ukf(initial_covariance: np.ndarray, time_vec: np.ndarray, alpha : float = 1e-3, beta: float = 2.0, Q : np.ndarray= None):
     """
@@ -105,8 +106,8 @@ def propagate_covariance_ukf(initial_covariance: np.ndarray, time_vec: np.ndarra
     covariance_time_history = np.zeros((6, 6, len(time_vec)))
 
     for k, time in enumerate(time_vec):
+        print(f"UKF Time: {time}", flush=True)
         sigma_points = ukf.compute_sigma_points(x_est, P_est, gamma)
-        x_est, P_est = ukf.time_update(sigma_points, Wm, Wc)
         if k == 0:
             dt = 0
             predicted_sigma_points = sigma_points
@@ -145,22 +146,61 @@ def percentage_of_mc_inside_cov(mc_trajectories : list, nominal_state_list : lis
 
     num_trajectories = len(mc_trajectories)
     num_time_steps = mc_trajectories[0].shape[0]
-
+    percentage_per_time_step = np.zeros(num_time_steps)
     for t in range(num_time_steps):
+        time_step_total = 0
+        time_step_inside = 0
         nominal_state = nominal_state_list[t]
         cov = covariance_list[t]
 
         sigma_bounds = 2.0 * np.sqrt(np.diag(cov))
         
         for traj in mc_trajectories:
-            state = traj[t]
+            print(f"Computing for trajectory {traj} at time step {t}", end="\r")
+            state = traj[:,t]
+            time_step_total += 1
             total_states += 1
             if np.all(np.abs(state - nominal_state) <= sigma_bounds):
+                time_step_inside += 1
                 inside_count += 1
+        percentage_per_time_step[t] = (time_step_inside / time_step_total if time_step_total > 0 else 0) * 100.0
+
 
     percentage_inside = (inside_count / total_states) * 100.0
-    return percentage_inside
+    return percentage_inside, percentage_per_time_step
+
+if __name__ == "__main__":
+    # Load Monte Carlo simulation data
+    mc_trajectories = load_in_mc_data(f"{FILE_PATH}/monte_carlo_trajectories.npy")
+    four_hour_indices = [i for i, t in enumerate(time_vec) if t % (4 * 3600) == 0]
+    kf_time_vec = time_vec[four_hour_indices]
+
+    # Propagate covariance using CKF
+    ckf_state_estimate, ckf_covariances = propagate_covariance_ckf(initial_covariance, kf_time_vec)
+
+    # Propagate covariance using UKF
+    ukf_state_estimate, ukf_covariances = propagate_covariance_ukf(initial_covariance, kf_time_vec)
+
+    # # Find covariances at the four hour intervals for both CKF and UKF
+    # four_hour_indices = [i for i, t in enumerate(time_vec) if t % (4 * 3600) == 0]
+    # ckf_covariances_at_intervals = ckf_covariances[:,:, four_hour_indices]
+    # ukf_covariances_at_intervals = ukf_covariances[:,:, four_hour_indices]
 
 
+    # Calculate percentage of Monte Carlo states inside the 2-sigma covariance ellipse for CKF and UKF
+    print("Calculating percentage of Monte Carlo states inside the 2-sigma covariance ellipse for CKF...")
+    ckf_percentage_inside, ckf_percentage_per_time_step = percentage_of_mc_inside_cov(mc_trajectories, ckf_state_estimate.T, ckf_covariances.transpose(2, 0, 1))
+    print("Calculating percentage of Monte Carlo states inside the 2-sigma covariance ellipse for UKF...")
+    ukf_percentage_inside, ukf_percentage_per_time_step = percentage_of_mc_inside_cov(mc_trajectories, ukf_state_estimate.T, ukf_covariances.transpose(2, 0, 1))
 
+    print(f"Percentage of Monte Carlo states inside 2-sigma covariance ellipse (CKF): {ckf_percentage_inside:.2f}%")
+    print(f"Percentage of Monte Carlo states inside 2-sigma covariance ellipse (UKF): {ukf_percentage_inside:.2f}%")
+    print(f"Percentage of Monte Carlo states inside 2-sigma covariance ellipse at each time step (CKF): {ckf_percentage_per_time_step}")
+    print(f"Percentage of Monte Carlo states inside 2-sigma covariance ellipse at each time step (UKF): {ukf_percentage_per_time_step}")
 
+    # Write results to a text file
+    with open(f"{FILE_PATH}/covariance_propagation_results.txt", "w") as f:
+        f.write(f"Percentage of Monte Carlo states inside 2-sigma covariance ellipse (CKF): {ckf_percentage_inside:.2f}%\n")
+        f.write(f"Percentage of Monte Carlo states inside 2-sigma covariance ellipse (UKF): {ukf_percentage_inside:.2f}%\n")
+        f.write(f"Percentage of Monte Carlo states inside 2-sigma covariance ellipse per time step (CKF): {ckf_percentage_per_time_step}\n")
+        f.write(f"Percentage of Monte Carlo states inside 2-sigma covariance ellipse per time step (UKF): {ukf_percentage_per_time_step}\n")

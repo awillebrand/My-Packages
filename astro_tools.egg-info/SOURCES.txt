@@ -19,6 +19,10 @@ ASEN_6080/HW6/ukf_pytest.py
 ASEN_6080/HW7/HW7_main.py
 ASEN_6080/HW7/consider_cov_pytest.py
 ASEN_6080/HW7/theta_integration_testing.py
+ASEN_6080/HW8/constants.py
+ASEN_6080/HW8/covariance_propagation.py
+ASEN_6080/HW8/monte_carlo_gen.py
+ASEN_6080/HW8/scenarios.py
 ASEN_6080/Project1/data_conditioning.py
 ASEN_6080/Project1/main.py
 ASEN_6080/Project1/project_1_bls_testing.py
