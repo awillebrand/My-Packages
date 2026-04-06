@@ -118,7 +118,8 @@ class Integrator:
             v_dot = -mu * y / r**3 + (3 / 2) * (mu * J2 * self.R_e**2 * y / r**5) * (5 * (z**2 / r**2) - 1) + (5 / 2) * mu * J3 * self.R_e**3 * y * z / r**7 * (7 * z**2 / r**2 - 3)
             w_dot = -mu * z / r**3 + (3 / 2) * (mu * J2 * self.R_e**2 * z / r**5) * (5 * (z**2 / r**2) - 3) + (5 / 2) * mu * J3 * self.R_e**3 / r**5 * (7 * z**4 / r**4 - 6 * z**2 / r**2 + 3 / 5)
 
-            if 'Drag' in self.mode:
+            if Cd != None:
+                
                 V_rel = np.array([u + self.earth_spin_rate * y, v - self.earth_spin_rate * x, w])
                 u_rel, v_rel, w_rel = V_rel
                 V_rel_norm = np.linalg.norm(np.array([u, v, w]))

@@ -106,24 +106,25 @@ def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, time_vec : np.n
     
     figures = []
     analysis_results = {}
-    trajectory_data = np.zeros((len(trajectories), len(time_vec), 6))  # Assuming state vector has 6 components (x, y, z, vx, vy, vz)
+    
 
     # Find indexes of every 4 hours in the time vector (assuming time_vec is in seconds)
     four_hour_intervals = np.where((time_vec % (4 * 3600)) == 0)[0]
+    trajectory_data = np.zeros((len(trajectories), len(four_hour_intervals), 6))  # Assuming state vector has 6 components (x, y, z, vx, vy, vz)
     reduced_time_vec = time_vec[four_hour_intervals]
-    for idx in four_hour_intervals:
+    for j, idx in enumerate(four_hour_intervals):
         # Extract the trajectories at the current time step
 
         for i, traj in enumerate(trajectories):
             traj_at_time = np.array(traj[:,idx])  # Extract the state vector at the current time step for trajectory i
-            trajectory_data[i, idx, :] = traj_at_time # Store the state vector for trajectory i at the current time step
+            trajectory_data[i, j, :] = traj_at_time # Store the state vector for trajectory i at the current time step
 
         # Compute the mean and covariance at the current time step
         mean_at_time = np.zeros(6)
         for i in range(6):
-            mean_at_time[i] = np.mean(trajectory_data[:, idx, i])
+            mean_at_time[i] = np.mean(trajectory_data[:, j, i])
 
-        cov_at_time = np.cov(trajectory_data[:, idx, :].T)
+        cov_at_time = np.cov(trajectory_data[:, j, :].T)
         print(f"Time: {time_vec[idx]}s, State Component {i}: Mean = {mean_at_time}")
         # mean_at_time = np.mean(traj_at_time, axis=0)
         # cov_at_time = np.cov(traj_at_time.T)
@@ -134,15 +135,18 @@ def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, time_vec : np.n
     # Generate the trajectory plot with covariance ellipses
     fig = go.Figure()
     # Plot all trajectories
-    for i, traj in enumerate(trajectory_data):
+    color_list = ['red', 'green', 'blue', 'orange', 'purple', 'cyan', 'magenta']
+    for i, color in enumerate(color_list):
         fig.add_trace(go.Scatter3d(
-            x=traj[:, 0],
-            y=traj[:, 1],
-            z=traj[:, 2],
-            mode='lines',
-            name=f'Monte Carlo Trajectory',
-            showlegend=True if i == 0 else False,  # Show legend only for the first trajectory
+            x=trajectory_data[:, i, 0],
+            y=trajectory_data[:, i, 1],
+            z=trajectory_data[:, i, 2],
+            mode='markers',
+            name=f'Sample Point {i+1}',
+            line=dict(color=color, width=2),
+            showlegend=True
         ))
+
     # Plot nominal trajectory
     fig.add_trace(go.Scatter3d(
         x=nominal_trajectory[1][0, :],
@@ -169,6 +173,7 @@ def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, time_vec : np.n
         cov_at_time = analysis_results[time_vec[idx]]["covariance"]
         mean_at_time = analysis_results[time_vec[idx]]["mean"]
         ellipse_points = covariance_ellipse(mean_at_time[:3], cov_at_time[:3,:3], num_points=40)
+
         fig.add_trace(go.Scatter3d(
             x=[ellipse_points[:, 0]],
             y=[ellipse_points[:, 1]],
@@ -177,11 +182,12 @@ def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, time_vec : np.n
             marker=dict(size=2, color='red'),
             name=f'Covariance Ellipse at t={time_vec[idx]}s'
         ))
-
+    # set axes to be equal
     fig.update_layout(title='Monte Carlo Trajectories with Covariance Ellipses', scene=dict(
         xaxis_title='X (km)',
         yaxis_title='Y (km)',
-        zaxis_title='Z (km)'
+        zaxis_title='Z (km)',
+        aspectmode='data'
     ))
 
     figures.append(fig)

@@ -23,7 +23,7 @@ time_vec = np.arange(0.0, T_END + DT, DT)
 # INITIAL STATE  [x, y, z (km), vx, vy, vz (km/s)]
 # ─────────────────────────────────────────────
 initial_state = np.array([
-    6878.0, 0.0, 0.0,
+    6828.0, 0.0, 0.0,
     0.0,    7.612, 0.0
 ])
 
