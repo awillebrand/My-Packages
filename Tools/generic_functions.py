@@ -321,6 +321,42 @@ def covariance_ellipse(center, cov_matrix, num_points=120):
 
     return ellipse_points.T + center
 
+def covariance_ellipse_2D(center, cov_matrix, num_points=120, sigma_level=3):
+    """
+    This function computes the covariance ellipse for a 2 dimensional Gaussian distribution given its mean and covariance matrix.
+    Parameters:
+    center : np.Array
+        Array representing the mean (x, y) of the distribution.
+    cov_matrix : np.Array
+        2x2 covariance matrix for the x and y dimensions.
+    num_points : int, optional
+        Number of points to generate along the ellipse. Default is 120.
+    sigma_level : float, optional
+        The sigma level to scale the ellipse by. Default is 3, which corresponds to a 99.7% confidence interval for a 2D Gaussian distribution.
+    Returns:
+    ellipse_points : np.Array
+        Array of shape (num_points, 2) containing the coordinates of the covariance ellipse.
+    """
+
+    # Eigenvalue decomposition of the covariance matrix
+    eigenvalues, eigenvectors = np.linalg.eig(cov_matrix)
+
+    # Sort the eigenvalues and corresponding eigenvectors
+    order = np.argsort(eigenvalues)[::-1]
+    eigenvalues = eigenvalues[order]
+    eigenvectors = eigenvectors[:, order]
+    # Generate points on a unit sphere
+    phi = np.linspace(0, np.pi, num_points)
+    theta = np.linspace(0, 2 * np.pi, num_points)
+    phi, theta = np.meshgrid(phi, theta)
+    x_circle = np.cos(theta)
+    y_circle = np.sin(theta)
+
+    # Scale the unit circle by the eigenvalues (which represent the lengths of the ellipse axes)
+    ellipse_points = eigenvectors @ np.diag(sigma_level*np.sqrt(eigenvalues)) @ np.array([x_circle.flatten(), y_circle.flatten()])
+
+    return ellipse_points.T + center
+
 def keplerian_to_cartesian(mu, a, e, i, LoN, AoP, f):
     # Compute perifocal radius magnitude
     r_mag = a * (1 - e**2) / (1 + e * np.cos(f))

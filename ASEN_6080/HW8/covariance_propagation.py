@@ -54,6 +54,8 @@ def propagate_covariance_ckf(initial_covariance: np.ndarray, t_vec: np.ndarray):
     final_time = t_vec[-1]
 
     augmented_initial_state = np.hstack((initial_state, [J2, C_d]))
+    augmented_initial_covariance = np.zeros((8, 8))
+    augmented_initial_covariance[:6, :6] = initial_covariance
 
     _, augmented_state_history = integrator.integrate_stm(final_time, augmented_initial_state, teval=t_vec)
 
@@ -61,11 +63,11 @@ def propagate_covariance_ckf(initial_covariance: np.ndarray, t_vec: np.ndarray):
     state_estimate = augmented_state_history[:6,:]  # Extract the state estimates (first 6 rows)
     
     num_steps = state_estimate.shape[1]
-    propagated_covariances = np.zeros((6, 6, num_steps))
+    propagated_covariances = np.zeros((8, 8, num_steps))
     for i in range(num_steps):
-        stm_i = augmented_state_history[8:, i].reshape(8, 8)[:6, :6]  # Extract the STM for the state variables
-        propagated_covariances[:, :, i] = stm_i @ initial_covariance @ stm_i.T
-    return state_estimate, propagated_covariances
+        stm_i = augmented_state_history[8:, i].reshape(8, 8)  # Extract the STM for the state variables
+        propagated_covariances[:, :, i] = stm_i @ augmented_initial_covariance @ stm_i.T
+    return state_estimate, propagated_covariances[:6, :6, :]
 
 def propagate_covariance_ukf(initial_covariance: np.ndarray, time_vec: np.ndarray, alpha : float = 1e-2, beta: float = 2.0, Q : np.ndarray= None):
     """
@@ -255,6 +257,7 @@ def plot_covariance_ellipses(ckf_state_estimate: np.ndarray, ckf_covariances: np
     for i in range(num_steps):
         center = ckf_state_estimate[:3, i]
         cov_3x3 = ckf_covariances[:3, :3, i]
+        breakpoint()
         ellipse_points = covariance_ellipse(center, cov_3x3, num_points=n_pts)
 
         fig.add_trace(go.Mesh3d(
