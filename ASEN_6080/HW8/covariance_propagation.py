@@ -30,7 +30,7 @@ def load_in_mc_data(file_path: str):
     four_hour_indices = [i for i, t in enumerate(time_vec) if t % (4 * 3600) == 0]
     return mc_data[:, :, four_hour_indices]
 
-def propagate_covariance_ckf(initial_covariance: np.ndarray, time_vec: np.ndarray):
+def propagate_covariance_ckf(initial_covariance: np.ndarray, t_vec: np.ndarray):
     """
     Propagates the initial covariance using the Classical Kalman Filter (CKF) method.
     This just computes the STM time history and propagates the covariance using the linearized dynamics.
@@ -39,7 +39,7 @@ def propagate_covariance_ckf(initial_covariance: np.ndarray, time_vec: np.ndarra
     ----------
     initial_covariance : np.ndarray
         The initial covariance matrix of the state vector.
-    time_vec : np.ndarray
+    t_vec : np.ndarray
         The time vector for the propagation, specifying the time steps at which to compute the covariance.
 
     Returns
@@ -51,9 +51,9 @@ def propagate_covariance_ckf(initial_covariance: np.ndarray, time_vec: np.ndarra
     """
     
     integrator = Integrator(mu=mu, R_e=R_e, J2=J2, Cd=C_d, spacecraft_mass=spacecraft_mass, spacecraft_area=spacecraft_area)
-    final_time = time_vec[-1]
+    final_time = t_vec[-1]
 
-    _, augmented_state_history = integrator.integrate_stm(final_time, initial_state, teval=time_vec)
+    _, augmented_state_history = integrator.integrate_stm(final_time, initial_state, teval=t_vec)
 
     # Separate the state transition matrix (STM) history from the augmented state history
     state_estimate = augmented_state_history[:6,:]  # Extract the state estimates (first 6 rows)
