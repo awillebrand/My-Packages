@@ -344,7 +344,6 @@ def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, time_vec : np.n
         n_pts = 40
         ellipse_points = covariance_ellipse(mean_at_time[:3], cov_at_time[:3,:3], num_points=n_pts)
 
-         # Cleaner version:
         tri_i, tri_j, tri_k = [], [], []
         for row in range(n_pts - 1):
             for col in range(n_pts - 1):

@@ -65,7 +65,7 @@ def propagate_covariance_ckf(initial_covariance: np.ndarray, time_vec: np.ndarra
         propagated_covariances[:, :, i] = stm_i @ initial_covariance @ stm_i.T
     return state_estimate, propagated_covariances
 
-def propagate_covariance_ukf(initial_covariance: np.ndarray, time_vec: np.ndarray, alpha : float = 1e-3, beta: float = 2.0, Q : np.ndarray= None):
+def propagate_covariance_ukf(initial_covariance: np.ndarray, time_vec: np.ndarray, alpha : float = 1e-2, beta: float = 2.0, Q : np.ndarray= None):
     """
     Propagates the initial covariance using the Unscented Kalman Filter (UKF) method.
     This method uses the unscented transform to propagate the covariance through the nonlinear dynamics,
@@ -167,6 +167,146 @@ def percentage_of_mc_inside_cov(mc_trajectories : list, nominal_state_list : lis
     percentage_inside = (inside_count / total_states) * 100.0
     return percentage_inside, percentage_per_time_step
 
+def plot_covariance_ellipses(ckf_state_estimate: np.ndarray, ckf_covariances: np.ndarray,
+                              ukf_state_estimate: np.ndarray, ukf_covariances: np.ndarray,
+                              kf_time_vec: np.ndarray, mc_trajectories: np.ndarray, file_path: str):
+    """
+    Plots 3D covariance ellipses for the CKF and UKF propagated covariances at each time step,
+    overlaid with the Monte Carlo scatter points for comparison.
+
+    Parameters
+    ----------
+    ckf_state_estimate : np.ndarray
+        A 2D numpy array (6 x num_steps) of CKF state estimates at each time step.
+    ckf_covariances : np.ndarray
+        A 3D numpy array (6 x 6 x num_steps) of CKF propagated covariance matrices.
+    ukf_state_estimate : np.ndarray
+        A 2D numpy array (6 x num_steps) of UKF state estimates at each time step.
+    ukf_covariances : np.ndarray
+        A 3D numpy array (6 x 6 x num_steps) of UKF propagated covariance matrices.
+    kf_time_vec : np.ndarray
+        The time vector (in seconds) corresponding to the covariance time steps.
+    mc_trajectories : np.ndarray
+        Monte Carlo trajectory data, shape (num_trajectories, 6, num_time_steps).
+    file_path : str
+        The file path where the generated figure will be saved.
+
+    Returns
+    -------
+    fig : go.Figure
+        The Plotly figure containing the covariance ellipses and Monte Carlo scatter points.
+    """
+    n_pts = 40
+    num_steps = len(kf_time_vec)
+    ckf_colors = ['red', 'salmon', 'firebrick', 'indianred', 'darkred', 'orangered', 'tomato']
+    ukf_colors = ['blue', 'cornflowerblue', 'darkblue', 'royalblue', 'navy', 'steelblue', 'dodgerblue']
+
+    fig = go.Figure()
+
+    # Plot Monte Carlo scatter points at each time step
+    for i in range(num_steps):
+        mc_positions = mc_trajectories[:, :3, i]  # shape: (num_traj, 3)
+        fig.add_trace(go.Scatter3d(
+            x=mc_positions[:, 0],
+            y=mc_positions[:, 1],
+            z=mc_positions[:, 2],
+            mode='markers',
+            marker=dict(size=1.5, color='gray', opacity=0.3),
+            name=f'MC Samples t={kf_time_vec[i]/3600:.0f}h',
+            showlegend=(i == 0)
+        ))
+
+    # Plot CKF state trajectory
+    fig.add_trace(go.Scatter3d(
+        x=ckf_state_estimate[0, :],
+        y=ckf_state_estimate[1, :],
+        z=ckf_state_estimate[2, :],
+        mode='lines+markers',
+        name='CKF State Estimate',
+        line=dict(color='red', width=4),
+        marker=dict(size=3, color='red')
+    ))
+
+    # Plot UKF state trajectory
+    fig.add_trace(go.Scatter3d(
+        x=ukf_state_estimate[0, :],
+        y=ukf_state_estimate[1, :],
+        z=ukf_state_estimate[2, :],
+        mode='lines+markers',
+        name='UKF State Estimate',
+        line=dict(color='blue', width=4),
+        marker=dict(size=3, color='blue')
+    ))
+
+    # Build triangle indices for the Mesh3d surface (same grid for all ellipses)
+    tri_i, tri_j, tri_k = [], [], []
+    for row in range(n_pts - 1):
+        for col in range(n_pts - 1):
+            p0 = row * n_pts + col
+            p1 = p0 + 1
+            p2 = p0 + n_pts
+            p3 = p2 + 1
+            tri_i.extend([p0, p0])
+            tri_j.extend([p1, p3])
+            tri_k.extend([p2, p1])
+
+    # Plot CKF covariance ellipses
+    for i in range(num_steps):
+        center = ckf_state_estimate[:3, i]
+        cov_3x3 = ckf_covariances[:3, :3, i]
+        ellipse_points = covariance_ellipse(center, cov_3x3, num_points=n_pts)
+
+        fig.add_trace(go.Mesh3d(
+            x=ellipse_points[:, 0],
+            y=ellipse_points[:, 1],
+            z=ellipse_points[:, 2],
+            i=tri_i,
+            j=tri_j,
+            k=tri_k,
+            color=ckf_colors[i % len(ckf_colors)],
+            opacity=0.2,
+            name=f'CKF Cov Ellipse t={kf_time_vec[i]/3600:.0f}h',
+            showlegend=True
+        ))
+
+    # Plot UKF covariance ellipses
+    for i in range(num_steps):
+        center = ukf_state_estimate[:3, i]
+        cov_3x3 = ukf_covariances[:3, :3, i]
+        ellipse_points = covariance_ellipse(center, cov_3x3, num_points=n_pts)
+
+        fig.add_trace(go.Mesh3d(
+            x=ellipse_points[:, 0],
+            y=ellipse_points[:, 1],
+            z=ellipse_points[:, 2],
+            i=tri_i,
+            j=tri_j,
+            k=tri_k,
+            color=ukf_colors[i % len(ukf_colors)],
+            opacity=0.2,
+            name=f'UKF Cov Ellipse t={kf_time_vec[i]/3600:.0f}h',
+            showlegend=True
+        ))
+
+    fig.update_layout(
+        title='CKF vs UKF Propagated Covariance Ellipses with Monte Carlo Samples',
+        title_font=dict(size=24),
+        width=1200,
+        height=900,
+        scene=dict(
+            xaxis_title='X (km)',
+            yaxis_title='Y (km)',
+            zaxis_title='Z (km)',
+        ),
+        legend=dict(font=dict(size=12)),
+    )
+
+    fig.write_html(f"{file_path}/ckf_ukf_covariance_ellipses.html")
+    print(f"Saved: {file_path}/ckf_ukf_covariance_ellipses.html")
+
+    return fig
+
+
 if __name__ == "__main__":
     # Load Monte Carlo simulation data
     mc_trajectories = load_in_mc_data(f"{FILE_PATH}/monte_carlo_trajectories.npy")
@@ -191,6 +331,14 @@ if __name__ == "__main__":
     print("Calculating percentage of Monte Carlo states inside the 2-sigma covariance ellipse for UKF...")
     ukf_percentage_inside, ukf_percentage_per_time_step = percentage_of_mc_inside_cov(mc_trajectories, ukf_state_estimate.T, ukf_covariances.transpose(2, 0, 1))
 
+    # Plot covariance ellipses and Monte Carlo scatter points
+    # Plot CKF and UKF covariance ellipses with Monte Carlo samples
+    fig = plot_covariance_ellipses(ckf_state_estimate, ckf_covariances,
+                                   ukf_state_estimate, ukf_covariances,
+                                   kf_time_vec, mc_trajectories, FILE_PATH)
+    fig.write_html(f"{FILE_PATH}/ckf_ukf_covariance_ellipses.html")
+    print(f"Saved: {FILE_PATH}/ckf_ukf_covariance_ellipses.html")
+    
     print(f"Percentage of Monte Carlo states inside 2-sigma covariance ellipse (CKF): {ckf_percentage_inside:.2f}%")
     print(f"Percentage of Monte Carlo states inside 2-sigma covariance ellipse (UKF): {ukf_percentage_inside:.2f}%")
     print(f"Percentage of Monte Carlo states inside 2-sigma covariance ellipse at each time step (CKF): {ckf_percentage_per_time_step}")
