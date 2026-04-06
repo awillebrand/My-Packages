@@ -5,6 +5,8 @@ Edit this file to define your simulation parameters.
 """
 
 import numpy as np
+from Tools.generic_functions import keplerian_to_cartesian
+from constants import mu
 
 # ─────────────────────────────────────────────
 # OUTPUT
@@ -22,10 +24,17 @@ time_vec = np.arange(0.0, T_END + DT, DT)
 # ─────────────────────────────────────────────
 # INITIAL STATE  [x, y, z (km), vx, vy, vz (km/s)]
 # ─────────────────────────────────────────────
-initial_state = np.array([
-    6828.0, 0.0, 0.0,
-    0.0,    7.612, 0.0
-])
+initial_pos, initial_vel = keplerian_to_cartesian(
+    mu=mu,             # Gravitational parameter (km^3/s^2)
+    a=7000.0,          # Semi-major axis (km)
+    e=0.001,           # Eccentricity
+    i=30.0,            # Inclination (degrees)
+    LoN=0.0,           # Right Ascension of Ascending Node (degrees)
+    AoP=0.0,           # Argument of Perigee (degrees)
+    f=0.0              # True Anomaly (degrees)
+)
+
+initial_state = np.hstack((initial_pos, initial_vel))
 
 # ─────────────────────────────────────────────
 # INITIAL COVARIANCE

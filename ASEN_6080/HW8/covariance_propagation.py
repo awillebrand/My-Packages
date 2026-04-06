@@ -57,14 +57,12 @@ def propagate_covariance_ckf(initial_covariance: np.ndarray, time_vec: np.ndarra
 
     # Separate the state transition matrix (STM) history from the augmented state history
     state_estimate = augmented_state_history[:6,:]  # Extract the state estimates (first 6 rows)
-    stm_history = augmented_state_history[6:,:].reshape(-1, 6, 6)
-
-    # Propagate the covariance using the STM history
-    num_steps = stm_history.shape[0]
     
+    num_steps = state_estimate.shape[1]
     propagated_covariances = np.zeros((6, 6, num_steps))
     for i in range(num_steps):
-        propagated_covariances[:,:, i] = stm_history[i] @ initial_covariance @ stm_history[i].T
+        stm_i = augmented_state_history[6:, i].reshape(6, 6)
+        propagated_covariances[:, :, i] = stm_i @ initial_covariance @ stm_i.T
     return state_estimate, propagated_covariances
 
 def propagate_covariance_ukf(initial_covariance: np.ndarray, time_vec: np.ndarray, alpha : float = 1e-3, beta: float = 2.0, Q : np.ndarray= None):
