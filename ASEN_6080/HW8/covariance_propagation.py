@@ -50,10 +50,10 @@ def propagate_covariance_ckf(initial_covariance: np.ndarray, t_vec: np.ndarray):
         A 3D numpy array containing the propagated covariance matrices at each time step.
     """
     
-    integrator = Integrator(mu=mu, R_e=R_e, J2=J2, Cd=C_d, spacecraft_mass=spacecraft_mass, spacecraft_area=spacecraft_area, mode=['J2'], parameter_indices=[6])
+    integrator = Integrator(mu=mu, R_e=R_e, J2=J2, Cd=C_d, spacecraft_mass=spacecraft_mass, spacecraft_area=spacecraft_area, mode=['J2', 'Drag'], parameter_indices=[6, 7])
     final_time = t_vec[-1]
 
-    augmented_initial_state = np.hstack((initial_state, [J2]))
+    augmented_initial_state = np.hstack((initial_state, [J2, C_d]))
 
     _, augmented_state_history = integrator.integrate_stm(final_time, augmented_initial_state, teval=t_vec)
 
@@ -63,7 +63,7 @@ def propagate_covariance_ckf(initial_covariance: np.ndarray, t_vec: np.ndarray):
     num_steps = state_estimate.shape[1]
     propagated_covariances = np.zeros((6, 6, num_steps))
     for i in range(num_steps):
-        stm_i = augmented_state_history[7:, i].reshape(7, 7)[:6, :6]  # Extract the STM for the state variables
+        stm_i = augmented_state_history[8:, i].reshape(8, 8)[:6, :6]  # Extract the STM for the state variables
         propagated_covariances[:, :, i] = stm_i @ initial_covariance @ stm_i.T
     return state_estimate, propagated_covariances
 
