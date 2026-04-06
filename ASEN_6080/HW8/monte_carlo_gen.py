@@ -2,7 +2,7 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 from constants import mu, R_e, J2, J3, C_d, spacecraft_mass, spacecraft_area
-from Tools import Integrator, MeasurementMgr, CoordinateMgr, covariance_ellipse
+from Tools import Integrator, MeasurementMgr, CoordinateMgr, covariance_ellipse, covariance_ellipse_2D
 from scenarios import FILE_PATH, time_vec, initial_state, initial_covariance, NUM_TRAJECTORIES
 from multiprocessing import Pool, cpu_count
 import signal
@@ -88,7 +88,6 @@ def generate_corner_plots(trajectory_data: np.ndarray, four_hour_intervals: np.n
         The generated corner plot figures, one per 4-hour interval.
     """
     from plotly.subplots import make_subplots
-    from scipy.stats import gaussian_kde
 
     state_labels = ['X (km)', 'Y (km)', 'Z (km)', 'Vx (km/s)', 'Vy (km/s)', 'Vz (km/s)']
     n = 6
@@ -96,6 +95,8 @@ def generate_corner_plots(trajectory_data: np.ndarray, four_hour_intervals: np.n
 
     for interval_idx in range(len(four_hour_intervals)):
         samples = trajectory_data[:, interval_idx, :]  # shape: (num_traj, 6)
+        cov_full = np.cov(samples.T)  # shape: (6, 6)
+        means = np.mean(samples, axis=0)  # shape: (6,)
 
         fig = make_subplots(
             rows=n, cols=n,
@@ -176,30 +177,21 @@ def generate_corner_plots(trajectory_data: np.ndarray, four_hour_intervals: np.n
                         row=row, col=col
                     )
 
-                    # KDE contours
-                    fig.add_trace(
-                        go.Histogram2dContour(
-                            x=x_data,
-                            y=y_data,
-                            colorscale=[
-                                [0.0, 'rgba(0,0,0,0)'],
-                                [0.15, 'rgba(100,149,237,0.2)'],
-                                [0.5, 'rgba(70,100,200,0.5)'],
-                                [0.85, 'rgba(30,50,160,0.8)'],
-                                [1.0, 'rgba(0,0,80,1.0)'],
-                            ],
-                            reversescale=False,
-                            showscale=False,
-                            contours=dict(
-                                showlabels=False,
-                                coloring='fill',
+                    # Covariance ellipses at 1σ, 2σ, 3σ
+                    center = means[[ci, ri]]
+                    cov_2x2 = cov_full[np.ix_([ci, ri], [ci, ri])]
+                    for sigma in [1, 2, 3]:
+                        ellipse_pts = covariance_ellipse_2D(center, cov_2x2, num_points=120, sigma_level=sigma)
+                        fig.add_trace(
+                            go.Scatter(
+                                x=ellipse_pts[:, 0],
+                                y=ellipse_pts[:, 1],
+                                mode='lines',
+                                line=dict(color='navy', width=1.5),
+                                showlegend=False,
                             ),
-                            line=dict(color='navy', width=1),
-                            ncontours=5,
-                            showlegend=False,
-                        ),
-                        row=row, col=col
-                    )
+                            row=row, col=col
+                        )
 
         # ── Axis labels: bottom row gets x-labels, leftmost col gets y-labels ──
         for i in range(n):
