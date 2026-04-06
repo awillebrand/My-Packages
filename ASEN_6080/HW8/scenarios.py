@@ -15,7 +15,7 @@ FILE_PATH = "ASEN_6080/HW8/figures"
 # TIME VECTOR
 # ─────────────────────────────────────────────
 T_END = 24 * 3600.0   # seconds
-DT    = 10.0          # seconds
+DT    = 60.0          # seconds
 
 time_vec = np.arange(0.0, T_END + DT, DT)
 

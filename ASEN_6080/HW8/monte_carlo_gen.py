@@ -17,8 +17,8 @@ point for the script, which sets up the initial conditions, runs the Monte Carlo
 def _integrate_single(args):
     sampled_state, final_time, time_vec = args
     integrator = Integrator(mu, R_e, J2=J2, Cd=C_d, spacecraft_mass=spacecraft_mass, spacecraft_area=spacecraft_area)
-
-    return integrator.integrate_eom(final_time, sampled_state, teval=time_vec)
+    _, state_history = integrator.integrate_eom(final_time, sampled_state, teval=time_vec)
+    return state_history
 
 def generate_monte_carlo_trajectories(initial_state : np.ndarray, covariance : np.ndarray, num_traj : int, time_vec : np.ndarray):
     """
@@ -58,13 +58,14 @@ def generate_monte_carlo_trajectories(initial_state : np.ndarray, covariance : n
         for _ in range(num_traj)
     ]
     args = [(s, final_time, time_vec) for s in sampled_states]
-    
+
+    trajectories = []
     # Workers ignore SIGINT — let the parent handle it
-    with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
+    num_workers = min(cpu_count() // 2, 6)  # Use half your cores
+    with ProcessPoolExecutor(max_workers=num_workers) as executor:
         futures = [executor.submit(_integrate_single, a) for a in args]
         try:
             for future in tqdm(as_completed(futures), total=num_traj, desc="Monte Carlo"):
-                print(f"\rGenerating trajectory {i}/{num_traj}", end="", flush=True)
                 trajectories.append(future.result())
         except KeyboardInterrupt:
             print("\nCaught Ctrl+C — cancelling remaining work...")
@@ -109,14 +110,23 @@ def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, time_vec : np.n
 
     # Find indexes of every 4 hours in the time vector (assuming time_vec is in seconds)
     four_hour_intervals = np.where((time_vec % (4 * 3600)) == 0)[0]
+    reduced_time_vec = time_vec[four_hour_intervals]
     for idx in four_hour_intervals:
         # Extract the trajectories at the current time step
-        traj_at_time = np.array([traj[idx, :] for traj in trajectories])
-        trajectory_data[:, idx, :] = traj_at_time
+
+        for i, traj in enumerate(trajectories):
+            traj_at_time = np.array(traj[:,idx])  # Extract the state vector at the current time step for trajectory i
+            trajectory_data[i, idx, :] = traj_at_time # Store the state vector for trajectory i at the current time step
 
         # Compute the mean and covariance at the current time step
-        mean_at_time = np.mean(traj_at_time, axis=0)
-        cov_at_time = np.cov(traj_at_time.T)
+        mean_at_time = np.zeros(6)
+        for i in range(6):
+            mean_at_time[i] = np.mean(trajectory_data[:, idx, i])
+
+        cov_at_time = np.cov(trajectory_data[:, idx, :].T)
+        print(f"Time: {time_vec[idx]}s, State Component {i}: Mean = {mean_at_time}")
+        # mean_at_time = np.mean(traj_at_time, axis=0)
+        # cov_at_time = np.cov(traj_at_time.T)
         analysis_results[time_vec[idx]] = {
             "mean": mean_at_time,
             "covariance": cov_at_time
@@ -130,20 +140,21 @@ def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, time_vec : np.n
             y=traj[:, 1],
             z=traj[:, 2],
             mode='lines',
-            name=f'Monte Carlo Trajectory {i}'
+            name=f'Monte Carlo Trajectory',
+            showlegend=True if i == 0 else False,  # Show legend only for the first trajectory
         ))
     # Plot nominal trajectory
     fig.add_trace(go.Scatter3d(
-        x=nominal_trajectory[:, 0],
-        y=nominal_trajectory[:, 1],
-        z=nominal_trajectory[:, 2],
+        x=nominal_trajectory[1][0, :],
+        y=nominal_trajectory[1][1, :],
+        z=nominal_trajectory[1][2, :],
         mode='lines',
         name='Nominal Trajectory',
         line=dict(color='black', width=4)
     ))
     
     # Plot mean trajectory
-    mean_trajectory = np.array([analysis_results[time]["mean"] for time in time_vec])
+    mean_trajectory = np.array([analysis_results[time]["mean"] for time in reduced_time_vec])
     fig.add_trace(go.Scatter3d(
         x=mean_trajectory[:, 0],
         y=mean_trajectory[:, 1],
@@ -157,7 +168,7 @@ def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, time_vec : np.n
     for idx in four_hour_intervals:
         cov_at_time = analysis_results[time_vec[idx]]["covariance"]
         mean_at_time = analysis_results[time_vec[idx]]["mean"]
-        ellipse_points = covariance_ellipse(mean_at_time, cov_at_time, n_points=40)
+        ellipse_points = covariance_ellipse(mean_at_time[:3], cov_at_time[:3,:3], num_points=40)
         fig.add_trace(go.Scatter3d(
             x=[ellipse_points[:, 0]],
             y=[ellipse_points[:, 1]],
@@ -174,7 +185,7 @@ def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, time_vec : np.n
     ))
 
     figures.append(fig)
-    fig.write_image(f"{file_path}/monte_carlo_trajectories.png")
+    fig.write_html(f"{file_path}/monte_carlo_trajectories.html")
 
     return figures, analysis_results
 
@@ -188,6 +199,3 @@ if __name__ == "__main__":
     nominal_trajectory = integrator.integrate_eom(time_vec[-1], initial_state, teval=time_vec)
     trajectories = generate_monte_carlo_trajectories(initial_state, initial_covariance, NUM_TRAJECTORIES, time_vec)
     figures, analysis_results = analyze_monte_carlo_results(nominal_trajectory, time_vec, trajectories, FILE_PATH)
-
-    # Save the trajectories to a file for later analysis
-    np.save(f"{FILE_PATH}/monte_carlo_trajectories.npy", trajectories)
