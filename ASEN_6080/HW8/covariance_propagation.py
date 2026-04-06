@@ -96,21 +96,20 @@ def propagate_covariance_ukf(initial_covariance: np.ndarray, time_vec: np.ndarra
 
     L = len(initial_state)
     Wm, Wc, gamma = ukf.compute_weights(alpha, beta, L)
-
-    x_est = initial_state.copy()
-    P_est = initial_covariance.copy()
     
     state_time_history = np.zeros((6, len(time_vec)))
     covariance_time_history = np.zeros((6, 6, len(time_vec)))
 
     for k, time in enumerate(time_vec):
+        x_est = initial_state.copy()
+        P_est = initial_covariance.copy()
         print(f"UKF Time: {time}", flush=True)
         sigma_points = ukf.compute_sigma_points(x_est, P_est, gamma)
         if k == 0:
             dt = 0
             predicted_sigma_points = sigma_points
         else:
-            dt=time - time_vec[k-1]
+            dt=time - time_vec[0]
             predicted_sigma_points = ukf.propagate_sigma_points(sigma_points, dt=dt)
 
         # Time update to get predicted state mean and covariance
