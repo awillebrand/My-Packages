@@ -8,6 +8,7 @@ from multiprocessing import Pool, cpu_count
 import signal
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
+np.set_printoptions(linewidth=200)
 
 """
 This script generates Monte Carlo simulations trajectories in LEO (Low Earth Orbit) with mu, J2, and drag effects. The distribution is based on some inputted

@@ -1,8 +1,9 @@
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
+import scipy.stats
 from constants import mu, R_e, J2, J3, C_d, spacecraft_mass, spacecraft_area
-from Tools import Integrator, MeasurementMgr, CoordinateMgr, covariance_ellipse, UKF
+from Tools import Integrator, MeasurementMgr, CoordinateMgr, covariance_ellipse, covariance_ellipse_2D, UKF
 from scenarios import FILE_PATH, time_vec, initial_state, initial_covariance, NUM_TRAJECTORIES
 np.set_printoptions(linewidth=200)
 """
@@ -124,51 +125,79 @@ def propagate_covariance_ukf(initial_covariance: np.ndarray, time_vec: np.ndarra
 
     return state_time_history, covariance_time_history
 
-def percentage_of_mc_inside_cov(mc_trajectories : list, nominal_state_list : list,covariance_list : list):
-    """
-    Calculates the percentage of Monte Carlo simulation states that lie within the 2-sigma covariance ellipse.
+# def percentage_of_mc_inside_cov(mc_trajectories : list, nominal_state_list : list,covariance_list : list):
+#     """
+#     Calculates the percentage of Monte Carlo simulation states that lie within the 2-sigma covariance ellipse.
 
-    Parameters
-    ----------
-    mc_states : list
-        A list of Monte Carlo simulation trajectories. Contains a list of numpy arrays, where each array represents the state vectors of a single trajectory at each time step.
-    nominal_state_list : list
-        A list of nominal state vectors at each time step. Covariance centered around this nominal state.
-    covariance_list : np.ndarray
-        The list of covariance matrices at the time steps corresponding to the Monte Carlo trajectories.
+#     Parameters
+#     ----------
+#     mc_states : list
+#         A list of Monte Carlo simulation trajectories. Contains a list of numpy arrays, where each array represents the state vectors of a single trajectory at each time step.
+#     nominal_state_list : list
+#         A list of nominal state vectors at each time step. Covariance centered around this nominal state.
+#     covariance_list : np.ndarray
+#         The list of covariance matrices at the time steps corresponding to the Monte Carlo trajectories.
 
-    Returns
-    -------
-    float
-        The percentage of Monte Carlo states that lie within the 2-sigma covariance ellipse.
-    """
+#     Returns
+#     -------
+#     float
+#         The percentage of Monte Carlo states that lie within the 2-sigma covariance ellipse.
+#     """
+#     total_states = 0
+#     inside_count = 0
+
+#     num_trajectories = len(mc_trajectories)
+#     num_time_steps = mc_trajectories[0].shape[0]
+#     percentage_per_time_step = np.zeros(num_time_steps)
+#     for t in range(num_time_steps):
+#         time_step_total = 0
+#         time_step_inside = 0
+#         nominal_state = nominal_state_list[t]
+#         cov = covariance_list[t]
+
+#         sigma_bounds = 2.0 * np.sqrt(np.diag(cov))
+        
+#         for traj in mc_trajectories:
+#             print(f"Computing for trajectory {traj} at time step {t}", end="\r")
+#             state = traj[:,t]
+#             time_step_total += 1
+#             total_states += 1
+#             if np.all(np.abs(state - nominal_state) <= sigma_bounds):
+#                 time_step_inside += 1
+#                 inside_count += 1
+#         percentage_per_time_step[t] = (time_step_inside / time_step_total if time_step_total > 0 else 0) * 100.0
+
+
+#     percentage_inside = (inside_count / total_states) * 100.0
+#     return percentage_inside, percentage_per_time_step
+
+def percentage_of_mc_inside_cov(mc_trajectories, nominal_state_list, covariance_list):
     total_states = 0
     inside_count = 0
-
-    num_trajectories = len(mc_trajectories)
-    num_time_steps = mc_trajectories[0].shape[0]
+    num_time_steps = mc_trajectories[0].shape[1]
     percentage_per_time_step = np.zeros(num_time_steps)
+
+    # 2-sigma threshold for a 6D chi-squared distribution
+    chi2_threshold = scipy.stats.chi2.ppf(0.9545, df=6)  # ~6-state system
+
     for t in range(num_time_steps):
-        time_step_total = 0
         time_step_inside = 0
         nominal_state = nominal_state_list[t]
         cov = covariance_list[t]
+        cov_inv = np.linalg.inv(cov)
 
-        sigma_bounds = 2.0 * np.sqrt(np.diag(cov))
-        
         for traj in mc_trajectories:
-            print(f"Computing for trajectory {traj} at time step {t}", end="\r")
-            state = traj[:,t]
-            time_step_total += 1
-            total_states += 1
-            if np.all(np.abs(state - nominal_state) <= sigma_bounds):
+            state = traj[:, t]
+            dx = state - nominal_state
+            mahal_sq = dx @ cov_inv @ dx  # Mahalanobis distance squared
+            if mahal_sq <= chi2_threshold:
                 time_step_inside += 1
                 inside_count += 1
-        percentage_per_time_step[t] = (time_step_inside / time_step_total if time_step_total > 0 else 0) * 100.0
+            total_states += 1
 
+        percentage_per_time_step[t] = (time_step_inside / len(mc_trajectories)) * 100.0
 
-    percentage_inside = (inside_count / total_states) * 100.0
-    return percentage_inside, percentage_per_time_step
+    return (inside_count / total_states) * 100.0, percentage_per_time_step
 
 def plot_covariance_ellipses(ckf_state_estimate: np.ndarray, ckf_covariances: np.ndarray,
                               ukf_state_estimate: np.ndarray, ukf_covariances: np.ndarray,
@@ -257,7 +286,7 @@ def plot_covariance_ellipses(ckf_state_estimate: np.ndarray, ckf_covariances: np
     for i in range(num_steps):
         center = ckf_state_estimate[:3, i]
         cov_3x3 = ckf_covariances[:3, :3, i]
-        breakpoint()
+  
         ellipse_points = covariance_ellipse(center, cov_3x3, num_points=n_pts)
 
         fig.add_trace(go.Mesh3d(
@@ -310,10 +339,186 @@ def plot_covariance_ellipses(ckf_state_estimate: np.ndarray, ckf_covariances: np
 
     return fig
 
+def generate_corner_plots(state_vecs : np.ndarray, cov_mat : np.ndarray, trajectory_data: np.ndarray, four_hour_intervals: np.ndarray, file_path: str, cov_type : str):
+    """
+    Generates corner plots for the Monte Carlo simulation trajectories. Each plot shows the
+    distribution of a component of the state vector at each time step.
+
+    Parameters
+    ----------
+    state_vecs : np.ndarray
+        The nominal state vectors at each time step, used to center the covariance ellipses.
+    cov_mat : np.ndarray
+        The covariance matrix of the state vector, used to compute the covariance ellipses.
+    trajectory_data : np.ndarray
+        A 3D numpy array containing the state vectors for each trajectory at each 4-hour interval.
+        The shape of the array is (num_trajectories, num_intervals, state_vector_length).
+    four_hour_intervals : np.ndarray
+        The indexes of every 4-hour interval in the time vector.
+    file_path : str
+        The file path where the generated figures will be saved.
+    cov_type : str
+        A string indicating the type of covariance being plotted (e.g., "CKF" or "UKF"), used for labeling the plots.
+    Returns
+    -------
+    figures : list of go.Figure
+        The generated corner plot figures, one per 4-hour interval.
+    """
+    from plotly.subplots import make_subplots
+
+    state_labels = ['X (km)', 'Y (km)', 'Z (km)', 'Vx (km/s)', 'Vy (km/s)', 'Vz (km/s)']
+    n = 6
+    figures = []
+
+    for interval_idx in range(len(four_hour_intervals)):
+        samples = trajectory_data[:, :, interval_idx]
+        cov_full = cov_mat[:,:,interval_idx]  # shape: (6, 6)
+        means = state_vecs[:, interval_idx]  # shape: (6,)
+
+        fig = make_subplots(
+            rows=n, cols=n,
+            horizontal_spacing=0.04,
+            vertical_spacing=0.04,
+        )
+
+        for row in range(1, n + 1):
+            for col in range(1, n + 1):
+                ri, ci = row - 1, col - 1  # 0-indexed
+                x_data = samples[:, ci]
+                y_data = samples[:, ri]
+
+                if col > row:
+                    # Upper triangle — add invisible trace to keep grid consistent
+                    fig.add_trace(
+                        go.Scatter(x=[None], y=[None], showlegend=False),
+                        row=row, col=col
+                    )
+
+                elif col == row:
+                    # ── Diagonal: histogram + median/±1σ dashed lines ──
+                    median_val = np.median(x_data)
+                    sigma_plus  = np.percentile(x_data, 84.135) - median_val
+                    sigma_minus = median_val - np.percentile(x_data, 15.865)
+
+                    fig.add_trace(
+                        go.Histogram(
+                            x=x_data,
+                            nbinsx=25,
+                            marker=dict(color='steelblue', opacity=0.7),
+                            showlegend=False,
+                        ),
+                        row=row, col=col
+                    )
+
+                    # Dashed vertical lines: median and ±1σ
+                    for xval, dash in [
+                        (median_val,              'dash'),
+                        (median_val + sigma_plus,  'dot'),
+                        (median_val - sigma_minus, 'dot'),
+                    ]:
+                        fig.add_vline(
+                            x=xval,
+                            line=dict(color='navy', dash=dash, width=1.5),
+                            row=row, col=col
+                        )
+
+                    # Annotation: mean ± sigma above each diagonal plot
+                    fig.add_annotation(
+                        text=f"{state_labels[ci]} = {median_val:.3g}"
+                             f"<sup>+{sigma_plus:.2g}</sup>"
+                             f"<sub>−{sigma_minus:.2g}</sub>",
+                        xref=f"x{(ri * n + ci) + 1}" if (ri * n + ci) > 0 else "x",
+                        yref="paper",
+                        x=median_val,
+                        yanchor="bottom",
+                        showarrow=False,
+                        font=dict(size=13),  # Up from 10
+                        y=(1.0 - (row - 1) / n) - 0.01,
+                    )
+
+                else:
+                    # ── Lower triangle: scatter + KDE contours ──
+
+                    # Scatter (low alpha dots like the reference image)
+                    fig.add_trace(
+                        go.Scatter(
+                            x=x_data,
+                            y=y_data,
+                            mode='markers',
+                            marker=dict(
+                                color='rgba(100, 149, 237, 0.25)',
+                                size=3,  # Up from 2
+                            ),
+                            showlegend=False,
+                        ),
+                        row=row, col=col
+                    )
+
+                    # Covariance ellipses at 1σ, 2σ, 3σ
+                    center = means[[ci, ri]]
+                    cov_2x2 = cov_full[np.ix_([ci, ri], [ci, ri])]
+                    for sigma in [1, 2, 3]:
+                        ellipse_pts = covariance_ellipse_2D(center, cov_2x2, num_points=120, sigma_level=sigma)
+                        fig.add_trace(
+                            go.Scatter(
+                                x=ellipse_pts[:, 0],
+                                y=ellipse_pts[:, 1],
+                                mode='lines',
+                                line=dict(color='navy', width=1.5),
+                                showlegend=False,
+                            ),
+                            row=row, col=col
+                        )
+
+        # ── Axis labels: bottom row gets x-labels, leftmost col gets y-labels ──
+        for i in range(n):
+            axis_idx_bottom = (n - 1) * n + i + 1
+            axis_idx_left   = i * n + 1
+
+            bottom_key = f"xaxis{axis_idx_bottom}" if axis_idx_bottom > 1 else "xaxis"
+            left_key   = f"yaxis{axis_idx_left}"   if axis_idx_left   > 1 else "yaxis"
+
+            fig.update_layout(**{
+                bottom_key: dict(title=dict(text=state_labels[i], font=dict(size=14))),
+                left_key:   dict(title=dict(text=state_labels[i], font=dict(size=14))),
+            })
+
+        # Hide upper-triangle axes
+        for row in range(1, n + 1):
+            for col in range(row + 1, n + 1):
+                axis_idx = (row - 1) * n + col
+                xkey = f"xaxis{axis_idx}" if axis_idx > 1 else "xaxis"
+                ykey = f"yaxis{axis_idx}" if axis_idx > 1 else "yaxis"
+                fig.update_layout(**{
+                    xkey: dict(visible=False),
+                    ykey: dict(visible=False),
+                })
+
+        time_hours = four_hour_intervals[interval_idx] / 3600  # approximate label
+
+        fig.update_layout(
+            title=dict(
+                text=f"{cov_type} Corner Plot — t = {time_hours:.2f} hrs",
+                font=dict(size=30),
+            ),
+            height=200 * n,
+            width=200 * n,
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            showlegend=False,
+        )
+
+        fname = f"{file_path}/{cov_type}_corner_plot_interval_{interval_idx:02d}.html"
+        fig.write_html(fname)
+        print(f"Saved: {fname}")
+        figures.append(fig)
+
+    return figures
 
 if __name__ == "__main__":
     # Load Monte Carlo simulation data
     mc_trajectories = load_in_mc_data(f"{FILE_PATH}/monte_carlo_trajectories.npy")
+
     four_hour_indices = [i for i, t in enumerate(time_vec) if t % (4 * 3600) == 0]
     kf_time_vec = time_vec[four_hour_indices]
 
@@ -323,11 +528,9 @@ if __name__ == "__main__":
     # Propagate covariance using UKF
     ukf_state_estimate, ukf_covariances = propagate_covariance_ukf(initial_covariance, kf_time_vec)
 
-    # # Find covariances at the four hour intervals for both CKF and UKF
-    # four_hour_indices = [i for i, t in enumerate(time_vec) if t % (4 * 3600) == 0]
-    # ckf_covariances_at_intervals = ckf_covariances[:,:, four_hour_indices]
-    # ukf_covariances_at_intervals = ukf_covariances[:,:, four_hour_indices]
-
+    # Make corner plots for CKF and UKF
+    ckf_corner_figs = generate_corner_plots(ckf_state_estimate, ckf_covariances, mc_trajectories, four_hour_indices, FILE_PATH, cov_type="CKF")
+    ukf_corner_figs = generate_corner_plots(ukf_state_estimate, ukf_covariances, mc_trajectories, four_hour_indices, FILE_PATH, cov_type="UKF")
 
     # Calculate percentage of Monte Carlo states inside the 2-sigma covariance ellipse for CKF and UKF
     print("Calculating percentage of Monte Carlo states inside the 2-sigma covariance ellipse for CKF...")
@@ -354,3 +557,30 @@ if __name__ == "__main__":
         f.write(f"Percentage of Monte Carlo states inside 2-sigma covariance ellipse (UKF): {ukf_percentage_inside:.2f}%\n")
         f.write(f"Percentage of Monte Carlo states inside 2-sigma covariance ellipse per time step (CKF): {ckf_percentage_per_time_step}\n")
         f.write(f"Percentage of Monte Carlo states inside 2-sigma covariance ellipse per time step (UKF): {ukf_percentage_per_time_step}\n")
+
+    # Write CKF and UKF state estimates and covariances to text files
+    with open(f"{FILE_PATH}/ckf_results.txt", "w") as f:
+        f.write("CKF Standard Deviations at each time step:\n")
+        for i, time in enumerate(kf_time_vec):
+            std_devs = np.sqrt(np.diag(ckf_covariances[:, :, i]))
+            f.write(f"Time: {time/3600:.2f} hrs, Std Dev: {std_devs}\n")
+        f.write("CKF Nominal Value Estimates at each time step:\n")
+        for i, time in enumerate(kf_time_vec):
+            f.write(f"Time: {time/3600:.2f} hrs, Nominal Value: {ckf_state_estimate[:, i]}\n")
+        f.write("CKF Mean Value Estimates at each time step:\n")
+        for i, time in enumerate(kf_time_vec):
+            f.write(f"Time: {time/3600:.2f} hrs, Mean: {ckf_state_estimate[:, i]}\n")
+
+    with open(f"{FILE_PATH}/ukf_results.txt", "w") as f:
+        f.write("UKF Standard Deviations at each time step:\n")
+        for i, time in enumerate(kf_time_vec):
+            std_devs = np.sqrt(np.diag(ukf_covariances[:, :, i]))
+            f.write(f"Time: {time/3600:.2f} hrs, Std Dev: {std_devs}\n")
+        f.write("UKF Nominal Value Estimates at each time step:\n")
+        for i, time in enumerate(kf_time_vec):
+            f.write(f"Time: {time/3600:.2f} hrs, Nominal Value: {ckf_state_estimate[:, i]}\n")
+        f.write("UKF Mean Value Estimates at each time step:\n")
+        for i, time in enumerate(kf_time_vec):
+            f.write(f"Time: {time/3600:.2f} hrs, Mean: {ukf_state_estimate[:, i]}\n")
+
+
