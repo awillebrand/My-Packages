@@ -69,7 +69,7 @@ def generate_monte_carlo_trajectories(initial_state : np.ndarray, covariance : n
     print()
     return trajectories
 
-def generate_corner_plots(trajectory_data: np.ndarray, four_hour_intervals: np.ndarray, file_path: str):
+def generate_corner_plots(trajectory_data: np.ndarray, six_hour_intervals: np.ndarray, nominal_states : np.ndarray, file_path: str):
     """
     Generates corner plots for the Monte Carlo simulation trajectories. Each plot shows the
     distribution of a component of the state vector at each time step.
@@ -77,16 +77,16 @@ def generate_corner_plots(trajectory_data: np.ndarray, four_hour_intervals: np.n
     Parameters
     ----------
     trajectory_data : np.ndarray
-        A 3D numpy array containing the state vectors for each trajectory at each 4-hour interval.
+        A 3D numpy array containing the state vectors for each trajectory at each 6-hour interval.
         The shape of the array is (num_trajectories, num_intervals, state_vector_length).
-    four_hour_intervals : np.ndarray
-        The indexes of every 4-hour interval in the time vector.
+    six_hour_intervals : np.ndarray
+        The indexes of every 6-hour interval in the time vector.
     file_path : str
         The file path where the generated figures will be saved.
     Returns
     -------
     figures : list of go.Figure
-        The generated corner plot figures, one per 4-hour interval.
+        The generated corner plot figures, one per 6-hour interval.
     """
     from plotly.subplots import make_subplots
 
@@ -94,11 +94,12 @@ def generate_corner_plots(trajectory_data: np.ndarray, four_hour_intervals: np.n
     n = 6
     figures = []
 
-    for interval_idx in range(len(four_hour_intervals)):
+    for interval_idx in range(len(six_hour_intervals)):
         samples = trajectory_data[:, interval_idx, :]  # shape: (num_traj, 6)
         cov_full = np.cov(samples.T)  # shape: (6, 6)
         means = np.mean(samples, axis=0)  # shape: (6,)
 
+        current_nom_state = nominal_states[:, interval_idx]  # shape: (6,)
         fig = make_subplots(
             rows=n, cols=n,
             horizontal_spacing=0.04,
@@ -111,6 +112,7 @@ def generate_corner_plots(trajectory_data: np.ndarray, four_hour_intervals: np.n
                 x_data = samples[:, ci]
                 y_data = samples[:, ri]
 
+                
                 if col > row:
                     # Upper triangle — add invisible trace to keep grid consistent
                     fig.add_trace(
@@ -173,7 +175,8 @@ def generate_corner_plots(trajectory_data: np.ndarray, four_hour_intervals: np.n
                                 color='rgba(100, 149, 237, 0.25)',
                                 size=3,  # Up from 2
                             ),
-                            showlegend=False,
+                            name = 'Trajectory Samples',
+                            showlegend=(row == 2 and col == 1),
                         ),
                         row=row, col=col
                     )
@@ -189,10 +192,36 @@ def generate_corner_plots(trajectory_data: np.ndarray, four_hour_intervals: np.n
                                 y=ellipse_pts[:, 1],
                                 mode='lines',
                                 line=dict(color='navy', width=1.5),
-                                showlegend=False,
+                                name=f'Covariance Ellipse',
+                                showlegend=(sigma == 1 and row == 2 and col == 1)  # Show legend only for the first ellipse in the first plot,
                             ),
                             row=row, col=col
                         )
+
+                    # Add the mean as a point in the middle of the contours
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[center[0]],
+                            y=[center[1]],
+                            mode='markers',
+                            marker=dict(color='red', size=6),
+                            name='Mean',
+                            showlegend=(row == 2 and col == 1)  # Show legend
+                        ),
+                        row=row, col=col
+                    )
+                    # Add the nominal state as a point
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[current_nom_state[ci]],
+                            y=[current_nom_state[ri]],
+                            mode='markers',
+                            marker=dict(color='black', size=6, symbol='x'),
+                            name='Nominal State',
+                            showlegend=(row == 2 and col == 1)  # Show legend
+                        ),
+                        row=row, col=col
+                    )
 
         # ── Axis labels: bottom row gets x-labels, leftmost col gets y-labels ──
         for i in range(n):
@@ -218,7 +247,7 @@ def generate_corner_plots(trajectory_data: np.ndarray, four_hour_intervals: np.n
                     ykey: dict(visible=False),
                 })
 
-        time_hours = four_hour_intervals[interval_idx] / 3600  # approximate label
+        time_hours = six_hour_intervals[interval_idx] / 3600  # approximate label
         fig.update_layout(
             title=dict(
                 text=f"Corner Plot — t = {time_hours:.2f} hrs",
@@ -233,6 +262,7 @@ def generate_corner_plots(trajectory_data: np.ndarray, four_hour_intervals: np.n
 
         fname = f"{file_path}/corner_plot_interval_{interval_idx:02d}.html"
         fig.write_html(fname)
+        fig.write_image(f"{file_path}/pngs/corner_plot_interval_{interval_idx:02d}.png")
         print(f"Saved: {fname}")
         figures.append(fig)
 
@@ -240,7 +270,7 @@ def generate_corner_plots(trajectory_data: np.ndarray, four_hour_intervals: np.n
 
 def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, time_vec : np.ndarray, trajectories: list, file_path: str):
     """
-    Analyzes the results of Monte Carlo simulation trajectories. Performs several processes for every 4 hours of data:
+    Analyzes the results of Monte Carlo simulation trajectories. Performs several processes for every 6 hours of data:
     1. Plot all trajectories, the nominal trajectory, the covariance ellipses, and the mean trajectory.
     2. Lists the covariance for each state component.
     3. Lists the mean for each state component.
@@ -267,12 +297,13 @@ def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, time_vec : np.n
     
     analysis_results = {}
     
-    # Find indexes of every 4 hours in the time vector (assuming time_vec is in seconds)
-    four_hour_intervals = np.where((time_vec % (4 * 3600)) == 0)[0]
-    trajectory_data = np.zeros((len(trajectories), len(four_hour_intervals), 6))  # Assuming state vector has 6 components (x, y, z, vx, vy, vz)
-    reduced_time_vec = time_vec[four_hour_intervals]
-    for j, idx in enumerate(four_hour_intervals):
-        # Extract the trajectories at the current time step
+    # Find indexes of every 6 hours in the time vector (assuming time_vec is in seconds)
+    six_hour_intervals = np.where((time_vec % (6 * 3600)) == 0)[0]
+    trajectory_data = np.zeros((len(trajectories), len(six_hour_intervals), 6))  # Assuming state vector has 6 components (x, y, z, vx, vy, vz)
+    
+    reduced_nominal_trajectory = nominal_trajectory[1][:, six_hour_intervals]  # Extract nominal trajectory at 6-hour intervals
+    reduced_time_vec = time_vec[six_hour_intervals]
+    for j, idx in enumerate(six_hour_intervals):
 
         for i, traj in enumerate(trajectories):
             traj_at_time = np.array(traj[:,idx])  # Extract the state vector at the current time step for trajectory i
@@ -293,11 +324,11 @@ def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, time_vec : np.n
         }
 
     # Generate corner plots
-    figures = generate_corner_plots(trajectory_data, reduced_time_vec, file_path)
+    figures = generate_corner_plots(trajectory_data, reduced_time_vec, reduced_nominal_trajectory, file_path)
     # Generate the trajectory plot with covariance ellipses
     fig = go.Figure()
     # Plot all trajectories
-    color_list = ['red', 'green', 'blue', 'orange', 'purple', 'cyan', 'magenta']
+    color_list = ['red', 'green', 'blue', 'orange', 'purple']
     for i, color in enumerate(color_list):
         fig.add_trace(go.Scatter3d(
             x=trajectory_data[:, i, 0],
@@ -330,8 +361,8 @@ def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, time_vec : np.n
         line=dict(color='yellow', width=8)
     ))
 
-    # Plot covariance ellipses at every 4-hour interval
-    for i, idx in enumerate(four_hour_intervals):
+    # Plot covariance ellipses at every 6-hour interval
+    for i, idx in enumerate(six_hour_intervals):
         cov_at_time = analysis_results[time_vec[idx]]["covariance"]
         mean_at_time = analysis_results[time_vec[idx]]["mean"]
         n_pts = 40
@@ -370,6 +401,7 @@ def analyze_monte_carlo_results(nominal_trajectory : np.ndarray, time_vec : np.n
 
     figures.append(fig)
     fig.write_html(f"{file_path}/monte_carlo_trajectories.html")
+    fig.write_image(f"{file_path}/pngs/monte_carlo_trajectories.png")
 
     return figures, analysis_results
 

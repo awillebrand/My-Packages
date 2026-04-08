@@ -14,7 +14,7 @@ is used as a reference to evaluate the accuracy of the covariance propagation.
 
 def load_in_mc_data(file_path: str):
     """
-    Loads Monte Carlo simulation data from a specified file path and only pulls states from 4 hour intervals.
+    Loads Monte Carlo simulation data from a specified file path and only pulls states from 6 hour intervals.
 
     Parameters
     ----------
@@ -28,7 +28,7 @@ def load_in_mc_data(file_path: str):
     """
 
     mc_data = np.load(file_path)
-    four_hour_indices = [i for i, t in enumerate(time_vec) if t % (4 * 3600) == 0]
+    four_hour_indices = [i for i, t in enumerate(time_vec) if t % (6 * 3600) == 0]
     return mc_data[:, :, four_hour_indices]
 
 def propagate_covariance_ckf(initial_covariance: np.ndarray, t_vec: np.ndarray):
@@ -114,7 +114,7 @@ def propagate_covariance_ukf(initial_covariance: np.ndarray, time_vec: np.ndarra
             dt = 0
             predicted_sigma_points = sigma_points
         else:
-            dt=time - time_vec[0]
+            dt = time - time_vec[0]
             predicted_sigma_points = ukf.propagate_sigma_points(sigma_points, dt=dt)
 
         # Time update to get predicted state mean and covariance
@@ -124,52 +124,6 @@ def propagate_covariance_ukf(initial_covariance: np.ndarray, time_vec: np.ndarra
         covariance_time_history[:,:, k] = P_est
 
     return state_time_history, covariance_time_history
-
-# def percentage_of_mc_inside_cov(mc_trajectories : list, nominal_state_list : list,covariance_list : list):
-#     """
-#     Calculates the percentage of Monte Carlo simulation states that lie within the 2-sigma covariance ellipse.
-
-#     Parameters
-#     ----------
-#     mc_states : list
-#         A list of Monte Carlo simulation trajectories. Contains a list of numpy arrays, where each array represents the state vectors of a single trajectory at each time step.
-#     nominal_state_list : list
-#         A list of nominal state vectors at each time step. Covariance centered around this nominal state.
-#     covariance_list : np.ndarray
-#         The list of covariance matrices at the time steps corresponding to the Monte Carlo trajectories.
-
-#     Returns
-#     -------
-#     float
-#         The percentage of Monte Carlo states that lie within the 2-sigma covariance ellipse.
-#     """
-#     total_states = 0
-#     inside_count = 0
-
-#     num_trajectories = len(mc_trajectories)
-#     num_time_steps = mc_trajectories[0].shape[0]
-#     percentage_per_time_step = np.zeros(num_time_steps)
-#     for t in range(num_time_steps):
-#         time_step_total = 0
-#         time_step_inside = 0
-#         nominal_state = nominal_state_list[t]
-#         cov = covariance_list[t]
-
-#         sigma_bounds = 2.0 * np.sqrt(np.diag(cov))
-        
-#         for traj in mc_trajectories:
-#             print(f"Computing for trajectory {traj} at time step {t}", end="\r")
-#             state = traj[:,t]
-#             time_step_total += 1
-#             total_states += 1
-#             if np.all(np.abs(state - nominal_state) <= sigma_bounds):
-#                 time_step_inside += 1
-#                 inside_count += 1
-#         percentage_per_time_step[t] = (time_step_inside / time_step_total if time_step_total > 0 else 0) * 100.0
-
-
-#     percentage_inside = (inside_count / total_states) * 100.0
-#     return percentage_inside, percentage_per_time_step
 
 def percentage_of_mc_inside_cov(mc_trajectories, nominal_state_list, covariance_list):
     total_states = 0
@@ -335,11 +289,12 @@ def plot_covariance_ellipses(ckf_state_estimate: np.ndarray, ckf_covariances: np
     )
 
     fig.write_html(f"{file_path}/ckf_ukf_covariance_ellipses.html")
+    fig.write_image(f"{file_path}/pngs/ckf_ukf_covariance_ellipses.png")
     print(f"Saved: {file_path}/ckf_ukf_covariance_ellipses.html")
 
     return fig
 
-def generate_corner_plots(state_vecs : np.ndarray, cov_mat : np.ndarray, trajectory_data: np.ndarray, four_hour_intervals: np.ndarray, file_path: str, cov_type : str):
+def generate_corner_plots(state_vecs : np.ndarray, cov_mat : np.ndarray, trajectory_data: np.ndarray, six_hour_intervals: np.ndarray, file_path: str, cov_type : str, nominal_states : np.ndarray = None):
     """
     Generates corner plots for the Monte Carlo simulation trajectories. Each plot shows the
     distribution of a component of the state vector at each time step.
@@ -351,18 +306,21 @@ def generate_corner_plots(state_vecs : np.ndarray, cov_mat : np.ndarray, traject
     cov_mat : np.ndarray
         The covariance matrix of the state vector, used to compute the covariance ellipses.
     trajectory_data : np.ndarray
-        A 3D numpy array containing the state vectors for each trajectory at each 4-hour interval.
+        A 3D numpy array containing the state vectors for each trajectory at each 6-hour interval.
         The shape of the array is (num_trajectories, num_intervals, state_vector_length).
-    four_hour_intervals : np.ndarray
-        The indexes of every 4-hour interval in the time vector.
+    six_hour_intervals : np.ndarray
+        The indexes of every 6-hour interval in the time vector.
     file_path : str
         The file path where the generated figures will be saved.
     cov_type : str
         A string indicating the type of covariance being plotted (e.g., "CKF" or "UKF"), used for labeling the plots.
+    nominal_states : np.ndarray
+        The nominal state vectors at each time step, used to plot the nominal state as a point in the corner plots. 
+        This is required for the UKF plots since the nominal state can differ from the mean of the sigma points.
     Returns
     -------
     figures : list of go.Figure
-        The generated corner plot figures, one per 4-hour interval.
+        The generated corner plot figures, one per 6-hour interval.
     """
     from plotly.subplots import make_subplots
 
@@ -370,7 +328,7 @@ def generate_corner_plots(state_vecs : np.ndarray, cov_mat : np.ndarray, traject
     n = 6
     figures = []
 
-    for interval_idx in range(len(four_hour_intervals)):
+    for interval_idx in range(len(six_hour_intervals)):
         samples = trajectory_data[:, :, interval_idx]
         cov_full = cov_mat[:,:,interval_idx]  # shape: (6, 6)
         means = state_vecs[:, interval_idx]  # shape: (6,)
@@ -470,6 +428,35 @@ def generate_corner_plots(state_vecs : np.ndarray, cov_mat : np.ndarray, traject
                             row=row, col=col
                         )
 
+                    # Add the mean as a point in the middle of the contours
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[center[0]],
+                            y=[center[1]],
+                            mode='markers',
+                            marker=dict(color='red', size=6),
+                            name='Mean',
+                            showlegend=(row == 2 and col == 1)  # Show legend
+                        ),
+                        row=row, col=col
+                    )
+                    if cov_type == "CKF":
+                        current_nom_state = state_vecs[:, interval_idx]
+                    else:
+                        current_nom_state = nominal_states[:, interval_idx]
+                    # Add the nominal state as a point
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[current_nom_state[ci]],
+                            y=[current_nom_state[ri]],
+                            mode='markers',
+                            marker=dict(color='black', size=6, symbol='x'),
+                            name='Nominal State',
+                            showlegend=(row == 2 and col == 1)  # Show legend
+                        ),
+                        row=row, col=col
+                    )
+
         # ── Axis labels: bottom row gets x-labels, leftmost col gets y-labels ──
         for i in range(n):
             axis_idx_bottom = (n - 1) * n + i + 1
@@ -494,7 +481,7 @@ def generate_corner_plots(state_vecs : np.ndarray, cov_mat : np.ndarray, traject
                     ykey: dict(visible=False),
                 })
 
-        time_hours = four_hour_intervals[interval_idx] / 3600  # approximate label
+        time_hours = kf_time_vec[interval_idx] / 3600
 
         fig.update_layout(
             title=dict(
@@ -510,6 +497,7 @@ def generate_corner_plots(state_vecs : np.ndarray, cov_mat : np.ndarray, traject
 
         fname = f"{file_path}/{cov_type}_corner_plot_interval_{interval_idx:02d}.html"
         fig.write_html(fname)
+        fig.write_image(f"{file_path}/pngs/{cov_type}_corner_plot_interval_{interval_idx:02d}.png")
         print(f"Saved: {fname}")
         figures.append(fig)
 
@@ -519,7 +507,7 @@ if __name__ == "__main__":
     # Load Monte Carlo simulation data
     mc_trajectories = load_in_mc_data(f"{FILE_PATH}/monte_carlo_trajectories.npy")
 
-    four_hour_indices = [i for i, t in enumerate(time_vec) if t % (4 * 3600) == 0]
+    four_hour_indices = [i for i, t in enumerate(time_vec) if t % (6 * 3600) == 0]
     kf_time_vec = time_vec[four_hour_indices]
 
     # Propagate covariance using CKF
@@ -530,7 +518,7 @@ if __name__ == "__main__":
 
     # Make corner plots for CKF and UKF
     ckf_corner_figs = generate_corner_plots(ckf_state_estimate, ckf_covariances, mc_trajectories, four_hour_indices, FILE_PATH, cov_type="CKF")
-    ukf_corner_figs = generate_corner_plots(ukf_state_estimate, ukf_covariances, mc_trajectories, four_hour_indices, FILE_PATH, cov_type="UKF")
+    ukf_corner_figs = generate_corner_plots(ukf_state_estimate, ukf_covariances, mc_trajectories, four_hour_indices, FILE_PATH, cov_type="UKF", nominal_states=ckf_state_estimate)
 
     # Calculate percentage of Monte Carlo states inside the 2-sigma covariance ellipse for CKF and UKF
     print("Calculating percentage of Monte Carlo states inside the 2-sigma covariance ellipse for CKF...")
@@ -544,6 +532,7 @@ if __name__ == "__main__":
                                    ukf_state_estimate, ukf_covariances,
                                    kf_time_vec, mc_trajectories, FILE_PATH)
     fig.write_html(f"{FILE_PATH}/ckf_ukf_covariance_ellipses.html")
+    fig.write_image(f"{FILE_PATH}/pngs/ckf_ukf_covariance_ellipses.png")
     print(f"Saved: {FILE_PATH}/ckf_ukf_covariance_ellipses.html")
     
     print(f"Percentage of Monte Carlo states inside 2-sigma covariance ellipse (CKF): {ckf_percentage_inside:.2f}%")

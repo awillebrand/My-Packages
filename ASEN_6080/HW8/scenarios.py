@@ -40,7 +40,7 @@ initial_state = np.hstack((initial_pos, initial_vel))
 # INITIAL COVARIANCE
 # ─────────────────────────────────────────────
 pos_sigma = 1.0    # km
-vel_sigma = 0.01   # km/s
+vel_sigma = 0.001   # km/s
 
 initial_covariance = np.diag([
     pos_sigma**2, pos_sigma**2, pos_sigma**2,

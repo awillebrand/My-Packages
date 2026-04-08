@@ -108,7 +108,7 @@ class UKF:
         predicted_sigma_points : np.ndarray
             Matrix of predicted sigma points after propagation.
         """
-        [_, predicted_sigma_points] = self.integrator.integrate_eom(dt, sigma_points.flatten(order='F'), teval=np.array([0, dt]), sigma_points=True)
+        [_, predicted_sigma_points] = self.integrator.integrate_sigma_points(dt, sigma_points.flatten(order='F'), teval=np.array([0, dt]))
 
         # Put the predicted sigma points back into the correct shape
         predicted_sigma_points = predicted_sigma_points[:, -1].reshape(sigma_points.shape, order='F')
