@@ -122,194 +122,120 @@ def state_jacobian(r : np.array,
     u, v, w = V
     V_norm = np.linalg.norm(V)
 
-    # Initialize position partials to zero
-    a_xx = 0
-    a_xy = 0
-    a_xz = 0
-    a_yx = 0
-    a_yy = 0
-    a_yz = 0
-    a_zx = 0
-    a_zy = 0
-    a_zz = 0
-
-    # Initialize velocity partials to zero
-    a_xu = 0
-    a_xv = 0
-    a_xw = 0
-    a_yu = 0
-    a_yv = 0
-    a_yw = 0
-    a_zu = 0
-    a_zv = 0
-    a_zw = 0
-
     # Compute position partials
     # Point mass partials
-    if 'mu' in mode:
-        a_xx_pm = mu / r_norm**5 * (3 * x**2 - r_norm**2)
-        a_yy_pm = mu / r_norm**5 * (3 * y**2 - r_norm**2)
-        a_zz_pm = mu / r_norm**5 * (3 * z**2 - r_norm**2)
-        a_xy_pm = 3 * mu * x * y / r_norm**5
-        a_xz_pm = 3 * mu * x * z / r_norm**5
-        a_yz_pm = 3 * mu * y * z / r_norm**5
 
-        a_xx += a_xx_pm
-        a_xy += a_xy_pm
-        a_xz += a_xz_pm
-        a_yx += a_xy_pm
-        a_yy += a_yy_pm
-        a_yz += a_yz_pm
-        a_zx += a_xz_pm
-        a_zy += a_yz_pm
-        a_zz += a_zz_pm
+    a_xx_pm = mu / r_norm**5 * (3 * x**2 - r_norm**2)
+    a_yy_pm = mu / r_norm**5 * (3 * y**2 - r_norm**2)
+    a_zz_pm = mu / r_norm**5 * (3 * z**2 - r_norm**2)
+    a_xy_pm = 3 * mu * x * y / r_norm**5
+    a_xz_pm = 3 * mu * x * z / r_norm**5
+    a_yz_pm = 3 * mu * y * z / r_norm**5
 
     # J2 partials
-    if 'J2' in mode:
-        a_xx_J2 = 1.5 * mu * J2 * R_e**2 * (5 * z**2 * (r_norm**2 - 7 * x**2) / r_norm**9 - (r_norm**2 - 5 * x**2) / r_norm**7)
-        a_yy_J2 = 1.5 * mu * J2 * R_e**2 * (5 * z**2 * (r_norm**2 - 7 * y**2) / r_norm**9 - (r_norm**2 - 5 * y**2) / r_norm**7)
-        a_zz_J2 = 1.5 * mu * J2 * R_e**2 * (5 * z**2 * (3 * r_norm**2 - 7 * z**2) / r_norm**9 - 3 * (r_norm**2 - 5 * z**2) / r_norm**7)
-        a_xy_J2 = (3 / 2) * mu * J2 * R_e**2 * x * (-35 * z**2 * y / r_norm**9 + 5 * y / r_norm**7)
-        a_xz_J2 = (3 / 2) * mu * J2 * R_e**2 * x * ((15 * z * r_norm**2 - 35 * z**3) / r_norm**9)
-        a_yz_J2 = (3 / 2) * mu * J2 * R_e**2 * y * ((15 * z * r_norm**2 - 35 * z**3) / r_norm**9)
-
-        a_xx += a_xx_J2
-        a_xy += a_xy_J2
-        a_xz += a_xz_J2
-        a_yx += a_xy_J2
-        a_yy += a_yy_J2
-        a_yz += a_yz_J2
-        a_zx += a_xz_J2
-        a_zy += a_yz_J2
-        a_zz += a_zz_J2
+    a_xx_J2 = 1.5 * mu * J2 * R_e**2 * (5 * z**2 * (r_norm**2 - 7 * x**2) / r_norm**9 - (r_norm**2 - 5 * x**2) / r_norm**7)
+    a_yy_J2 = 1.5 * mu * J2 * R_e**2 * (5 * z**2 * (r_norm**2 - 7 * y**2) / r_norm**9 - (r_norm**2 - 5 * y**2) / r_norm**7)
+    a_zz_J2 = 1.5 * mu * J2 * R_e**2 * (5 * z**2 * (3 * r_norm**2 - 7 * z**2) / r_norm**9 - 3 * (r_norm**2 - 5 * z**2) / r_norm**7)
+    a_xy_J2 = (3 / 2) * mu * J2 * R_e**2 * x * (-35 * z**2 * y / r_norm**9 + 5 * y / r_norm**7)
+    a_xz_J2 = (3 / 2) * mu * J2 * R_e**2 * x * ((15 * z * r_norm**2 - 35 * z**3) / r_norm**9)
+    a_yz_J2 = (3 / 2) * mu * J2 * R_e**2 * y * ((15 * z * r_norm**2 - 35 * z**3) / r_norm**9)
 
     # J3 partials
-    if 'J3' in mode:
-        a_xx_J3 = (5 / 2) * mu * J3 * R_e**3 * z / r_norm**9 * (7 * z**2 * (r_norm **2 - 9 * x**2) / r_norm**2 - 3 * (r_norm**2 - 7 * x**2))
-        a_yy_J3 = (5 / 2) * mu * J3 * R_e**3 * z / r_norm**9 * (7 * z**2 * (r_norm **2 - 9 * y**2) / r_norm**2 - 3 * (r_norm**2 - 7 * y**2))
-        a_zz_J3 = (5 / 2) * mu * J3 * R_e**3 * z / r_norm**7 * (70 * z**2 / r_norm**2 - 63 * z**4 / r_norm**4 - 15)
-        a_xy_J3 = (5 / 2) * mu * J3 * R_e**3 * x * y * z / r_norm**9 * (21 - 63 * z**2 / r_norm**2)
-        a_xz_J3 = (5 / 2) * mu * J3 * R_e**3 * x / r_norm**9 * (42 * z**2 - 63 * z**4 / r_norm**2 - 3 * r_norm**2)
-        a_yz_J3 = (5 / 2) * mu * J3 * R_e**3 * y / r_norm**9 * (42 * z**2 - 63 * z**4 / r_norm**2 - 3 * r_norm**2)
-
-        a_xx += a_xx_J3
-        a_xy += a_xy_J3
-        a_xz += a_xz_J3
-        a_yx += a_xy_J3
-        a_yy += a_yy_J3
-        a_yz += a_yz_J3
-        a_zx += a_xz_J3
-        a_zy += a_yz_J3
-        a_zz += a_zz_J3
+    a_xx_J3 = (5 / 2) * mu * J3 * R_e**3 * z / r_norm**9 * (7 * z**2 * (r_norm **2 - 9 * x**2) / r_norm**2 - 3 * (r_norm**2 - 7 * x**2))
+    a_yy_J3 = (5 / 2) * mu * J3 * R_e**3 * z / r_norm**9 * (7 * z**2 * (r_norm **2 - 9 * y**2) / r_norm**2 - 3 * (r_norm**2 - 7 * y**2))
+    a_zz_J3 = (5 / 2) * mu * J3 * R_e**3 * z / r_norm**7 * (70 * z**2 / r_norm**2 - 63 * z**4 / r_norm**4 - 15)
+    a_xy_J3 = (5 / 2) * mu * J3 * R_e**3 * x * y * z / r_norm**9 * (21 - 63 * z**2 / r_norm**2)
+    a_xz_J3 = (5 / 2) * mu * J3 * R_e**3 * x / r_norm**9 * (42 * z**2 - 63 * z**4 / r_norm**2 - 3 * r_norm**2)
+    a_yz_J3 = (5 / 2) * mu * J3 * R_e**3 * y / r_norm**9 * (42 * z**2 - 63 * z**4 / r_norm**2 - 3 * r_norm**2)
 
     # Drag partials
-    if 'Drag' in mode:
-        # Convert velocity to relative velocity in ECEF frame by subtracting Earth's rotation
-        V_rel = np.array([u + earth_spin_rate * y, v - earth_spin_rate * x, w])
-        u_rel, v_rel, w_rel = V_rel
-        V_rel_norm = np.linalg.norm(V_rel)
-        rho = compute_density(r_norm) * 1e9 # Convert from kg/m^3 to kg/km^3 <---- DOUBLE CHECK THIS CONVERSION
-        H = 88.6670 # Scale height in km
+    # Convert velocity to relative velocity in ECEF frame by subtracting Earth's rotation
+    V_rel = np.array([u + earth_spin_rate * y, v - earth_spin_rate * x, w])
+    u_rel, v_rel, w_rel = V_rel
+    V_rel_norm = np.linalg.norm(V_rel)
+    rho = compute_density(r_norm) * 1e9 # Convert from kg/m^3 to kg/km^3 <---- DOUBLE CHECK THIS CONVERSION
+    H = 88.6670 # Scale height in km
 
-        a_xx_drag = u_rel * (x * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
-        a_xy_drag = u_rel * (y * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
-        a_xz_drag = u_rel * (z * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
+    a_xx_drag = u_rel * (x * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
+    a_xy_drag = u_rel * (y * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
+    a_xz_drag = u_rel * (z * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
 
-        a_yx_drag = v_rel * (x * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
-        a_yy_drag = v_rel * (y * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
-        a_yz_drag = v_rel * (z * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
+    a_yx_drag = v_rel * (x * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
+    a_yy_drag = v_rel * (y * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
+    a_yz_drag = v_rel * (z * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
 
-        a_zx_drag = w_rel * (x * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
-        a_zy_drag = w_rel * (y * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
-        a_zz_drag = w_rel * (z * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
-        
+    a_zx_drag = w_rel * (x * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
+    a_zy_drag = w_rel * (y * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
+    a_zz_drag = w_rel * (z * rho * V_rel_norm * C_d * spacecraft_area) / (2 * spacecraft_mass * H * r_norm)
+    
 
-        a_xu_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (u_rel**2 / V_rel_norm + V_rel_norm)
-        a_yv_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (v_rel**2 / V_rel_norm + V_rel_norm)
-        a_zw_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (w_rel**2 / V_rel_norm + V_rel_norm)
-        a_xv_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (u_rel * v_rel / V_rel_norm)
-        a_xw_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (u_rel * w_rel / V_rel_norm)
-        a_yw_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (v_rel * w_rel / V_rel_norm)
-        a_yu_drag = a_xv_drag
-        a_zu_drag = a_xw_drag
-        a_zv_drag = a_yw_drag
-
-        # Add drag partials to position partials
-        a_xx += a_xx_drag
-        a_xy += a_xy_drag
-        a_xz += a_xz_drag
-        a_yx += a_yx_drag
-        a_yy += a_yy_drag
-        a_yz += a_yz_drag
-        a_zx += a_zx_drag
-        a_zy += a_zy_drag
-        a_zz += a_zz_drag
-
-        # Add drag partials to velocity partials
-        a_xu += a_xu_drag
-        a_xv += a_xv_drag
-        a_xw += a_xw_drag
-        a_yu += a_yu_drag
-        a_yv += a_yv_drag
-        a_yw += a_yw_drag
-        a_zu += a_zu_drag
-        a_zv += a_zv_drag
-        a_zw += a_zw_drag
+    a_xu_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (u_rel**2 / V_rel_norm + V_rel_norm)
+    a_yv_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (v_rel**2 / V_rel_norm + V_rel_norm)
+    a_zw_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (w_rel**2 / V_rel_norm + V_rel_norm)
+    a_xv_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (u_rel * v_rel / V_rel_norm)
+    a_xw_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (u_rel * w_rel / V_rel_norm)
+    a_yw_drag = -(rho * C_d * spacecraft_area) / (2*spacecraft_mass) * (v_rel * w_rel / V_rel_norm)
+    a_yu_drag = a_xv_drag
+    a_zu_drag = a_xw_drag
+    a_zv_drag = a_yw_drag
 
     # Compute SRP partials
-    if 'SRP' in mode:
-        # Compute vector from sun to spacecraft and its magnitude
-        r_sun_sc = r - sun_pos
-        R = np.linalg.norm(r_sun_sc)
+    # Compute vector from sun to spacecraft and its magnitude
+    r_sun_sc = r - sun_pos
+    R = np.linalg.norm(r_sun_sc)
 
-        # Break vector pointing from third body to spacecraft into components
-        delta_x_srp = r_sun_sc[0]
-        delta_y_srp = r_sun_sc[1]
-        delta_z_srp = r_sun_sc[2]
+    # Break vector pointing from third body to spacecraft into components
+    delta_x_srp = r_sun_sc[0]
+    delta_y_srp = r_sun_sc[1]
+    delta_z_srp = r_sun_sc[2]
 
-        # Compute partial derivatives of SRP acceleration with respect to position components
-        AU_KM = 149597870.700
-        srp_scale = AU_KM**2 / 1000.0  # to match the acceleration formulation
+    # Compute partial derivatives of SRP acceleration with respect to position components
+    AU_KM = 149597870.700
+    srp_scale = AU_KM**2 / 1000.0  # to match the acceleration formulation
 
-        a_xx_SRP = C_r * P_solar * srp_scale * srp_area_to_mass * (R**2 - 3 * delta_x_srp**2) / R**5
-        a_yy_SRP = C_r * P_solar * srp_scale * srp_area_to_mass * (R**2 - 3 * delta_y_srp**2) / R**5
-        a_zz_SRP = C_r * P_solar * srp_scale * srp_area_to_mass * (R**2 - 3 * delta_z_srp**2) / R**5
-        a_xy_SRP = -3 * C_r * P_solar * srp_scale * srp_area_to_mass * delta_x_srp * delta_y_srp / R**5
-        a_xz_SRP = -3 * C_r * P_solar * srp_scale * srp_area_to_mass * delta_x_srp * delta_z_srp / R**5
-        a_yz_SRP = -3 * C_r * P_solar * srp_scale * srp_area_to_mass * delta_y_srp * delta_z_srp / R**5
-        a_yx_SRP = a_xy_SRP
-        a_zx_SRP = a_xz_SRP
-        a_zy_SRP = a_yz_SRP
+    a_xx_SRP = C_r * P_solar * srp_scale * srp_area_to_mass * (R**2 - 3 * delta_x_srp**2) / R**5
+    a_yy_SRP = C_r * P_solar * srp_scale * srp_area_to_mass * (R**2 - 3 * delta_y_srp**2) / R**5
+    a_zz_SRP = C_r * P_solar * srp_scale * srp_area_to_mass * (R**2 - 3 * delta_z_srp**2) / R**5
+    a_xy_SRP = -3 * C_r * P_solar * srp_scale * srp_area_to_mass * delta_x_srp * delta_y_srp / R**5
+    a_xz_SRP = -3 * C_r * P_solar * srp_scale * srp_area_to_mass * delta_x_srp * delta_z_srp / R**5
+    a_yz_SRP = -3 * C_r * P_solar * srp_scale * srp_area_to_mass * delta_y_srp * delta_z_srp / R**5
+    a_yx_SRP = a_xy_SRP
+    a_zx_SRP = a_xz_SRP
+    a_zy_SRP = a_yz_SRP
 
-        # Add SRP partials to position partials
-        a_xx += a_xx_SRP
-        a_xy += a_xy_SRP
-        a_xz += a_xz_SRP
-        a_yx += a_yx_SRP
-        a_yy += a_yy_SRP
-        a_yz += a_yz_SRP
-        a_zx += a_zx_SRP
-        a_zy += a_zy_SRP
-        a_zz += a_zz_SRP
+    # Compute third body partials with respect to position components
+    # Compute vector from spacecraft to third body and its magnitude
+    r_sc_third_body = sun_pos - r
+    r_third_body = np.linalg.norm(r_sc_third_body)
+    delta_x_third_body = r_sc_third_body[0]
+    delta_y_third_body = r_sc_third_body[1]
+    delta_z_third_body = r_sc_third_body[2]
 
-    # Compute third body partials
-    if 'Third Body' in mode:
-        # Compute vector from spacecraft to third body and its magnitude
-        r_sc_third_body = sun_pos - r
-        r_third_body = np.linalg.norm(r_sc_third_body)
-        delta_x_third_body = r_sc_third_body[0]
-        delta_y_third_body = r_sc_third_body[1]
-        delta_z_third_body = r_sc_third_body[2]
+    a_xx_third_body = -mu_third_body * (r_third_body**2 - 3 * delta_x_third_body**2) / r_third_body**5
+    a_yy_third_body = -mu_third_body * (r_third_body**2 - 3 * delta_y_third_body**2) / r_third_body**5
+    a_zz_third_body = -mu_third_body * (r_third_body**2 - 3 * delta_z_third_body**2) / r_third_body**5
+    a_xy_third_body = 3 * mu_third_body * delta_x_third_body * delta_y_third_body / r_third_body**5
+    a_xz_third_body = 3 * mu_third_body * delta_x_third_body * delta_z_third_body / r_third_body**5
+    a_yz_third_body = 3 * mu_third_body * delta_y_third_body * delta_z_third_body / r_third_body**5
+    a_yx_third_body = a_xy_third_body
+    a_zx_third_body = a_xz_third_body
+    a_zy_third_body = a_yz_third_body
+    
+    # Combine all partials
+    a_xx = a_xx_pm + a_xx_J2 + a_xx_J3 + a_xx_drag + a_xx_SRP + a_xx_third_body
+    a_xy = a_xy_pm + a_xy_J2 + a_xy_J3 + a_xy_drag + a_xy_SRP + a_xy_third_body
+    a_xz = a_xz_pm + a_xz_J2 + a_xz_J3 + a_xz_drag + a_xz_SRP + a_xz_third_body
 
-        a_xx_third_body = -mu_third_body * (r_third_body**2 - 3 * delta_x_third_body**2) / r_third_body**5
-        a_yy_third_body = -mu_third_body * (r_third_body**2 - 3 * delta_y_third_body**2) / r_third_body**5
-        a_zz_third_body = -mu_third_body * (r_third_body**2 - 3 * delta_z_third_body**2) / r_third_body**5
-        a_xy_third_body = 3 * mu_third_body * delta_x_third_body * delta_y_third_body / r_third_body**5
-        a_xz_third_body = 3 * mu_third_body * delta_x_third_body * delta_z_third_body / r_third_body**5
-        a_yz_third_body = 3 * mu_third_body * delta_y_third_body * delta_z_third_body / r_third_body**5
-        a_yx_third_body = a_xy_third_body
-        a_zx_third_body = a_xz_third_body
-        a_zy_third_body = a_yz_third_body
+    a_yx = a_xy_pm + a_xy_J2 + a_xy_J3 + a_yx_drag + a_yx_SRP + a_yx_third_body
+    a_yy = a_yy_pm + a_yy_J2 + a_yy_J3 + a_yy_drag + a_yy_SRP + a_yy_third_body
+    a_yz = a_yz_pm + a_yz_J2 + a_yz_J3 + a_yz_drag + a_yz_SRP + a_yz_third_body
+
+    a_zx = a_xz_pm + a_xz_J2 + a_xz_J3 + a_zx_drag + a_zx_SRP + a_zx_third_body
+    a_zy = a_yz_pm + a_yz_J2 + a_yz_J3 + a_zy_drag + a_zy_SRP + a_zy_third_body
+    a_zz = a_zz_pm + a_zz_J2 + a_zz_J3 + a_zz_drag + a_zz_SRP + a_zz_third_body
+
+    # Compute velocity partials (all zeros)
+    vel_partials = np.zeros((3, 3))
 
     # Compute gravity parameter partials
     a_xmu = -x / r_norm**3 + (3 / 2) * J2 * R_e**2 * x / r_norm ** 5 * (5 * z**2 / r_norm**2 - 1) + (5 / 2) * J3 * R_e**3 * x * z / r_norm**7 * (7 * z**2 / r_norm**2 - 3)
@@ -328,9 +254,9 @@ def state_jacobian(r : np.array,
     A = np.array([[0, 0, 0, 1, 0, 0, 0, 0, 0],
                   [0, 0, 0, 0, 1, 0, 0, 0, 0],
                   [0, 0, 0, 0, 0, 1, 0, 0, 0],
-                  [a_xx, a_xy, a_xz, a_xu, a_xv, a_xw, a_xmu, a_xJ2, a_xJ3],
-                  [a_yx, a_yy, a_yz, a_yu, a_yv, a_yw, a_ymu, a_yJ2, a_yJ3],
-                  [a_zx, a_zy, a_zz, a_zu, a_zv, a_zw, a_zmu, a_zJ2, a_zJ3],
+                  [a_xx, a_xy, a_xz, a_xu_drag, a_xv_drag, a_xw_drag, a_xmu, a_xJ2, a_xJ3],
+                  [a_yx, a_yy, a_yz, a_yu_drag, a_yv_drag, a_yw_drag, a_ymu, a_yJ2, a_yJ3],
+                  [a_zx, a_zy, a_zz, a_zu_drag, a_zv_drag, a_zw_drag, a_zmu, a_zJ2, a_zJ3],
                   [0, 0, 0, 0, 0, 0, 0, 0, 0],
                   [0, 0, 0, 0, 0, 0, 0, 0, 0],
                   [0, 0, 0, 0, 0, 0, 0, 0, 0]])

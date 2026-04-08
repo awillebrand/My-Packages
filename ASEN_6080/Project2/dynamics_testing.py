@@ -137,11 +137,21 @@ if __name__ == "__main__":
     fig.show()
 
     # Compute difference between truth STM and integrated STM
-    truth_stm = state_vectors[7:, :].reshape((7, 7, state_vectors.shape[1]))  # Reshape truth STM from the truth data
+    truth_stm = state_vectors[7:, :].reshape((7, 7, state_vectors.shape[1]), order='F')  # Reshape truth STM from the truth data
     integrated_stm = augmented_integrated_states[7:, :].reshape((7, 7, augmented_integrated_states.shape[1]))  # Reshape integrated STM from the integrator output
     stm_error = integrated_stm - truth_stm  # Compute STM error
-    np.set_printoptions(linewidth=300, suppress=True)  # Set print options for better readability
+
+    np.set_printoptions(linewidth=300, suppress=True, formatter={'float': lambda x: format(x, '1.3e')})  # Set print options for better readability
     print("Error in first STM:")
     print(stm_error[:, :, 0])
     print("Error in last STM:")
     print(stm_error[:, :, -1])
+    # Print relative error in final STM with full precision
+    relative_stm_error = np.zeros(stm_error.shape)
+    print("Relative error in final STM:")
+    for i in range(stm_error.shape[0]):
+        for j in range(stm_error.shape[1]):
+            relative_stm_error[i, j, -1] = stm_error[i, j, -1] / np.linalg.norm(truth_stm[i, j, -1]) # Relative error normalized by the norm of the truth STM element
+            if np.isnan(relative_stm_error[i, j, -1]):  # Print only elements with relative error greater than a threshold
+                relative_stm_error[i, j, -1] = 0.0  # Set relative error to zero if it is NaN (which can happen if the truth STM element is zero)
+    print(relative_stm_error[:, :, -1])
