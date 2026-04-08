@@ -43,6 +43,7 @@ if __name__ == "__main__":
 
     C_r = initial_state[6]  # For test, 7th element is true C_r value. This will need to be estimated for the actual problem, but for testing the dynamics we can use the true value to ensure the SRP effects are being calculated correctly.
     # Initialize integrator with appropriate parameters for the test
+
     integrator = Integrator(
         mu=mu_earth,
         R_e=R_e,        
