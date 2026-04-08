@@ -141,8 +141,10 @@ if __name__ == "__main__":
     # trajectory as expected.
 
     measurement_errors = np.zeros(measurement_vectors.shape)  # Initialize an array to store measurement errors
-
+    truth_simulated_measurements_mat = np.zeros((truth_state_vectors.shape[1], measurement_vectors.shape[1]))  # Initialize an array to store simulated measurements for comparison
     for i, measurement_mgr in enumerate(measurement_mgr_list):
+        truth_simulated_measurements = measurement_mgr.simulate_measurements(truth_state_vectors, truth_time_vector, coordinate_frame='ECI', noise=True, noise_sigma=observation_noise, ignore_visibility=False).T
+        truth_simulated_measurements_mat[:, 2*i:2*i+2] = truth_simulated_measurements  # Store the simulated measurements for this station
         simulated_measurements = measurement_mgr.simulate_measurements(integrated_states, measurement_time_vector, coordinate_frame='ECI', noise=True, noise_sigma=observation_noise, ignore_visibility=False).T
         range_error = simulated_measurements[:, 0] - measurement_vectors[:, i]  # Assuming range measurements are in even columns
         range_rate_error = simulated_measurements[:, 1] - measurement_vectors[:, i+3]  # Assuming range rate measurements are in odd columns
@@ -152,8 +154,8 @@ if __name__ == "__main__":
     # Plot the measurement errors over time for each station
     fig = make_subplots(rows=3, cols=2, subplot_titles=('DSS34 Range Error', 'DSS34 Range Rate Error', 'DSS65 Range Error', 'DSS65 Range Rate Error', 'DSS13 Range Error', 'DSS13 Range Rate Error'))
     for i in range(3):
-        fig.add_trace(go.Scatter(x=measurement_time_vector, y=measurement_errors[:, i], mode='markers', name=f'{measurement_mgr_list[i].station_name} Range Error'), row=i+1, col=1)
-        fig.add_trace(go.Scatter(x=measurement_time_vector, y=measurement_errors[:, i+1], mode='markers', name=f'{measurement_mgr_list[i].station_name} Range Rate Error'), row=i+1, col=2)
+        fig.add_trace(go.Scatter(x=measurement_time_vector, y=measurement_errors[:, 2*i], mode='markers', name=f'{measurement_mgr_list[i].station_name} Range Error'), row=i+1, col=1)
+        fig.add_trace(go.Scatter(x=measurement_time_vector, y=measurement_errors[:, 2*i+1], mode='markers', name=f'{measurement_mgr_list[i].station_name} Range Rate Error'), row=i+1, col=2)
     fig.update_layout(title='Measurement Errors Over Time', showlegend=False)
     for i in range(1, 4):
         for j in range(1, 3):
@@ -162,4 +164,21 @@ if __name__ == "__main__":
                 fig.update_yaxes(title_text='Range Error (km)', showexponent="all", exponentformat="e", row=i, col=j)
             else:
                 fig.update_yaxes(title_text='Range Rate Error (km/s)', showexponent="all", exponentformat="e", row=i, col=j)
+    fig.show()
+
+    # Plot the simulated measurements about the truth trajectory with the truth measurements for comparison
+    fig = make_subplots(rows=3, cols=2, subplot_titles=('DSS34 Range', 'DSS34 Range Rate', 'DSS65 Range', 'DSS65 Range Rate', 'DSS13 Range', 'DSS13 Range Rate'))
+    for i in range(3):
+        fig.add_trace(go.Scatter(x=truth_time_vector, y=truth_simulated_measurements_mat[:, 2*i], mode='markers', name=f'{measurement_mgr_list[i].station_name} Simulated Range'), row=i+1, col=1)
+        fig.add_trace(go.Scatter(x=measurement_time_vector, y=measurement_vectors[:, i], mode='markers', name=f'{measurement_mgr_list[i].station_name} Truth Range'), row=i+1, col=1)
+        fig.add_trace(go.Scatter(x=truth_time_vector, y=truth_simulated_measurements_mat[:, 2*i+1], mode='markers', name=f'{measurement_mgr_list[i].station_name} Simulated Range Rate'), row=i+1, col=2)
+        fig.add_trace(go.Scatter(x=measurement_time_vector, y=measurement_vectors[:, i+3], mode='markers', name=f'{measurement_mgr_list[i].station_name} Truth Range Rate'), row=i+1, col=2)
+    fig.update_layout(title='Simulated Measurements About Truth Trajectory vs Truth Measurements', showlegend=False)
+    for i in range(1, 4):
+        for j in range(1, 3):
+            fig.update_xaxes(title_text='Time (s)', row=i, col=j)
+            if j == 1:
+                fig.update_yaxes(title_text='Range (km)', showexponent="all", exponentformat="e", row=i, col=j)
+            else:
+                fig.update_yaxes(title_text='Range Rate (km/s)', showexponent="all", exponentformat="e", row=i, col=j)
     fig.show()
