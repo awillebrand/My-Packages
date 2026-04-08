@@ -195,19 +195,19 @@ class Integrator:
         
         # If parameters are being estimated, pull out their current values from the state vector based on the parameter_indices list and mode. If a parameter is not being estimated, use the nominal value from the class attributes.
         if 'mu' in self.estimation_mode:
-            param_index = self.parameter_indices[self.mode.index('mu')]
+            param_index = self.parameter_indices[self.estimation_mode.index('mu')]
             mu = state[param_index]
         if 'J2' in self.estimation_mode:
-            param_index = self.parameter_indices[self.mode.index('J2')]
+            param_index = self.parameter_indices[self.estimation_mode.index('J2')]
             J2 = state[param_index]
         if 'J3' in self.estimation_mode:
-            param_index = self.parameter_indices[self.mode.index('J3')]
+            param_index = self.parameter_indices[self.estimation_mode.index('J3')]
             J3 = state[param_index]
         if 'Drag' in self.estimation_mode:
-            param_index = self.parameter_indices[self.mode.index('Drag')]
+            param_index = self.parameter_indices[self.estimation_mode.index('Drag')]
             Cd = state[param_index]
         if 'SRP' in self.estimation_mode:
-            param_index = self.parameter_indices[self.mode.index('SRP')]
+            param_index = self.parameter_indices[self.estimation_mode.index('SRP')]
             Cr = state[param_index]
         if 'Stations' in self.estimation_mode:
             # Determine number of station variables, this is stored in the parameter_indices value for stations as a list
@@ -379,7 +379,7 @@ class Integrator:
             state_dot = self.equations_of_motion(t, state, DMC=DMC, beta_mat=beta_mat)
 
             # Compute STM derivative
-            A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, station_positions_ecef, self.R_e, mode=self.mode, spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
+            A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, station_positions_ecef, self.R_e, mode=self.estimation_mode, spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
             phi_dot = A @ phi
 
             # Compute sensitivity matrix derivative
@@ -442,16 +442,16 @@ class Integrator:
         state_length = 6
 
         # Determine J2, J3, and Cd based on mode
-        if 'mu' in self.mode:
+        if 'mu' in self.estimation_mode:
             state_length += 1
-        if 'J2' in self.mode:
+        if 'J2' in self.estimation_mode:
             state_length += 1
-        if 'J3' in self.mode:
+        if 'J3' in self.estimation_mode:
             state_length += 1
-        if 'Drag' in self.mode:
+        if 'Drag' in self.estimation_mode:
             state_length += 1
-        if 'Stations' in self.mode:
-            param_index = self.parameter_indices[self.mode.index('Stations')]
+        if 'Stations' in self.estimation_mode:
+            param_index = self.parameter_indices[self.estimation_mode.index('Stations')]
             num_station_vars = len(initial_state[param_index:])
             state_length += num_station_vars
         if DMC:
@@ -473,16 +473,16 @@ class Integrator:
         state_length = 6
 
         # Determine J2, J3, and Cd based on mode
-        if 'mu' in self.mode:
+        if 'mu' in self.estimation_mode:
             state_length += 1
-        if 'J2' in self.mode:
+        if 'J2' in self.estimation_mode:
             state_length += 1
-        if 'J3' in self.mode:
+        if 'J3' in self.estimation_mode:
             state_length += 1
-        if 'Drag' in self.mode:
+        if 'Drag' in self.estimation_mode:
             state_length += 1
-        if 'Stations' in self.mode:
-            param_index = self.parameter_indices[self.mode.index('Stations')]
+        if 'Stations' in self.estimation_mode:
+            param_index = self.parameter_indices[self.estimation_mode.index('Stations')]
             num_station_vars = len(initial_state[param_index:])
             state_length += num_station_vars
         
