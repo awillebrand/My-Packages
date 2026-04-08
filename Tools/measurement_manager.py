@@ -50,7 +50,7 @@ class MeasurementMgr:
 
         return np.rad2deg(elevation_angle)
 
-    def is_visible(self, sc_position_ecef : np.array, visibility_elevation_angle : float = 0.0):
+    def is_visible(self, sc_position_ecef : np.array, visibility_elevation_angle : float = 10.0):
         """Determine if the spacecraft is visible from the ground station.
         Parameters:
         sc_position_ecef : np.array
@@ -65,7 +65,7 @@ class MeasurementMgr:
         elevation_angle = self.get_elevation_angle(sc_position_ecef)
         return elevation_angle > visibility_elevation_angle
 
-    def simulate_measurements(self, inputted_state_history : np.array, time_vector : np.array, coordinate_frame : str, noise : bool = False, noise_sigma : np.array = np.array([0.0, 0.0]), ignore_visibility :bool = False):
+    def simulate_measurements(self, inputted_state_history : np.array, time_vector : np.array, coordinate_frame : str, noise : bool = False, noise_sigma : np.array = np.array([0.0, 0.0]), ignore_visibility : bool = False):
         """Simulate range measurements from the ground station to the spacecraft over time.
         Parameters:
         sc_state_history : np.array

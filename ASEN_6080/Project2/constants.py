@@ -1,9 +1,12 @@
+import numpy as np
+
 """
 This file contains constants used in the ASEN 6080 Project 2 code. These constants include physical
 parameters,initial conditions, and any other fixed values that are relevant to the project.
 """
 # Truth data file path
 truth_data_file_path = 'ASEN_6080\Project2\data\Project2_Prob2_truth_traj_50days.mat'
+known_dynamics_measurement_file_path = 'ASEN_6080\Project2\data\Project2a_Obs.txt'
 
 # Physical Constants
 mu_sun = 132712440017.987                   # Gravitational parameter of the Sun, km^3/s^2
@@ -33,5 +36,5 @@ part_2_station_locations = {
     'DSS13': {'lat': 35.247164, 'lon': 243.205, 'alt': 1.07114904}   # Goldstone, CA
 }
 
-observation_noise = (0.005, 0.0005)  # Range noise: 5 meters, Range rate noise: 0.5 mm/s
+observation_noise = np.array([0.005, 0.0005])  # Range noise: 5 meters, Range rate noise: 0.5 mm/s
 
