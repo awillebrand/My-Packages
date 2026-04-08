@@ -21,7 +21,7 @@ def compute_density(r_norm : float, rho_0 : float = 3.614e-13, r_0 : float = 700
 
     return rho
 
-def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : float, C_d : float, station_positions_ecef : np.array, R_e, mode : list = ['BaseMat'], spacecraft_area : float = 3.0E-6, spacecraft_mass : float = 970.0, earth_spin_rate : float = 7.2921158553E-5, DMC : bool = False, beta_mat : np.ndarray = None):
+def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : float, C_d : float, C_r : float, station_positions_ecef : np.array, R_e : float, mode : list = ['BaseMat'], spacecraft_area : float = 3.0E-6, spacecraft_mass : float = 970.0, earth_spin_rate : float = 7.2921158553E-5, DMC : bool = False, beta_mat : np.ndarray = None):
     """
     This function computes the partial derivatives of the acceleration associated with the J2 and J3 perturbations in a gravitational field and outputs the associated Jacobian.
 
@@ -38,6 +38,8 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
         J3 coefficient.
     C_d : float
         Drag coefficient.
+    C_r : float
+        Solar radiation pressure coefficient.
     station_positions_ecef : np.array
         Nx3 array of ground station positions in ECEF coordinates, where N is the number of stations.
     R_e : float
@@ -59,16 +61,26 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
 
     # if set(mode).isdisjoint({'BaseMat', 'J2', 'J3', 'Drag', 'Stations'}):
     #     raise ValueError("Invalid mode specified. Choose from 'BaseMat', 'mu', 'J2', 'J3', 'Drag', and/or 'Stations'.")
-    if mu == 0:
-        raise ValueError("mu must be non-zero!")
-    if 'J2' in mode and J2 == 0:
-        raise ValueError("J2 must be non-zero to include J2 partials.")
-    if 'J3' in mode and J3 == 0:
-        raise ValueError("J3 must be non-zero to include J3 partials.")
-    if 'Drag' in mode and C_d == 0:
-        raise ValueError("C_d must be non-zero to include drag partials.")
-    if 'Stations' in mode and len(station_positions_ecef) == 0:
-        raise ValueError("Station positions must be provided to include station partials.")
+    if mu == None:
+        if 'mu' in mode:
+            raise Warning("Gravitational parameter partials requested but mu not provided. Defaulting to zero.")
+        mu = 0
+    if J2 == None:
+        if 'J2' in mode:
+            raise Warning("J2 partials requested but J2 not provided. Defaulting to zero.")
+        J2 = 0
+    if J3 == None:
+        if 'J3' in mode:
+            raise Warning("J3 partials requested but J3 not provided. Defaulting to zero.")
+        J3 = 0
+    if C_d == None:
+        if 'Drag' in mode:
+            raise Warning("Drag partials requested but C_d not provided. Defaulting to zero.")
+        C_d = 0
+    if C_r == None:
+        if 'SRP' in mode:
+            raise Warning("SRP partials requested but C_r not provided. Defaulting to zero.")
+        C_r = 0
 
     if DMC and beta_mat is None:
         raise ValueError("Beta must be provided for dynamic model compensation.")
@@ -80,7 +92,6 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
 
     # Compute position partials
     # Point mass partials
-
     a_xx_pm = mu / r_norm**5 * (3 * x**2 - r_norm**2)
     a_yy_pm = mu / r_norm**5 * (3 * y**2 - r_norm**2)
     a_zz_pm = mu / r_norm**5 * (3 * z**2 - r_norm**2)

@@ -258,9 +258,9 @@ class Integrator:
 
             # Compute STM derivative
             if self.mode == []:
-                A = state_jacobian(state[0:3], state[3:6], mu, 0, 0, 0, station_positions_ecef, self.R_e, mode=['BaseMat'], spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
+                A = state_jacobian(state[0:3], state[3:6], mu, 0, 0, 0, 0, station_positions_ecef, self.R_e, mode=['BaseMat'], spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
             else:
-                A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, station_positions_ecef, self.R_e, mode=self.mode, spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
+                A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, 0, station_positions_ecef, self.R_e, mode=self.mode, spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
 
             phi_dot = A @ phi
             phi_dot_flat = phi_dot.flatten()

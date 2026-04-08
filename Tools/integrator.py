@@ -55,11 +55,11 @@ class Integrator:
         self.solar_flux = solar_flux
         self.initial_epoch = initial_epoch
 
-        if set(dynamical_mode).isdisjoint({'mu', 'J2', 'J3', 'Drag', 'SRP'}):
-            raise ValueError("Invalid mode specified. Choose from 'mu', 'J2', 'J3', 'Drag', and/or 'SRP'.")
         if len(dynamical_mode) == 0:
             raise ValueError("At least one perturbation mode must be selected in dynamical_mode.")
-        if set(estimation_mode).isdisjoint({'mu', 'J2', 'J3', 'Drag', 'Stations', 'SRP'}):
+        if not set(dynamical_mode).issubset({'mu', 'J2', 'J3', 'Drag', 'SRP'}):
+            raise ValueError("Invalid mode specified. Choose from 'mu', 'J2', 'J3', 'Drag', and/or 'SRP'.")
+        if not set(estimation_mode).issubset({'mu', 'J2', 'J3', 'Drag', 'Stations', 'SRP'}) and len(estimation_mode) > 0:
             raise ValueError("Invalid estimation mode specified. Choose from 'mu', 'J2', 'J3', 'Drag', 'Stations', and/or 'SRP'.")
         if len(estimation_mode) != len(parameter_indices):
             raise ValueError("Length of estimation_mode and parameter_indices must be the same.")
@@ -267,7 +267,7 @@ class Integrator:
         L = 0.25 * (-1 + np.sqrt(1 + 8 * len(state)))
         for i in range(2 * int(L) + 1):
             state_i = state[i*int(L):(i+1)*int(L)]
-            state_dot_i = self.equations_of_motion(t, state_i, DMC=False, beta_mat=None, sigma_points=False)
+            state_dot_i = self.equations_of_motion(t, state_i, DMC=False, beta_mat=None)
             if i == 0:
                 state_dot = state_dot_i
             else:
@@ -358,9 +358,9 @@ class Integrator:
 
             # Compute STM derivative
             if self.estimation_mode == []:
-                A = state_jacobian(state[0:3], state[3:6], mu, 0, 0, 0, station_positions_ecef, self.R_e, mode=['BaseMat'], spacecraft_area=spacecraft_area, spacecraft_mass=spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
+                A = state_jacobian(state[0:3], state[3:6], mu, 0, 0, 0, Cr, station_positions_ecef, self.R_e, mode=['BaseMat'], spacecraft_area=spacecraft_area, spacecraft_mass=spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
             else:
-                A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, station_positions_ecef, self.R_e, mode=self.estimation_mode, spacecraft_area=spacecraft_area, spacecraft_mass=spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
+                A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, Cr, station_positions_ecef, self.R_e, mode=self.estimation_mode, spacecraft_area=spacecraft_area, spacecraft_mass=spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
 
             phi_dot = A @ phi
             phi_dot_flat = phi_dot.flatten()
