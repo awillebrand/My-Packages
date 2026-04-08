@@ -52,7 +52,8 @@ if __name__ == "__main__":
         number_of_stations=0,
         solar_flux=solar_flux,
         mu_third_body=mu_sun,
-        third_body='Earth'
+        central_body='Earth',
+        third_body='Sun'
     )
 
     t_f = time_vector[-1]  # Final time from the truth data

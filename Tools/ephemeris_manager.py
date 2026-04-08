@@ -20,8 +20,9 @@ class EphemerisMgr:
                 'mercury', 'venus', 'earth', 'mars', 'jupiter',
                 'saturn', 'uranus', 'neptune', 'pluto'
         """
-
-        self.ephemeris_coeffs = self.load_ephemeris_coeffs(planetary_body)
+        self.planetary_body = planetary_body
+        if planetary_body.lower() != 'sun':  # Sun is at the center of the EME2000 frame, so we can skip loading coefficients for it
+            self.ephemeris_coeffs = self.load_ephemeris_coeffs(planetary_body)
 
     def load_ephemeris_coeffs(self, planet : str) -> dict:
         """
@@ -136,6 +137,9 @@ class EphemerisMgr:
             np.ndarray: State vector [x, y, z, vx, vy, vz] in EME2000 frame
         """
 
+        if self.planetary_body.lower() == 'sun':
+            return np.zeros(6)  # Sun is at the center of the EME2000 frame, so its state vector is always zero
+        
         # Convert epoch from Julian days to centuries and define gravitational parameter of the Sun
         time = (epoch - 2451545.0) / 36525.0
         mu_s = 132712440017.987

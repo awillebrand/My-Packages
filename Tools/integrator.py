@@ -11,6 +11,7 @@ class Integrator:
                  Cd : float = None,
                  Cr : float = None,
                  mu_third_body : float = None,
+                 central_body : str = None,
                  third_body : str = None,
                  dynamical_mode : list = [],
                  estimation_mode : list = [],
@@ -40,6 +41,8 @@ class Integrator:
             Reflectivity coefficient for the spacecraft, used in solar radiation pressure calculations. Default is 0 (no SRP).
         mu_third_body : float, optional
             Gravitational parameter of a third body (e.g., Moon or Sun) in km^3/s^2, used for third body perturbation calculations. Default is None (no third body perturbation).
+        central_body : str, optional
+            Name of the central body for which to compute perturbations (e.g., 'Earth'). Required if mu_third_body is provided. Default is None.
         third_body : str, optional
             Name of the third body for which to compute perturbations (e.g., 'Moon' or 'Sun'). Required if mu_third_body is provided. Default is None.
         dynamical_mode : list, optional
@@ -74,6 +77,7 @@ class Integrator:
         self.Cd = Cd
         self.Cr = Cr
         self.mu_third_body = mu_third_body
+        self.central_body = central_body
         self.third_body = third_body
         self.R_e = R_e
         self.dynamical_mode = dynamical_mode
@@ -181,19 +185,23 @@ class Integrator:
 
         return np.array([0, 0, 0, accel_srp[0], accel_srp[1], accel_srp[2]])
     
-    def get_3rd_body_effects(self, state : np.ndarray, mu_third_body : float, t : float, third_body : str):
+    def get_3rd_body_effects(self, state : np.ndarray, mu_third_body : float, t : float, central_body : str, third_body : str):
         # Get position of third body using ephemeris manager
-        ephemeris_mgr = EphemerisMgr(third_body)
-        third_body_state = -ephemeris_mgr.evaluate_state(self.initial_epoch_jd + t / 86400)  # Position of sun relative to third body in EME2000 frame (km)
-        r_earth_third_body_vec = third_body_state[0:3]
-        r_earth_third_body_norm = np.linalg.norm(r_earth_third_body_vec)
+        ephemeris_mgr_central_body = EphemerisMgr(central_body)
+        ephemeris_mgr_third_body = EphemerisMgr(third_body)
 
-        r_earth_sc_vec = state[0:3]  # Spacecraft position relative to Earth in EME2000 frame (km)
+        central_body_state = ephemeris_mgr_central_body.evaluate_state(self.initial_epoch_jd + t / 86400)  # Position of central body relative to sun in EME2000 frame (km)
+        third_body_state = ephemeris_mgr_third_body.evaluate_state(self.initial_epoch_jd + t / 86400)  # Position of third body relative in EME2000 frame (km)
 
-        r_third_body_sc_vec = r_earth_third_body_vec - r_earth_sc_vec  # Spacecraft position relative to third body in EME2000 frame (km)
-        r_third_body_sc_norm = np.linalg.norm(r_third_body_sc_vec)
+        r_central_body_third_body_vec = third_body_state[0:3] - central_body_state[0:3]
+        r_central_body_third_body_norm = np.linalg.norm(r_central_body_third_body_vec)
 
-        accel_3rd_body = mu_third_body * (r_third_body_sc_vec / r_third_body_sc_norm**3 - r_earth_third_body_vec / r_earth_third_body_norm**3)
+        r_central_body_sc_vec = state[0:3]  # Spacecraft position relative to Earth in EME2000 frame (km)
+
+        r_sc_third_body_vec = r_central_body_third_body_vec - r_central_body_sc_vec  # Spacecraft position relative to third body in EME2000 frame (km)
+        r_sc_third_body_norm = np.linalg.norm(r_sc_third_body_vec)
+
+        accel_3rd_body = mu_third_body * (r_sc_third_body_vec / r_sc_third_body_norm**3 - r_central_body_third_body_vec / r_central_body_third_body_norm**3)
 
         return np.array([0, 0, 0, accel_3rd_body[0], accel_3rd_body[1], accel_3rd_body[2]])
 
@@ -285,7 +293,7 @@ class Integrator:
             elif param == 'SRP':
                 state_dot += self.get_SRP_effects(state, Cr, srp_area_to_mass, t)
             elif param == 'Third Body':
-                state_dot += self.get_3rd_body_effects(state, mu_third_body, t, third_body=self.third_body)  # For now, hardcoding the third body as the Moon, but this can be easily modified to allow for other third bodies in the future by adding an additional parameter for the third body name and passing it to the get_3rd_body_effects function
+                state_dot += self.get_3rd_body_effects(state, mu_third_body, t, central_body=self.central_body, third_body=self.third_body)  # For now, hardcoding the third body as the Moon, but this can be easily modified to allow for other third bodies in the future by adding an additional parameter for the third body name and passing it to the get_3rd_body_effects function
             else:
                 # Error handling for invalid mode entry, this should be caught in the initializer but just in case
                 raise ValueError("Invalid found in equations of motion. Choose from 'mu', 'J2', 'J3', 'Drag', and/or 'SRP'.")
