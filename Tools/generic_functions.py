@@ -189,12 +189,15 @@ def state_jacobian(r : np.array,
     delta_z_srp = r_sun_sc[2]
 
     # Compute partial derivatives of SRP acceleration with respect to position components
-    a_xx_SRP = C_r * P_solar * srp_area_to_mass * (R**2 - 3 * delta_x_srp**2) / R**5
-    a_yy_SRP = C_r * P_solar * srp_area_to_mass * (R**2 - 3 * delta_y_srp**2) / R**5
-    a_zz_SRP = C_r * P_solar * srp_area_to_mass * (R**2 - 3 * delta_z_srp**2) / R**5
-    a_xy_SRP = -3 * C_r * P_solar * srp_area_to_mass * delta_x_srp * delta_y_srp / R**5
-    a_xz_SRP = -3 * C_r * P_solar * srp_area_to_mass * delta_x_srp * delta_z_srp / R**5
-    a_yz_SRP = -3 * C_r * P_solar * srp_area_to_mass * delta_y_srp * delta_z_srp / R**5
+    AU_KM = 149597870.700
+    srp_scale = AU_KM**2 / 1000.0  # to match the acceleration formulation
+
+    a_xx_SRP = C_r * P_solar * srp_scale * srp_area_to_mass * (R**2 - 3 * delta_x_srp**2) / R**5
+    a_yy_SRP = C_r * P_solar * srp_scale * srp_area_to_mass * (R**2 - 3 * delta_y_srp**2) / R**5
+    a_zz_SRP = C_r * P_solar * srp_scale * srp_area_to_mass * (R**2 - 3 * delta_z_srp**2) / R**5
+    a_xy_SRP = -3 * C_r * P_solar * srp_scale * srp_area_to_mass * delta_x_srp * delta_y_srp / R**5
+    a_xz_SRP = -3 * C_r * P_solar * srp_scale * srp_area_to_mass * delta_x_srp * delta_z_srp / R**5
+    a_yz_SRP = -3 * C_r * P_solar * srp_scale * srp_area_to_mass * delta_y_srp * delta_z_srp / R**5
     a_yx_SRP = a_xy_SRP
     a_zx_SRP = a_xz_SRP
     a_zy_SRP = a_yz_SRP
@@ -293,9 +296,9 @@ def state_jacobian(r : np.array,
         if 'SRP' in value:
             # Compute needed SRP partials and add to A
             temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
-            a_xCr = P_solar * srp_area_to_mass * delta_x_srp / R**3
-            a_yCr = P_solar * srp_area_to_mass * delta_y_srp / R**3
-            a_zCr = P_solar * srp_area_to_mass * delta_z_srp / R**3
+            a_xCr = P_solar * srp_scale * srp_area_to_mass * delta_x_srp / R**3
+            a_yCr = P_solar * srp_scale * srp_area_to_mass * delta_y_srp / R**3
+            a_zCr = P_solar * srp_scale * srp_area_to_mass * delta_z_srp / R**3
             # Set appropriate rows in last column
             temp_A[3, -1] = a_xCr
             temp_A[4, -1] = a_yCr
