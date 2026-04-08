@@ -3,7 +3,26 @@ from .generic_functions import state_jacobian, compute_density, compute_consider
 from .ephemeris_manager import EphemerisMgr
 from scipy.integrate import solve_ivp
 class Integrator:
-    def __init__(self, mu : float, R_e : float, J2 : float = None, J3 : float = None, Cd : float = None, Cr = None, dynamical_mode : list = [], estimation_mode : list = [], parameter_indices : list = [], spacecraft_area : float = None, spacecraft_mass : float = None, number_of_stations : int = 0, earth_spin_rate : float = 7.2921158553E-5, solar_flux : float = 1357.0, initial_epoch : float = 0):
+    def __init__(self,
+                 mu : float,
+                 R_e : float,
+                 J2 : float = None,
+                 J3 : float = None,
+                 Cd : float = None,
+                 Cr : float = None,
+                 mu_third_body : float = None,
+                 third_body : str = None,
+                 dynamical_mode : list = [],
+                 estimation_mode : list = [],
+                 parameter_indices : list = [],
+                 spacecraft_area : float = None,
+                 spacecraft_mass : float = None,
+                 srp_area_to_mass : float = None,
+                 number_of_stations : int = 0,
+                 earth_spin_rate : float =7.2921158553E-5,
+                 solar_flux : float = 1357.0,
+                 initial_epoch : float = 0,
+                 initial_epoch_jd : float = 2456296.25):
         """
         Initializes the Integrator class for spacecraft orbit propagation.
         Parameters:
@@ -17,6 +36,12 @@ class Integrator:
             Third zonal harmonic coefficient for the central body's gravity field. Default is 0 (no J3 perturbation).
         Cd : float, optional
             Drag coefficient for the spacecraft, used in atmospheric drag calculations. Default is 0 (no drag).
+        Cr : float, optional
+            Reflectivity coefficient for the spacecraft, used in solar radiation pressure calculations. Default is 0 (no SRP).
+        mu_third_body : float, optional
+            Gravitational parameter of a third body (e.g., Moon or Sun) in km^3/s^2, used for third body perturbation calculations. Default is None (no third body perturbation).
+        third_body : str, optional
+            Name of the third body for which to compute perturbations (e.g., 'Moon' or 'Sun'). Required if mu_third_body is provided. Default is None.
         dynamical_mode : list, optional
             List of perturbation modes to include in the integration. Options are 'PointMass', 'J2', 'J3', 'Drag', and 'Stations'. Default is an empty list.
         estimation_mode : list, optional
@@ -27,6 +52,8 @@ class Integrator:
             Cross-sectional area of the spacecraft in m^2, required if 'Drag' is included in mode. Default is None.
         spacecraft_mass : float, optional
             Mass of the spacecraft in kg, required if 'Drag' is included in mode. Default is None.
+        srp_area_to_mass : float, optional
+            Area-to-mass ratio of the spacecraft in m^2/kg, required if 'SRP' is included in mode. Default is None.
         number_of_stations : int, optional
             Number of ground stations being used, required if 'Stations' is included in mode. Default is 0.
         earth_spin_rate : float, optional
@@ -35,6 +62,8 @@ class Integrator:
             Solar flux at 1 AU in W/m^2, used for solar radiation pressure calculations. Default is 1357.0 W/m^2.
         initial_epoch : float, optional
             Initial epoch in Julian days for the integration, used for evaluating planetary positions if needed. Default is 0.
+        initial_epoch_jd : float, optional
+            Initial epoch in Julian Date (J2000) for the integration, used for evaluating planetary positions if needed. Default is 2456296.25 JD.
         Raises:
             ValueError: If an invalid mode is specified, if the length of mode and parameter_indices do not match, if spacecraft area and mass are not provided for drag calculations, or if the number of stations is not greater than zero when 'Stations' mode is selected.
         """
@@ -44,28 +73,34 @@ class Integrator:
         self.J3 = J3
         self.Cd = Cd
         self.Cr = Cr
+        self.mu_third_body = mu_third_body
+        self.third_body = third_body
         self.R_e = R_e
         self.dynamical_mode = dynamical_mode
         self.estimation_mode = estimation_mode
         self.parameter_indices = parameter_indices
         self.spacecraft_area = spacecraft_area * 1e-6 if spacecraft_area is not None else 0 
         self.spacecraft_mass = spacecraft_mass if spacecraft_mass is not None else 1
+        self.srp_area_to_mass = srp_area_to_mass
         self.number_of_stations = number_of_stations
         self.earth_spin_rate = earth_spin_rate
         self.solar_flux = solar_flux
         self.initial_epoch = initial_epoch
+        self.initial_epoch_jd = initial_epoch_jd
 
         if len(dynamical_mode) == 0:
             raise ValueError("At least one perturbation mode must be selected in dynamical_mode.")
-        if not set(dynamical_mode).issubset({'mu', 'J2', 'J3', 'Drag', 'SRP'}):
-            raise ValueError("Invalid mode specified. Choose from 'mu', 'J2', 'J3', 'Drag', and/or 'SRP'.")
+        if not set(dynamical_mode).issubset({'mu', 'J2', 'J3', 'Drag', 'SRP', 'Third Body'}):
+            raise ValueError("Invalid mode specified. Choose from 'mu', 'J2', 'J3', 'Drag', 'SRP', and/or 'Third Body'.")
         if not set(estimation_mode).issubset({'mu', 'J2', 'J3', 'Drag', 'Stations', 'SRP'}) and len(estimation_mode) > 0:
             raise ValueError("Invalid estimation mode specified. Choose from 'mu', 'J2', 'J3', 'Drag', 'Stations', and/or 'SRP'.")
+        if mu_third_body is not None and third_body is None:
+            raise ValueError("Third body name must be provided if mu_third_body is specified.")
         if len(estimation_mode) != len(parameter_indices):
             raise ValueError("Length of estimation_mode and parameter_indices must be the same.")
         if 'Drag' in dynamical_mode and (spacecraft_area is None or spacecraft_mass is None):
             raise ValueError("Spacecraft area and mass must be provided for drag calculations.")
-        if 'SRP' in dynamical_mode and (spacecraft_area is None or spacecraft_mass is None):
+        if 'SRP' in dynamical_mode and (srp_area_to_mass is None):
             raise ValueError("Spacecraft area and mass must be provided for SRP calculations.")
         if 'Stations' in estimation_mode and number_of_stations <= 0:
             raise ValueError("Number of stations must be greater than zero when 'Stations' mode is selected.")
@@ -122,7 +157,7 @@ class Integrator:
         w_dot_drag = -(rho * Cd * spacecraft_area * V_rel_norm * w_rel) / (2 * spacecraft_mass)
         return np.array([0, 0, 0, u_dot_drag, v_dot_drag, w_dot_drag])
     
-    def get_SRP_effects(self, state, Cr, spacecraft_area, spacecraft_mass, t, AU_KM = 149597870.700):
+    def get_SRP_effects(self, state, Cr, spacecraft_area_to_mass, t, AU_KM = 149597870.700):
         x, y, z = state[0:3]
         u, v, w = state[3:6]
         r = np.sqrt(x**2 + y**2 + z**2)
@@ -130,7 +165,7 @@ class Integrator:
 
         # For SRP calculation, we need the position of the Sun. We can use the EphemerisMgr to get this based on the initial epoch and current time.
         ephemeris_mgr = EphemerisMgr('Earth')
-        earth_state = ephemeris_mgr.evaluate_state(self.initial_epoch + t / 86400)  # Position of earth relative to sun in EME2000 frame (km)
+        earth_state = ephemeris_mgr.evaluate_state(self.initial_epoch_jd + t / 86400)  # Position of earth relative to sun in EME2000 frame (km)
         r_sun_earth = earth_state[0:3]
 
         r_earth_sc = np.array([x, y, z])  # Spacecraft position relative to Earth in EME2000 frame (km)
@@ -141,11 +176,27 @@ class Integrator:
         # Compute SRP acceleration
         R_AU = r_sun_sc_norm / AU_KM  # dimensionless
 
-        accel_srp_norm = P_solar * Cr * spacecraft_area / (R_AU**2 * spacecraft_mass) # Convert r_sun_sc_norm from km to m for SRP calculation
+        accel_srp_norm = P_solar * Cr * spacecraft_area_to_mass / R_AU**2 # Convert r_sun_sc_norm from km to m for SRP calculation
         accel_srp = accel_srp_norm / 1000 * (r_sun_sc / r_sun_sc_norm)  # Acceleration vector in km/s^2
 
         return np.array([0, 0, 0, accel_srp[0], accel_srp[1], accel_srp[2]])
     
+    def get_3rd_body_effects(self, state : np.ndarray, mu_third_body : float, t : float, third_body : str):
+        # Get position of third body using ephemeris manager
+        ephemeris_mgr = EphemerisMgr(third_body)
+        third_body_state = -ephemeris_mgr.evaluate_state(self.initial_epoch_jd + t / 86400)  # Position of sun relative to third body in EME2000 frame (km)
+        r_earth_third_body_vec = third_body_state[0:3]
+        r_earth_third_body_norm = np.linalg.norm(r_earth_third_body_vec)
+
+        r_earth_sc_vec = state[0:3]  # Spacecraft position relative to Earth in EME2000 frame (km)
+
+        r_third_body_sc_vec = r_earth_third_body_vec - r_earth_sc_vec  # Spacecraft position relative to third body in EME2000 frame (km)
+        r_third_body_sc_norm = np.linalg.norm(r_third_body_sc_vec)
+
+        accel_3rd_body = mu_third_body * (r_third_body_sc_vec / r_third_body_sc_norm**3 - r_earth_third_body_vec / r_earth_third_body_norm**3)
+
+        return np.array([0, 0, 0, accel_3rd_body[0], accel_3rd_body[1], accel_3rd_body[2]])
+
     def get_dmc_effects(self, state, beta_mat):
         w_1, w_2, w_3 = state[-3:]
         u_dot_dmc = w_1
@@ -190,8 +241,10 @@ class Integrator:
         J3 = self.J3
         Cd = self.Cd
         Cr = self.Cr
+        mu_third_body = self.mu_third_body
         spacecraft_area = self.spacecraft_area
         spacecraft_mass = self.spacecraft_mass
+        srp_area_to_mass = self.srp_area_to_mass
         
         # If parameters are being estimated, pull out their current values from the state vector based on the parameter_indices list and mode. If a parameter is not being estimated, use the nominal value from the class attributes.
         if 'mu' in self.estimation_mode:
@@ -209,6 +262,9 @@ class Integrator:
         if 'SRP' in self.estimation_mode:
             param_index = self.parameter_indices[self.estimation_mode.index('SRP')]
             Cr = state[param_index]
+        if 'Third Body' in self.estimation_mode:
+            param_index = self.parameter_indices[self.estimation_mode.index('Third Body')]
+            mu_third_body = state[param_index]
         if 'Stations' in self.estimation_mode:
             # Determine number of station variables, this is stored in the parameter_indices value for stations as a list
             num_station_vars = self.number_of_stations * 3
@@ -227,7 +283,9 @@ class Integrator:
             elif param == 'Drag':
                 state_dot += self.get_drag_effects(state, Cd, spacecraft_area, spacecraft_mass)
             elif param == 'SRP':
-                state_dot += self.get_SRP_effects(state, Cr, spacecraft_area, spacecraft_mass, t)
+                state_dot += self.get_SRP_effects(state, Cr, srp_area_to_mass, t)
+            elif param == 'Third Body':
+                state_dot += self.get_3rd_body_effects(state, mu_third_body, t, third_body=self.third_body)  # For now, hardcoding the third body as the Moon, but this can be easily modified to allow for other third bodies in the future by adding an additional parameter for the third body name and passing it to the get_3rd_body_effects function
             else:
                 # Error handling for invalid mode entry, this should be caught in the initializer but just in case
                 raise ValueError("Invalid found in equations of motion. Choose from 'mu', 'J2', 'J3', 'Drag', and/or 'SRP'.")
@@ -239,6 +297,10 @@ class Integrator:
         if 'J3' in self.estimation_mode:
             state_dot = np.append(state_dot, 0)
         if 'Drag' in self.estimation_mode:
+            state_dot = np.append(state_dot, 0)
+        if 'SRP' in self.estimation_mode:
+            state_dot = np.append(state_dot, 0)
+        if 'Third Body' in self.estimation_mode:
             state_dot = np.append(state_dot, 0)
         if 'Stations' in self.estimation_mode:
             for _ in range(num_station_vars):
