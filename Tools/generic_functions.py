@@ -21,7 +21,26 @@ def compute_density(r_norm : float, rho_0 : float = 3.614e-13, r_0 : float = 700
 
     return rho
 
-def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : float, C_d : float, C_r : float, station_positions_ecef : np.array, R_e : float, mode : list = ['BaseMat'], spacecraft_area : float = 3.0E-6, spacecraft_mass : float = 970.0, earth_spin_rate : float = 7.2921158553E-5, DMC : bool = False, beta_mat : np.ndarray = None):
+def state_jacobian(r : np.array,
+                   V : np.array,
+                   mu : float = None,
+                   J2 : float = None,
+                   J3 : float = None,
+                   C_d : float = None,
+                   C_r  : float = None,
+                   P_solar : float = None,
+                   sun_pos : np.array = None,
+                   mu_third_body : float = None,
+                   third_body_state : float = None,
+                   station_positions_ecef : np.array = [],
+                   R_e : float = None,
+                   mode : list = ['BaseMat'],
+                   spacecraft_area : float = None,
+                   spacecraft_mass : float = None,
+                   srp_area_to_mass : float = None,
+                   earth_spin_rate : float = None,
+                   DMC : bool = False,
+                   beta_mat : np.ndarray = None):
     """
     This function computes the partial derivatives of the acceleration associated with the J2 and J3 perturbations in a gravitational field and outputs the associated Jacobian.
 
@@ -40,16 +59,24 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
         Drag coefficient.
     C_r : float
         Solar radiation pressure coefficient.
+    epoch_jd : float
+        Epoch in Julian Date, used for computing third body positions and any time-dependent effects.
+    mu_third_body : float
+        Gravitational parameter of the third body for third body perturbation partials.
+    third_body : str
+        Name of the third body (e.g., 'Sun', 'Moon') for which to compute third body perturbation partials.
     station_positions_ecef : np.array
         Nx3 array of ground station positions in ECEF coordinates, where N is the number of stations.
     R_e : float
         Earth's radius.
     mode : list
         List of strings specifying which partials to include in the Jacobian. Options are 'BaseMat', 'J2', 'J3', and/or 'Drag'.
-    area : float
+    spacecraft_area : float
         Cross-sectional area of the spacecraft in m^2. Default is 3.0 m^2.
     spacecraft_mass : float
         Mass of the spacecraft in kg. Default is 970.0 kg.
+    srp_area_to_mass : float
+        Area-to-mass ratio for solar radiation pressure calculations in m^2/kg.
     DMC : bool
         If True, include dynamic model compensation terms in the Jacobian. Default is False.
     beta_mat : np.ndarray
@@ -80,8 +107,13 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
     if C_r == None:
         if 'SRP' in mode:
             raise Warning("SRP partials requested but C_r not provided. Defaulting to zero.")
+        if srp_area_to_mass == None:
+            raise Warning("SRP partials requested but srp_area_to_mass not provided. Defaulting to zero.")
         C_r = 0
-
+    if mu_third_body == None:
+        if 'Third Body' in mode:
+            raise Warning("Third body partials requested but mu_third_body not provided. Defaulting to zero.")
+        mu_third_body = 0
     if DMC and beta_mat is None:
         raise ValueError("Beta must be provided for dynamic model compensation.")
     
@@ -146,18 +178,57 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
     a_zu_drag = a_xw_drag
     a_zv_drag = a_yw_drag
 
+    # Compute SRP partials
+    # Compute vector from sun to spacecraft and its magnitude
+    r_sun_sc = r - sun_pos
+    R = np.linalg.norm(r_sun_sc)
+
+    # Break vector pointing from third body to spacecraft into components
+    delta_x_srp = r_sun_sc[0]
+    delta_y_srp = r_sun_sc[1]
+    delta_z_srp = r_sun_sc[2]
+
+    # Compute partial derivatives of SRP acceleration with respect to position components
+    a_xx_SRP = C_r * P_solar * srp_area_to_mass * (R**2 - 3 * delta_x_srp**2) / R**5
+    a_yy_SRP = C_r * P_solar * srp_area_to_mass * (R**2 - 3 * delta_y_srp**2) / R**5
+    a_zz_SRP = C_r * P_solar * srp_area_to_mass * (R**2 - 3 * delta_z_srp**2) / R**5
+    a_xy_SRP = -3 * C_r * P_solar * srp_area_to_mass * delta_x_srp * delta_y_srp / R**5
+    a_xz_SRP = -3 * C_r * P_solar * srp_area_to_mass * delta_x_srp * delta_z_srp / R**5
+    a_yz_SRP = -3 * C_r * P_solar * srp_area_to_mass * delta_y_srp * delta_z_srp / R**5
+    a_yx_SRP = a_xy_SRP
+    a_zx_SRP = a_xz_SRP
+    a_zy_SRP = a_yz_SRP
+
+    # Compute third body partials with respect to position components
+    # Compute vector from spacecraft to third body and its magnitude
+    r_sc_third_body = sun_pos - r
+    r_third_body = np.linalg.norm(r_sc_third_body)
+    delta_x_third_body = r_sc_third_body[0]
+    delta_y_third_body = r_sc_third_body[1]
+    delta_z_third_body = r_sc_third_body[2]
+
+    a_xx_third_body = -mu_third_body * (r_third_body**2 - 3 * delta_x_third_body**2) / r_third_body**5
+    a_yy_third_body = -mu_third_body * (r_third_body**2 - 3 * delta_y_third_body**2) / r_third_body**5
+    a_zz_third_body = -mu_third_body * (r_third_body**2 - 3 * delta_z_third_body**2) / r_third_body**5
+    a_xy_third_body = 3 * mu_third_body * delta_x_third_body * delta_y_third_body / r_third_body**5
+    a_xz_third_body = 3 * mu_third_body * delta_x_third_body * delta_z_third_body / r_third_body**5
+    a_yz_third_body = 3 * mu_third_body * delta_y_third_body * delta_z_third_body / r_third_body**5
+    a_yx_third_body = a_xy_third_body
+    a_zx_third_body = a_xz_third_body
+    a_zy_third_body = a_yz_third_body
+
     # Combine all partials
-    a_xx = a_xx_pm + a_xx_J2 + a_xx_J3 + a_xx_drag
-    a_xy = a_xy_pm + a_xy_J2 + a_xy_J3 + a_xy_drag
-    a_xz = a_xz_pm + a_xz_J2 + a_xz_J3 + a_xz_drag
+    a_xx = a_xx_pm + a_xx_J2 + a_xx_J3 + a_xx_drag + a_xx_SRP + a_xx_third_body
+    a_xy = a_xy_pm + a_xy_J2 + a_xy_J3 + a_xy_drag + a_xy_SRP + a_xy_third_body
+    a_xz = a_xz_pm + a_xz_J2 + a_xz_J3 + a_xz_drag + a_xz_SRP + a_xz_third_body
 
-    a_yx = a_xy_pm + a_xy_J2 + a_xy_J3 + a_yx_drag
-    a_yy = a_yy_pm + a_yy_J2 + a_yy_J3 + a_yy_drag
-    a_yz = a_yz_pm + a_yz_J2 + a_yz_J3 + a_yz_drag
+    a_yx = a_xy_pm + a_xy_J2 + a_xy_J3 + a_yx_drag + a_yx_SRP + a_yx_third_body
+    a_yy = a_yy_pm + a_yy_J2 + a_yy_J3 + a_yy_drag + a_yy_SRP + a_yy_third_body
+    a_yz = a_yz_pm + a_yz_J2 + a_yz_J3 + a_yz_drag + a_yz_SRP + a_yz_third_body
 
-    a_zx = a_xz_pm + a_xz_J2 + a_xz_J3 + a_zx_drag
-    a_zy = a_yz_pm + a_yz_J2 + a_yz_J3 + a_zy_drag
-    a_zz = a_zz_pm + a_zz_J2 + a_zz_J3 + a_zz_drag
+    a_zx = a_xz_pm + a_xz_J2 + a_xz_J3 + a_zx_drag + a_zx_SRP + a_zx_third_body
+    a_zy = a_yz_pm + a_yz_J2 + a_yz_J3 + a_zy_drag + a_zy_SRP + a_zy_third_body
+    a_zz = a_zz_pm + a_zz_J2 + a_zz_J3 + a_zz_drag + a_zz_SRP + a_zz_third_body
 
     # Compute velocity partials (all zeros)
     vel_partials = np.zeros((3, 3))
@@ -219,6 +290,28 @@ def state_jacobian(r : np.array, V : np.array, mu : float, J2 : float, J3 : floa
             temp_A[3, -1] = a_xCd
             temp_A[4, -1] = a_yCd
             temp_A[5, -1] = a_zCd
+        if 'SRP' in value:
+            # Compute needed SRP partials and add to A
+            temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
+            a_xCr = P_solar * srp_area_to_mass * delta_x_srp / R**3
+            a_yCr = P_solar * srp_area_to_mass * delta_y_srp / R**3
+            a_zCr = P_solar * srp_area_to_mass * delta_z_srp / R**3
+            # Set appropriate rows in last column
+            temp_A[3, -1] = a_xCr
+            temp_A[4, -1] = a_yCr
+            temp_A[5, -1] = a_zCr
+        if 'Third Body' in value:
+            # Compute needed third body partials and add to A
+            temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
+            r_central_body_to_third_body = third_body_state[0:3]
+            partial_vec = r_sc_third_body / r_third_body**3 - r_central_body_to_third_body / np.linalg.norm(r_central_body_to_third_body)**3
+            a_x_third_body = partial_vec[0]
+            a_y_third_body = partial_vec[1]
+            a_z_third_body = partial_vec[2]
+            # Set appropriate rows in last column
+            temp_A[3, -1] = a_x_third_body
+            temp_A[4, -1] = a_y_third_body
+            temp_A[5, -1] = a_z_third_body
         if 'Stations' in value:
             #  station partials to A, just adding 3 zero rows and columns per station
             for _ in range(station_positions_ecef.shape[0]):

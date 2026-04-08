@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import scipy.io
-from constants import truth_data_file_path, mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, AU, initial_epoch, initial_epoch_jd
+from constants import truth_data_file_path, mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, AU, initial_epoch, initial_epoch_jd, initial_spin_angle, earth_spin_rate, station_locations, part_2_station_locations, observation_noise
 from Tools.integrator import Integrator
 
 """
@@ -49,18 +49,22 @@ if __name__ == "__main__":
         dynamical_mode=['mu', 'SRP', 'Third Body'],  # Include 2-body and SRP effects for this test
         estimation_mode=['SRP'],
         parameter_indices=[6],
+        Cr=C_r,
         srp_area_to_mass=SRP_area_to_mass,  # Use the area-to-mass ratio from constants
-        number_of_stations=0,
         solar_flux=solar_flux,
+        number_of_stations=0,
         mu_third_body=mu_sun,
         central_body='Earth',
-        third_body='Sun'
+        third_body='Sun',
+        initial_epoch_jd=initial_epoch_jd,
+        initial_epoch=initial_epoch,
+        earth_spin_rate=earth_spin_rate
     )
 
     t_f = time_vector[-1]  # Final time from the truth data
     
     # Integrate the equations of motion using the integrator
-    _, integrated_states = integrator.integrate_eom(t_f, initial_state, teval=time_vector)
+    _, augmented_integrated_states = integrator.integrate_stm(t_f, initial_state, teval=time_vector)
 
     # Plotting the results to compare the integrated trajectory to the truth data
     fig = go.Figure()
@@ -71,7 +75,7 @@ if __name__ == "__main__":
         marker=dict(size=3, color='blue')
     ))
     fig.add_trace(go.Scatter3d(
-        x=integrated_states[0, :], y=integrated_states[1, :], z=integrated_states[2, :],
+        x=augmented_integrated_states[0, :], y=augmented_integrated_states[1, :], z=augmented_integrated_states[2, :],
         mode='markers',
         name='Integrated Trajectory',
         marker=dict(size=3, color='red')
@@ -87,7 +91,7 @@ if __name__ == "__main__":
     fig.show()
 
     # Compute the state error between the integrated trajectory and the truth data
-    state_error = integrated_states - state_vectors[0:7,:]  # Compute error for the first 7 state components (position, velocity, and C_r)
+    state_error = augmented_integrated_states[0:7,:] - state_vectors[0:7,:]  # Compute error for the first 7 state components (position, velocity, and C_r)
     
     # Compute relative state error for each component
     relative_state_error = np.zeros(state_error.shape)
@@ -130,3 +134,13 @@ if __name__ == "__main__":
             else:
                 fig.update_yaxes(title_text='Relative Velocity Error', showexponent="all", exponentformat="e", row=i, col=j)
     fig.show()
+
+    # Compute difference between truth STM and integrated STM
+    truth_stm = state_vectors[7:, :].reshape((7, 7, state_vectors.shape[1]))  # Reshape truth STM from the truth data
+    integrated_stm = augmented_integrated_states[7:, :].reshape((7, 7, augmented_integrated_states.shape[1]))  # Reshape integrated STM from the integrator output
+    stm_error = integrated_stm - truth_stm  # Compute STM error
+    np.set_printoptions(linewidth=300, suppress=True)  # Set print options for better readability
+    print("Error in first STM:")
+    print(stm_error[:, :, 0])
+    print("Error in last STM:")
+    print(stm_error[:, :, -1])

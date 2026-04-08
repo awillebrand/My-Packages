@@ -20,10 +20,10 @@ class Integrator:
                  spacecraft_mass : float = None,
                  srp_area_to_mass : float = None,
                  number_of_stations : int = 0,
-                 earth_spin_rate : float =7.2921158553E-5,
-                 solar_flux : float = 1357.0,
+                 earth_spin_rate : float = None,
+                 solar_flux : float = None,
                  initial_epoch : float = 0,
-                 initial_epoch_jd : float = 2456296.25):
+                 initial_epoch_jd : float = None):
         """
         Initializes the Integrator class for spacecraft orbit propagation.
         Parameters:
@@ -89,6 +89,7 @@ class Integrator:
         self.number_of_stations = number_of_stations
         self.earth_spin_rate = earth_spin_rate
         self.solar_flux = solar_flux
+        self.P_solar = solar_flux / 299792458.0  # Solar radiation pressure at 1 AU in N/m^2
         self.initial_epoch = initial_epoch
         self.initial_epoch_jd = initial_epoch_jd
 
@@ -108,7 +109,30 @@ class Integrator:
             raise ValueError("Spacecraft area and mass must be provided for SRP calculations.")
         if 'Stations' in estimation_mode and number_of_stations <= 0:
             raise ValueError("Number of stations must be greater than zero when 'Stations' mode is selected.")
-
+        print("=" * 50)
+        print("Integrator initialized with the following settings:")
+        print("=" * 50)
+        print(f"Gravitational parameter (mu): {mu} km^3/s^2")
+        print(f"Central body radius (R_e): {R_e} km")
+        print(f"J2 coefficient: {J2}")
+        print(f"J3 coefficient: {J3}")
+        print(f"Drag coefficient (Cd): {Cd}")
+        print(f"Reflectivity coefficient (Cr): {Cr}")
+        print(f"Third body gravitational parameter (mu_third_body): {mu_third_body} km^3/s^2")
+        print(f"Central body for third body perturbation: {central_body}")
+        print(f"Third body for third body perturbation: {third_body}")
+        print(f"Dynamical modes included: {dynamical_mode}")
+        print(f"Estimation modes included: {estimation_mode}")
+        print(f"Parameter indices for estimation: {parameter_indices}")
+        print(f"Spacecraft area: {spacecraft_area} m^2")
+        print(f"Spacecraft mass: {spacecraft_mass} kg")
+        print(f"Area-to-mass ratio for SRP: {srp_area_to_mass} m^2/kg")
+        print(f"Number of stations: {number_of_stations}")
+        print(f"Earth rotation rate: {earth_spin_rate} rad/s")
+        print(f"Solar flux at 1 AU: {solar_flux} W/m^2")
+        print(f"Initial epoch (Julian days): {initial_epoch}")
+        print(f"Initial epoch (Julian Date): {initial_epoch_jd}\n")
+        
     def get_mu_effects(self, state, mu):
         x, y, z = state[0:3]
         u, v, w = state[3:6]
@@ -161,11 +185,10 @@ class Integrator:
         w_dot_drag = -(rho * Cd * spacecraft_area * V_rel_norm * w_rel) / (2 * spacecraft_mass)
         return np.array([0, 0, 0, u_dot_drag, v_dot_drag, w_dot_drag])
     
-    def get_SRP_effects(self, state, Cr, spacecraft_area_to_mass, t, AU_KM = 149597870.700):
+    def get_SRP_effects(self, state, Cr, spacecraft_area_to_mass, P_solar, t, AU_KM = 149597870.700):
         x, y, z = state[0:3]
         u, v, w = state[3:6]
         r = np.sqrt(x**2 + y**2 + z**2)
-        P_solar = self.solar_flux / 299792458.0  # Solar radiation pressure at 1 AU in N/m^2
 
         # For SRP calculation, we need the position of the Sun. We can use the EphemerisMgr to get this based on the initial epoch and current time.
         ephemeris_mgr = EphemerisMgr('Earth')
@@ -249,6 +272,7 @@ class Integrator:
         J3 = self.J3
         Cd = self.Cd
         Cr = self.Cr
+        P_solar = self.P_solar
         mu_third_body = self.mu_third_body
         spacecraft_area = self.spacecraft_area
         spacecraft_mass = self.spacecraft_mass
@@ -291,7 +315,7 @@ class Integrator:
             elif param == 'Drag':
                 state_dot += self.get_drag_effects(state, Cd, spacecraft_area, spacecraft_mass)
             elif param == 'SRP':
-                state_dot += self.get_SRP_effects(state, Cr, srp_area_to_mass, t)
+                state_dot += self.get_SRP_effects(state, Cr, srp_area_to_mass, P_solar, t)
             elif param == 'Third Body':
                 state_dot += self.get_3rd_body_effects(state, mu_third_body, t, central_body=self.central_body, third_body=self.third_body)  # For now, hardcoding the third body as the Moon, but this can be easily modified to allow for other third bodies in the future by adding an additional parameter for the third body name and passing it to the get_3rd_body_effects function
             else:
@@ -364,15 +388,24 @@ class Integrator:
         """
         # Pull out class dynamical parameters. If they are being estimated, their values will be updated in the state vector and pulled out based on the parameter_indices list and mode.
         # If they are not being estimated, use the nominal value from the class attributes.
-
         mu = self.mu
         J2 = self.J2
         J3 = self.J3
         Cd = self.Cd
         Cr = self.Cr
+        mu_third_body = self.mu_third_body
         spacecraft_area = self.spacecraft_area
         spacecraft_mass = self.spacecraft_mass
-        
+
+        # Compute current time in Julian Date for ephemeris evaluation if needed for third body perturbations or SRP calculations.
+        time_jd = self.initial_epoch_jd + t / 86400
+
+        central_body_state = EphemerisMgr(self.central_body).evaluate_state(time_jd)
+        third_body_state = EphemerisMgr(self.third_body).evaluate_state(time_jd)
+        sun_state = EphemerisMgr('Sun').evaluate_state(time_jd)
+
+        relative_third_body_state = third_body_state - central_body_state
+        sun_pos = sun_state[0:3] - central_body_state[0:3]
         
         station_positions_ecef = np.array([])
         state_length = 6
@@ -400,6 +433,10 @@ class Integrator:
             state_length += 1
             param_index = self.parameter_indices[self.estimation_mode.index('SRP')]
             Cr = augmented_state[param_index]
+        if 'Third Body' in self.estimation_mode:
+            state_length += 1
+            param_index = self.parameter_indices[self.estimation_mode.index('Third Body')]
+            mu_third_body = augmented_state[param_index]
         if 'Stations' in self.estimation_mode:
             # Determine number of station variables, this is stored in the parameter_indices value for stations
             param_index = self.parameter_indices[self.estimation_mode.index('Stations')]
@@ -428,9 +465,37 @@ class Integrator:
 
             # Compute STM derivative
             if self.estimation_mode == []:
-                A = state_jacobian(state[0:3], state[3:6], mu, 0, 0, 0, Cr, station_positions_ecef, self.R_e, mode=['BaseMat'], spacecraft_area=spacecraft_area, spacecraft_mass=spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
+                A = state_jacobian(state[0:3],
+                                   state[3:6],
+                                   mu=mu,
+                                   R_e=self.R_e,
+                                   mode=['BaseMat'],
+                                   spacecraft_area=spacecraft_area,
+                                   spacecraft_mass=spacecraft_mass,
+                                   DMC=DMC,
+                                   beta_mat=beta_mat,
+                                   earth_spin_rate=self.earth_spin_rate)
             else:
-                A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, Cr, station_positions_ecef, self.R_e, mode=self.estimation_mode, spacecraft_area=spacecraft_area, spacecraft_mass=spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
+                A = state_jacobian(state[0:3],
+                                   state[3:6],
+                                   mu=mu,
+                                   J2=J2,
+                                   J3=J3,
+                                   C_d=Cd,
+                                   C_r=Cr,
+                                   P_solar=self.P_solar,
+                                   sun_pos=sun_pos,
+                                   mu_third_body=mu_third_body,
+                                   third_body_state=relative_third_body_state,
+                                   station_positions_ecef=station_positions_ecef,
+                                   R_e=self.R_e,
+                                   mode=self.estimation_mode,
+                                   spacecraft_area=spacecraft_area,
+                                   spacecraft_mass=spacecraft_mass,
+                                   srp_area_to_mass=self.srp_area_to_mass,
+                                   DMC=DMC,
+                                   beta_mat=beta_mat,
+                                   earth_spin_rate=self.earth_spin_rate)
 
             phi_dot = A @ phi
             phi_dot_flat = phi_dot.flatten()
@@ -449,7 +514,27 @@ class Integrator:
             state_dot = self.equations_of_motion(t, state, DMC=DMC, beta_mat=beta_mat)
 
             # Compute STM derivative
-            A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, station_positions_ecef, self.R_e, mode=self.estimation_mode, spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
+            time_jd = self.initial_epoch_jd + t / 86400
+            A = state_jacobian(state[0:3],
+                               state[3:6],
+                               mu=mu,
+                               J2=J2,
+                               J3=J3,
+                               C_d=Cd,
+                               C_r=Cr,
+                               P_solar=self.P_solar,
+                               sun_pos=sun_pos,
+                               mu_third_body=mu_third_body,
+                               third_body_state=relative_third_body_state,
+                               station_positions_ecef=station_positions_ecef,
+                               R_e=self.R_e,
+                               mode=self.estimation_mode,
+                               spacecraft_area=self.spacecraft_area,
+                               spacecraft_mass=self.spacecraft_mass,
+                               srp_area_to_mass=self.srp_area_to_mass,
+                               earth_spin_rate=self.earth_spin_rate,
+                               DMC=DMC,
+                               beta_mat=beta_mat)
             phi_dot = A @ phi
 
             # Compute sensitivity matrix derivative
@@ -519,6 +604,10 @@ class Integrator:
         if 'J3' in self.estimation_mode:
             state_length += 1
         if 'Drag' in self.estimation_mode:
+            state_length += 1
+        if 'SRP' in self.estimation_mode:
+            state_length += 1
+        if 'Third Body' in self.estimation_mode:
             state_length += 1
         if 'Stations' in self.estimation_mode:
             param_index = self.parameter_indices[self.estimation_mode.index('Stations')]
