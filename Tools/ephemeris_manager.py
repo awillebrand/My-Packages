@@ -181,7 +181,17 @@ class EphemerisMgr:
         # Convert distances from AU to km
         a_km = a_t * 149597870.7
 
-        # Compute state vector in EME2000 frame
+        # Compute state vector in EMO2000 frame
         R, V = keplerian_to_cartesian(mu_s, a_km, e_t, i_rad, W_rad, AoP_rad, nu_rad)
+
+        # Rotate from EMO2000 (ecliptic) to EME2000 (equatorial) frame
+        obliquity = np.radians(23.4393)  # Obliquity of the ecliptic
+        C = np.array([
+            [1, 0, 0],
+            [0, np.cos(obliquity), -np.sin(obliquity)],
+            [0, np.sin(obliquity),  np.cos(obliquity)]
+        ])
+        R = C @ R
+        V = C @ V
 
         return np.hstack((R, V))
