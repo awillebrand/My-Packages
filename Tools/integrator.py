@@ -57,6 +57,8 @@ class Integrator:
 
         if set(dynamical_mode).isdisjoint({'mu', 'J2', 'J3', 'Drag', 'SRP'}):
             raise ValueError("Invalid mode specified. Choose from 'mu', 'J2', 'J3', 'Drag', and/or 'SRP'.")
+        if len(dynamical_mode) == 0:
+            raise ValueError("At least one perturbation mode must be selected in dynamical_mode.")
         if set(estimation_mode).isdisjoint({'mu', 'J2', 'J3', 'Drag', 'Stations', 'SRP'}):
             raise ValueError("Invalid estimation mode specified. Choose from 'mu', 'J2', 'J3', 'Drag', 'Stations', and/or 'SRP'.")
         if len(estimation_mode) != len(parameter_indices):
