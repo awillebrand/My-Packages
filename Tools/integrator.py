@@ -220,13 +220,13 @@ class Integrator:
         for param in self.dynamical_mode:
             if param == 'mu':
                 state_dot += self.get_mu_effects(state, mu)
-            if param == 'J2':
+            elif param == 'J2':
                 state_dot += self.get_J2_effects(state, mu, J2)
-            if param == 'J3':
+            elif param == 'J3':
                 state_dot += self.get_J3_effects(state, mu, J3)
-            if param == 'Drag':
+            elif param == 'Drag':
                 state_dot += self.get_drag_effects(state, Cd, spacecraft_area, spacecraft_mass)
-            if param == 'SRP':
+            elif param == 'SRP':
                 state_dot += self.get_SRP_effects(state, Cr, spacecraft_area, spacecraft_mass, t)
             else:
                 # Error handling for invalid mode entry, this should be caught in the initializer but just in case
