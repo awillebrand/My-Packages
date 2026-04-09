@@ -119,12 +119,12 @@ if __name__ == "__main__":
     fig.show()
 
     # Plot relative state error over time
-    fig = make_subplots(rows=3, cols=2, subplot_titles=('Relative X Error', 'Relative Y Error', 'Relative Z Error', 'Relative Vx Error', 'Relative Vy Error', 'Relative Vz Error'))
+    fig = make_subplots(rows=3, cols=2, subplot_titles=('Relative X Error', 'Relative Vx Error', 'Relative Y Error', 'Relative Vy Error', 'Relative Z Error', 'Relative Vz Error'))
     fig.add_trace(go.Scatter(x=time_vector, y=relative_state_error[0, :], mode='lines', name='Relative X Error'), row=1, col=1)
-    fig.add_trace(go.Scatter(x=time_vector, y=relative_state_error[1, :], mode='lines', name='Relative Y Error'), row=1, col=2)
-    fig.add_trace(go.Scatter(x=time_vector, y=relative_state_error[2, :], mode='lines', name='Relative Z Error'), row=2, col=1)
-    fig.add_trace(go.Scatter(x=time_vector, y=relative_state_error[3, :], mode='lines', name='Relative Vx Error'), row=2, col=2)
-    fig.add_trace(go.Scatter(x=time_vector, y=relative_state_error[4, :], mode='lines', name='Relative Vy Error'), row=3, col=1)
+    fig.add_trace(go.Scatter(x=time_vector, y=relative_state_error[1, :], mode='lines', name='Relative Y Error'), row=2, col=1)
+    fig.add_trace(go.Scatter(x=time_vector, y=relative_state_error[2, :], mode='lines', name='Relative Z Error'), row=3, col=1)
+    fig.add_trace(go.Scatter(x=time_vector, y=relative_state_error[3, :], mode='lines', name='Relative Vx Error'), row=1, col=2)
+    fig.add_trace(go.Scatter(x=time_vector, y=relative_state_error[4, :], mode='lines', name='Relative Vy Error'), row=2, col=2)
     fig.add_trace(go.Scatter(x=time_vector, y=relative_state_error[5, :], mode='lines', name='Relative Vz Error'), row=3, col=2)
     fig.update_layout(title='Relative State Error Between Integrated Trajectory and Truth Data', showlegend=False)
     for i in range(1, 4):
