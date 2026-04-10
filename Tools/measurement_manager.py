@@ -61,7 +61,7 @@ class MeasurementMgr:
         visible : bool
             True if the spacecraft is visible from the ground station, False otherwise.
         """
-        breakpoint()
+
         elevation_angle = self.get_elevation_angle(sc_position_ecef)
         return elevation_angle > visibility_elevation_angle
 
