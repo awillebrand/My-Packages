@@ -102,6 +102,24 @@ if __name__ == "__main__":
     # Integrate the equations of motion using the integrator
     _, integrated_states = integrator.integrate_eom(t_f, initial_state, teval=measurement_time_vector)
 
+    # Plotting the results to compare the integrated trajectory to the truth data
+    fig = go.Figure()
+    fig.add_trace(go.Scatter3d(
+        x=integrated_states[0, :], y=integrated_states[1, :], z=integrated_states[2, :],
+        mode='markers',
+        name='Integrated Trajectory',
+        marker=dict(size=3, color='red')
+    ))
+    fig.update_layout(
+        title='Comparison of Integrated Trajectory to Truth Data',
+        scene=dict(
+            xaxis_title='X (km)',
+            yaxis_title='Y (km)',
+            zaxis_title='Z (km)'
+        )
+    )
+    fig.show()
+
     # Compute radii for each measurement station since they have different altitudes
     DSS34_radius = R_e + part_2_station_locations['DSS34']['alt']
     DSS65_radius = R_e + part_2_station_locations['DSS65']['alt']

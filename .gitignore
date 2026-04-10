@@ -35,3 +35,7 @@ ASEN_6080/Project1/figures/*
 !ASEN_6080/Project1/figures/.gitkeep
 
 ASEN_5010/Final_Project/coursera_validation_files/*
+
+__pycache__/
+*.py[cod]
+*$py.class

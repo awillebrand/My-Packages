@@ -11,6 +11,7 @@ known_dynamics_measurement_file_path = 'ASEN_6080\Project2\data\Project2a_Obs.tx
 # Physical Constants
 mu_sun = 132712440017.987                   # Gravitational parameter of the Sun, km^3/s^2
 mu_earth = 3.986004415E5                    # Gravitational parameter of the Earth, km^3/s^2
+
 R_e = 6378.1363                             # Earth's radius in km
 solar_flux = 1357                           # Solar radiation pressure flux at 1 AU in W/m^2
 SRP_area_to_mass = 0.01                     # Area-to-mass ratio for solar radiation pressure in m^2/kg
