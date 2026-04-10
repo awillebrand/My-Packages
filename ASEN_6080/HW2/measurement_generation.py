@@ -2,7 +2,8 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
-from ASEN_6080.Tools import Integrator, MeasurementMgr
+from Tools import Integrator, MeasurementMgr
+from Tools.generic_functions import keplerian_to_cartesian
 from plotly.subplots import make_subplots
 
 # Initialize orbital elements and parameters
@@ -20,12 +21,12 @@ f = np.deg2rad(0)
 period = 2 * np.pi * np.sqrt(a**3 / mu)
 
 # Set integration and measurement settings
-mode = 'Full'
+mode = ['mu', 'J2', 'J3']
 noise_std = np.array([1e-3, 1e-6]) # [range noise = 1 m, range rate noise = 1 mm/s]
 noise_std = np.zeros(2)  # No noise for initial testing
 # Integrate orbit trajectory
-integrator = Integrator(mu, R_e, mode)
-r_vec, v_vec = integrator.keplerian_to_cartesian(a, e, i, LoN, AoP, f)
+integrator = Integrator(mu=mu, R_e=R_e, J2=J2, J3=J3, dynamical_mode=mode, estimation_mode=['J2', 'J3'], parameter_indices=[6, 7])
+r_vec, v_vec = keplerian_to_cartesian(mu, a, e, i, LoN, AoP, f)
 initial_state = np.hstack((r_vec, v_vec, J2, J3))
 time_list = np.arange(0, 15 * period, 10)
 time_vector, state_history = integrator.integrate_eom(15*period, initial_state, teval=time_list)
@@ -66,7 +67,7 @@ measurement_data_frame = pd.DataFrame({
     'station_2_measurements': list(station_2_measurements.T),
     'station_3_measurements': list(station_3_measurements.T)
 })
-
+breakpoint()
 measurement_data_frame.to_pickle("ASEN_6080/HW2/measurement_data/simulated_measurements_J3.pkl")
 
 # Integrate STM for future use

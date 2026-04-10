@@ -39,3 +39,14 @@ part_2_station_locations = {
 
 observation_noise = np.array([0.005, 0.0005])  # Range noise: 5 meters, Range rate noise: 0.5 mm/s
 
+# A priori state estimates
+x = -274096790.0
+y = -92859240.0
+z = -40199490.0
+vx = 32.67
+vy = -8.94
+vz = -3.88
+C_r = 1.2
+a_priori_state = np.array([x, y, z, vx, vy, vz, C_r])
+
+a_priori_covariance = np.diag([100, 100, 100, 0.1, 0.1, 0.1, 0.1])
