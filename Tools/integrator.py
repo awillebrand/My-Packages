@@ -570,7 +570,7 @@ class Integrator:
             nxN array of spacecraft states over time in ECI frame."""
         
         t_span = (0, t_final)
-        sol = solve_ivp(self.equations_of_motion, t_span, initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval, args=(False, None))
+        sol = solve_ivp(self.equations_of_motion, t_span, initial_state, method='RK45', rtol=2.23e-14, atol=2.23e-14, t_eval=teval, args=(False, None))
         return sol.t, sol.y
     
     def integrate_sigma_points(self, t_final, initial_state, teval = None):
@@ -589,7 +589,7 @@ class Integrator:
             L(2L+1)xN array of sigma point states over time in ECI frame."""
         
         t_span = (0, t_final)
-        sol = solve_ivp(self.sigma_points_eom, t_span, initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval)
+        sol = solve_ivp(self.sigma_points_eom, t_span, initial_state, method='RK45', rtol=2.23e-14, atol=2.23e-14, t_eval=teval)
         return sol.t, sol.y
     
     def integrate_stm(self, t_final, initial_state, phi_0 = None, teval = None, initial_time : float = 0, DMC : bool = False, beta_mat : np.ndarray = None):
@@ -622,7 +622,7 @@ class Integrator:
 
         augmented_initial_state = np.hstack((initial_state, phi_0))
         t_span = (initial_time, t_final)
-        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval, args=(DMC, beta_mat))
+        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=2.23e-14, atol=2.23e-14, t_eval=teval, args=(DMC, beta_mat))
         return sol.t, sol.y
     
     def integrate_stm_and_theta(self, t_final, initial_state, phi_0 = None, theta_0 = None, teval = None, initial_time : float = 0, consider_parameters : list = []):
@@ -661,6 +661,6 @@ class Integrator:
         augmented_initial_state = np.hstack((initial_state, phi_0, theta_0))
         t_span = (initial_time, t_final)
 
-        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=1e-13, atol=1e-13, t_eval=teval, args=(False, None, consider_parameters))
+        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=2.23e-14, atol=2.23e-14, t_eval=teval, args=(False, None, consider_parameters))
         return sol.t, sol.y
         
