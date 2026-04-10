@@ -100,12 +100,12 @@ if __name__ == "__main__":
         relative_state_error[i, :] = state_error[i, :] / np.linalg.norm(state_vectors[i, :])  # Relative error normalized by the norm of the truth state component
 
     # Plot the state error over time
-    fig = make_subplots(rows=3, cols=2, subplot_titles=('X Error', 'Y Error', 'Z Error', 'Vx Error', 'Vy Error', 'Vz Error'))
+    fig = make_subplots(rows=3, cols=2, subplot_titles=('X Error', 'Vx Error', 'Y Error', 'Vy Error', 'Z Error', 'Vz Error'))
     fig.add_trace(go.Scatter(x=time_vector, y=state_error[0, :], mode='lines', name='X Error'), row=1, col=1)
-    fig.add_trace(go.Scatter(x=time_vector, y=state_error[1, :], mode='lines', name='Y Error'), row=1, col=2)
-    fig.add_trace(go.Scatter(x=time_vector, y=state_error[2, :], mode='lines', name='Z Error'), row=2, col=1)
-    fig.add_trace(go.Scatter(x=time_vector, y=state_error[3, :], mode='lines', name='Vx Error'), row=2, col=2)
-    fig.add_trace(go.Scatter(x=time_vector, y=state_error[4, :], mode='lines', name='Vy Error'), row=3, col=1)
+    fig.add_trace(go.Scatter(x=time_vector, y=state_error[1, :], mode='lines', name='Y Error'), row=2, col=1)
+    fig.add_trace(go.Scatter(x=time_vector, y=state_error[2, :], mode='lines', name='Z Error'), row=3, col=1)
+    fig.add_trace(go.Scatter(x=time_vector, y=state_error[3, :], mode='lines', name='Vx Error'), row=1, col=2)
+    fig.add_trace(go.Scatter(x=time_vector, y=state_error[4, :], mode='lines', name='Vy Error'), row=2, col=2)
     fig.add_trace(go.Scatter(x=time_vector, y=state_error[5, :], mode='lines', name='Vz Error'), row=3, col=2)
     fig.update_layout(title='State Error Between Integrated Trajectory and Truth Data', showlegend=False)
 
