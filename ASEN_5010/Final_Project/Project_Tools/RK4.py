@@ -46,6 +46,11 @@ def rk4(y0, t, I, pointing_mode, P, K):
         k4 = eom(y[-1] + dt * k3, t[i-1] + dt, I, pointing_mode, P, K)
         
         y_next = y[-1] + (dt / 6) * (k1 + 2*k2 + 2*k3 + k4)
+        sigma = y_next[0:3]
+
+        if np.dot(sigma, sigma) > 1.0:
+            y_next[0:3] = -sigma / np.dot(sigma, sigma)
+
         y.append(y_next)
     
     # Convert to numpy array for easier handling

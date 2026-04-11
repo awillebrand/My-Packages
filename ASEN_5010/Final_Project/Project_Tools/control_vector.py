@@ -37,12 +37,13 @@ def compute_gains(I_mat : np.ndarray, decay_time_constant : float):
     """
 
     # Identify the smallest moment of inertia
-    I = np.min(np.diag(I_mat))
+    I_min = np.min(np.diag(I_mat))
+    I_max = np.max(np.diag(I_mat))
 
     # Compute P gain for the i-th axis
-    P = 2 * I / decay_time_constant
+    P = 2 * I_max / decay_time_constant
     
     # Compute K gain for the i-th axis
-    K = P**2 / I
+    K = P**2 / I_min
 
     return P, K

@@ -37,11 +37,11 @@ solutions_at_interest_times = np.array([solution[np.where(t == time)[0][0]] for 
 attitude_errors = np.zeros((len(t), 6))  # Initialize vector to store attitude errors
 
 for i, time in enumerate(t):
-    sigma_BR = solution[i, :3]
-    omega_BR = solution[i, 3:]
+    sigma_BN = solution[i, :3]
+    omega_BN = solution[i, 3:]
     reference_frame_dcm = sun_frame_dcm(time)
     reference_frame_angular_velocity = sun_frame_angular_velocity(time)
-    sigma_error, omega_error = attitude_error_eval(t, sigma_BR, omega_BR, reference_frame_dcm, reference_frame_angular_velocity)
+    sigma_error, omega_error = attitude_error_eval(time, sigma_BN, omega_BN, reference_frame_dcm, reference_frame_angular_velocity)
     attitude_errors[i, :3] = sigma_error
     attitude_errors[i, 3:] = omega_error
 
@@ -59,3 +59,10 @@ fig.add_trace(go.Scatter(x=t, y=attitude_errors[:, 4], mode='lines', name='omega
 fig.add_trace(go.Scatter(x=t, y=attitude_errors[:, 5], mode='lines', name='omega_3'))
 fig.update_layout(title='Angular Velocity Error Over Time', xaxis_title='Time (s)', yaxis_title='Angular Velocity Components (rad/s)')
 fig.show()
+
+# Save solutions at interest times to files
+for i, time in enumerate(times_of_interest):
+    with open(os.path.join(os.path.dirname(__file__), '..', 'coursera_validation_files', f'task_8_solution_time_{time}.txt'), 'w') as f:
+        f.write(' '.join(str(x) for x in solutions_at_interest_times[i,:3]))
+with open(os.path.join(os.path.dirname(__file__), '..', 'coursera_validation_files', 'task_8_gains.txt'), 'w') as f:
+    f.write(' '.join(str(gain) for gain in [P, K]))
