@@ -2,6 +2,7 @@ import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import numpy as np
+from Project_Tools.mrp_dcm import mrp_to_dcm
 
 def attitude_error_eval(time : float, sigma_BN : np.ndarray, omega_BN : np.ndarray, DCM_RN : np.ndarray, omega_RN : np.ndarray):
     """
@@ -29,8 +30,7 @@ def attitude_error_eval(time : float, sigma_BN : np.ndarray, omega_BN : np.ndarr
     """
 
     # Convert the MRP attitude to a DCM
-    sigma_tilde = np.array([[0, -sigma_BN[2], sigma_BN[1]], [sigma_BN[2], 0, -sigma_BN[0]], [-sigma_BN[1], sigma_BN[0], 0]])
-    DCM_BN = np.eye(3) + (8 * sigma_tilde @ sigma_tilde - 4 * (1 - np.dot(sigma_BN, sigma_BN)) * sigma_tilde) / (1 + np.dot(sigma_BN, sigma_BN))**2
+    DCM_BN = mrp_to_dcm(sigma_BN)
 
     # Compute the DCM from the body frame to the reference frame
     DCM_BR = DCM_BN @ DCM_RN.T
