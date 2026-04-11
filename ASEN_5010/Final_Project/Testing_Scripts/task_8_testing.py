@@ -20,7 +20,7 @@ decay_time_constant = 120
 P, K = compute_gains(I_LMO, decay_time_constant)
 
 # Initial state vector (MRP and angular velocity)
-y0 = np.hstack((sigma_0_LMO, omega_0_LMO))
+y0 = np.hstack((sigma_0_LMO, np.deg2rad(omega_0_LMO)))
 
 # Run RK4 integration for the given initial conditions and control gains
 pointing_mode = 'Sun'
