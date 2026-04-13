@@ -10,9 +10,10 @@ by the testing scripts.
 
 # Define gravitational parameter for Mars
 mu = 42828.3
+r_mars = 3396.19
 
 # Define initial orbit conditions for LMO and GMO
-r_LMO = 400 + 3396.19
+r_LMO = 400 + r_mars
 raan_LMO = 20
 inc_LMO = 30
 ta_0_LMO = 60

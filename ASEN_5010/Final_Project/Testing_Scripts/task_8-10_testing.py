@@ -43,7 +43,7 @@ elif pointing_mode.lower() == 'gmo':
 else:
     raise ValueError("Invalid pointing mode. Must be 'GMO', 'Nadir', or 'Sun'.")
 
-solution = rk4(y0, t, I_LMO, pointing_mode, P, K)
+solution = rk4(y0, t, I_LMO, P, K, pointing_mode=pointing_mode)
 
 # Extract MRP and angular velocity from the solution
 times_of_interest = [15, 100, 200, 400]
