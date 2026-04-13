@@ -35,38 +35,14 @@ def attitude_error_eval(time : float, sigma_BN : np.ndarray, omega_BN : np.ndarr
     # Compute the DCM from the body frame to the reference frame
     DCM_BR = DCM_BN @ DCM_RN.T
 
-    # Compute the MRP attitude error from the DCM_BR by first computing the Euler Parameters using Shepard's method and then converting the PRPs to MRPs
-    test_B0 = 0.25 * (1 + np.trace(DCM_BR))
-    test_B1 = 0.25 * (1 + 2 * DCM_BR[0, 0] - np.trace(DCM_BR))
-    test_B2 = 0.25 * (1 + 2 * DCM_BR[1, 1] - np.trace(DCM_BR))
-    test_B3 = 0.25 * (1 + 2 * DCM_BR[2, 2] - np.trace(DCM_BR))
+    zeta = np.sqrt(np.linalg.trace(DCM_BR) + 1)
 
-    B = np.array([test_B0, test_B1, test_B2, test_B3])
-    max_index = np.argmax(B)
-
-    if max_index == 0:
-        B0 = np.sqrt(test_B0);
-        B1 = 0.25 * (DCM_BR[1, 2] - DCM_BR[2, 1]) / B0;
-        B2 = 0.25 * (DCM_BR[2, 0] - DCM_BR[0, 2]) / B0;
-        B3 = 0.25 * (DCM_BR[0, 1] - DCM_BR[1, 0]) / B0;
-    elif max_index == 1:
-        B1 = np.sqrt(test_B1);
-        B0 = 0.25 * (DCM_BR[1, 2] - DCM_BR[2, 1]) / B1;
-        B2 = 0.25 * (DCM_BR[0, 1] + DCM_BR[1, 0]) / B1;
-        B3 = 0.25 * (DCM_BR[0, 2] + DCM_BR[2, 0]) / B1;
-    elif max_index == 2:
-        B2 = np.sqrt(test_B2);
-        B0 = 0.25 * (DCM_BR[2, 0] - DCM_BR[0, 2]) / B2;
-        B1 = 0.25 * (DCM_BR[0, 1] + DCM_BR[1, 0]) / B2;
-        B3 = 0.25 * (DCM_BR[1, 2] + DCM_BR[2, 1]) / B2;
-    else:
-        B3 = np.sqrt(test_B3);
-        B0 = 0.25 * (DCM_BR[0, 1] - DCM_BR[1, 0]) / B3;
-        B1 = 0.25 * (DCM_BR[0, 2] + DCM_BR[2, 0]) / B3;
-        B2 = 0.25 * (DCM_BR[1, 2] + DCM_BR[2, 1]) / B3;
-
-    # Convert the Euler Parameters to MRPs
-    sigma_BR = np.array([B1, B2, B3]) / (1 + B0)
+    # Convert the MRPs
+    vector_part = np.array([DCM_BR[1, 2] - DCM_BR[2, 1], DCM_BR[2, 0] - DCM_BR[0, 2], DCM_BR[0, 1] - DCM_BR[1, 0]])
+    sigma_BR = vector_part / (zeta * (zeta + 2))
+    
+    if np.linalg.norm(sigma_BR) > 1:
+        sigma_BR = -sigma_BR / np.dot(sigma_BR, sigma_BR)
 
     # Compute the angular velocity of the spacecraft relative to the reference frame in inertial coordinates
     omega_RN_body_rad = DCM_BN @ omega_RN

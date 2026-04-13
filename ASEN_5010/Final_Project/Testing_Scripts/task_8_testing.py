@@ -26,7 +26,7 @@ P, K = compute_gains(I_LMO, decay_time_constant)
 y0 = np.hstack((sigma_0_LMO, np.deg2rad(omega_0_LMO)))
 
 # Run RK4 integration for the given initial conditions and control gains
-pointing_mode = 'nadir'
+pointing_mode = 'GMO'
 
 if pointing_mode.lower() == 'sun':
     reference_frame_dcm_func = sun_frame_dcm

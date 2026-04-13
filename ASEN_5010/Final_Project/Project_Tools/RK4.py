@@ -34,23 +34,48 @@ def rk4(y0, t, I, pointing_mode, P, K):
     """
     if pointing_mode.lower() not in ['gmo', 'nadir', 'sun']:
         raise ValueError("Invalid pointing mode. Must be 'GMO', 'Nadir', or 'Sun'.")
+    # Determine which reference frame to use based on the pointing mode. Assign appropriate handles to the DCM and angular velocity functions for the reference frame.
+    if pointing_mode.lower() == 'gmo':
+        DCM_ref_func = GMO_pointing_frame_dcm
+        omega_ref_func = GMO_pointing_frame_angular_velocity
+    elif pointing_mode.lower() == 'nadir':
+        DCM_ref_func = nadir_frame_dcm
+        omega_ref_func = nadir_frame_angular_velocity
+    elif pointing_mode.lower() == 'sun':
+        DCM_ref_func = sun_frame_dcm
+        omega_ref_func = sun_frame_angular_velocity
+    else:
+        raise ValueError("Invalid pointing mode. Must be 'GMO', 'Nadir', or 'Sun'.")
 
     n = len(t)
     y = [y0]
     
     for i in range(1, n):
+        print(f"Integrating from t={t[i-1]} to t={t[i]}...")
         dt = t[i] - t[i-1]
-        k1 = eom(y[-1], t[i-1], I, pointing_mode, P, K)
-        k2 = eom(y[-1] + 0.5 * dt * k1, t[i-1] + 0.5 * dt, I, pointing_mode, P, K)
-        k3 = eom(y[-1] + 0.5 * dt * k2, t[i-1] + 0.5 * dt, I, pointing_mode, P, K)
-        k4 = eom(y[-1] + dt * k3, t[i-1] + dt, I, pointing_mode, P, K)
-        
-        y_next = y[-1] + (dt / 6) * (k1 + 2*k2 + 2*k3 + k4)
-        sigma = y_next[0:3]
+        # Compute control vector for current state
+        DCM_ref = DCM_ref_func(t[i-1])
+        omega_ref = omega_ref_func(t[i-1])
 
-        if np.dot(sigma, sigma) > 1.0:
-            y_next[0:3] = -sigma / np.dot(sigma, sigma)
+        sigma = y[-1][0:3]
+        omega = y[-1][3:6]
 
+        # Compute attitude error and angular velocity error relative to the reference frame
+        sigma_BR, omega_BR = attitude_error_eval(t, sigma, omega, DCM_ref, omega_ref)
+
+        # Compute the control vector based on the attitude error and angular velocity error
+        u = control_vector(P, K, sigma_BR, omega_BR)
+
+        k1 = dt * eom(y[-1], t[i-1], I, u)
+        k2 = dt * eom(y[-1] + 0.5 * k1, t[i-1] + 0.5 * dt, I, u)
+        k3 = dt * eom(y[-1] + 0.5 * k2, t[i-1] + 0.5 * dt, I, u)
+        k4 = dt * eom(y[-1] + k3, t[i-1], I, u)
+
+        y_next = y[-1] + (1 / 6) * (k1 + 2*k2 + 2*k3 + k4)
+        sigma_next = y_next[0:3]
+
+        if np.dot(sigma_next, sigma_next) > 1.0:
+            y_next[0:3] = -sigma_next / np.dot(sigma_next, sigma_next)
         y.append(y_next)
     
     # Convert to numpy array for easier handling
@@ -58,7 +83,7 @@ def rk4(y0, t, I, pointing_mode, P, K):
 
     return y
 
-def eom(state, t, I, pointing_mode, P, K):
+def eom(state, t, I, u):
     """
     Equations of motion for MRP attitude dynamics.
     Parameters:
@@ -75,31 +100,6 @@ def eom(state, t, I, pointing_mode, P, K):
     # Unpack the state vector
     sigma = state[0:3]  # MRP vector
     omega = state[3:6]  # Angular velocity vector
-
-    # Determine which reference frame to use based on the pointing mode. Assign appropriate handles to the DCM and angular velocity functions for the reference frame.
-    if pointing_mode.lower() == 'gmo':
-        DCM_ref_func = GMO_pointing_frame_dcm
-        omega_ref_func = GMO_pointing_frame_angular_velocity
-    elif pointing_mode.lower() == 'nadir':
-        DCM_ref_func = nadir_frame_dcm
-        omega_ref_func = nadir_frame_angular_velocity
-    elif pointing_mode.lower() == 'sun':
-        DCM_ref_func = sun_frame_dcm
-        omega_ref_func = sun_frame_angular_velocity
-    else:
-        raise ValueError("Invalid pointing mode. Must be 'GMO', 'Nadir', or 'Sun'.")
-
-    # Compute the DCM from the inertial frame to the reference frame at the current time
-    DCM_ref = DCM_ref_func(t)
-
-    # Compute the angular velocity of the reference frame relative to the inertial frame expressed in inertial coordinates at the current time
-    omega_ref = omega_ref_func(t)
-
-    # Compute attitude error and angular velocity error relative to the reference frame
-    sigma_BR, omega_BR = attitude_error_eval(t, sigma, omega, DCM_ref, omega_ref)
-
-    # Compute the control vector based on the attitude error and angular velocity error
-    u = control_vector(P, K, sigma_BR, omega_BR)
 
     # Build identity matrix
     I_3_3 = np.eye(3)
