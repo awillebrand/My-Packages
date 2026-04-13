@@ -54,15 +54,17 @@ def rk4(y0, t, I, P, K, pointing_mode=None):
 
     n = len(t)
     y = [y0]
-    
+    previous_pointing_mode = None
     for i in range(1, n):
-        print(f"Integrating from t={t[i-1]} to t={t[i]}...")
         # Determine the current pointing mode based on mission scenario
         if pointing_mode is None:
             time = t[i-1]
             pos_LMO, _ = get_orbit_state(r_LMO, raan_LMO, inc_LMO, ta_0_LMO + ta_dot_LMO * time)
 
             if pos_LMO[1] > 0:
+                if previous_pointing_mode != 'Sun':
+                    print("Sun pointing mode starting at time:", time)
+                previous_pointing_mode = 'Sun'
                 DCM_ref_func = sun_frame_dcm
                 omega_ref_func = sun_frame_angular_velocity
             else:
@@ -70,9 +72,15 @@ def rk4(y0, t, I, P, K, pointing_mode=None):
                 # Check if GMO is visible (this is a placeholder condition; the actual visibility check would depend on the spacecraft's position and the GMO's position)
                 GMO_visible = evaluate_GMO_visibility(pos_LMO, pos_GMO)
                 if GMO_visible:
+                    if previous_pointing_mode != 'GMO':
+                        print("GMO pointing mode starting at time:", time)
+                    previous_pointing_mode = 'GMO'
                     DCM_ref_func = GMO_pointing_frame_dcm
                     omega_ref_func = GMO_pointing_frame_angular_velocity
                 else:
+                    if previous_pointing_mode != 'Nadir':
+                        print("Nadir pointing mode starting at time:", time)
+                    previous_pointing_mode = 'Nadir'
                     DCM_ref_func = nadir_frame_dcm
                     omega_ref_func = nadir_frame_angular_velocity
 
@@ -93,7 +101,7 @@ def rk4(y0, t, I, P, K, pointing_mode=None):
         k1 = dt * eom(y[-1], t[i-1], I, u)
         k2 = dt * eom(y[-1] + 0.5 * k1, t[i-1] + 0.5 * dt, I, u)
         k3 = dt * eom(y[-1] + 0.5 * k2, t[i-1] + 0.5 * dt, I, u)
-        k4 = dt * eom(y[-1] + k3, t[i-1], I, u)
+        k4 = dt * eom(y[-1] + k3, t[i-1] + dt, I, u)
 
         y_next = y[-1] + (1 / 6) * (k1 + 2*k2 + 2*k3 + k4)
         sigma_next = y_next[0:3]
@@ -158,15 +166,9 @@ def evaluate_GMO_visibility(pos_LMO, pos_GMO):
         True if the GMO satellite is visible from the LMO spacecraft, False otherwise.
     """
     # Define distance vetor from LMO to GMO
-    vector_LMO_to_GMO = pos_GMO - pos_LMO
+    angle_between_pos_vecs = np.arccos(np.dot(pos_LMO, pos_GMO) / (np.linalg.norm(pos_LMO) * np.linalg.norm(pos_GMO)))
 
-    # Using parametric equation theory, determine closest approach of the line of sight vector to the center of the planet (Mars)
-    t_min = -np.dot(pos_LMO, vector_LMO_to_GMO) / np.dot(vector_LMO_to_GMO, vector_LMO_to_GMO)
-    t_min = np.clip(t_min, 0, 1)  # Ensure t_min is within the segment defined by pos_LMO and pos_GMO
-
-    closest_point = pos_LMO + t_min * vector_LMO_to_GMO
-
-    if np.linalg.norm(closest_point) < r_mars:
-        return False  # GMO is not visible (line of sight is blocked by Mars)
+    if angle_between_pos_vecs > np.deg2rad(35):  # Placeholder visibility condition (e.g., if the angle between the position vectors is greater than 35 degrees, we consider the GMO to be not visible)
+        return False
     else:
         return True
