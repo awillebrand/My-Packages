@@ -146,7 +146,6 @@ class BatchLLSEstimator:
                 
                 # Only compute Lambda and N accumulation for available measurements
                 for res, H in zip(residuals_i, H_i):
-                    breakpoint()
                     if ~np.isnan(res).any():
                         Lambda += H.T @ R_inv @ H
                         N += (H.T @ R_inv @ res).flatten()

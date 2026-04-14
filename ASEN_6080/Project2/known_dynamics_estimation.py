@@ -171,12 +171,13 @@ if __name__ == "__main__":
     
     # Initialize Measurement Manager with ground station parameters
     station_mgrs = []
-    for station_name, station_info in station_locations.items():
+    for station_name, station_info in part_2_station_locations.items():
         mgr = MeasurementMgr(
             station_name,
             station_lat=station_info['lat'],
             station_lon=station_info['lon'],
-            initial_earth_spin_angle=initial_spin_angle
+            initial_earth_spin_angle=initial_spin_angle,
+            earth_spin_rate=earth_spin_rate
         )
         station_mgrs.append(mgr)
 
@@ -208,6 +209,9 @@ if __name__ == "__main__":
         print("=" * 50, end='\n')
         filter = BatchLLSEstimator(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
         x, P, residuals_df = filter.estimate_initial_state(a_priori_state, measurement_df, observation_noise, a_priori_covariance=a_priori_covariance, max_iterations=max_iterations, tol=tol)
+        print("=" * 50)
+        print("Batch LLS Estimation Complete...")
+        print("=" * 50, end='\n')
         # Integrate the estimated initial state forward in time to compare to truth data
         _, augmented_x_hist = integrator.integrate_stm(meas_time_vector[-1], x, teval=meas_time_vector)
         x_hist = augmented_x_hist[:7, :]  # Extract the state history from the augmented state history
@@ -217,12 +221,24 @@ if __name__ == "__main__":
             STM = STM_hist[:, i].reshape((7, 7))  # Reshape the STM from the augmented state history
             P_hist[:, :, i] = STM @ a_priori_covariance @ STM.T  # Propagate the covariance using the STM
     elif filter_to_run == 'LKF':
+        max_iterations = int(input("Enter the maximum number of iterations for the LKF (e.g., 10): "))
+        tol = float(input("Enter the convergence tolerance for the LKF (e.g., 1e-6): "))
+        print("=" * 50)
+        print("Running LKF...")
+        print("=" * 50, end='\n')
         filter = LKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, max_iterations=1)
+        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, max_iterations=max_iterations, convergence_threshold=tol)
+        print("=" * 50)
+        print("LKF Run Complete...")
+        print("=" * 50, end='\n')
     elif filter_to_run == 'EKF':
-        start_mode = str(input("Enter Start Mode for EKF ('Hot' or 'Cold'): "))
+        start_mode = str(input("Enter Start Mode for EKF ('Warm' or 'Cold'): "))
+        if start_mode.lower() == 'warm':
+            start_length = int(input("Enter the number of measurements to use for the hot start (e.g., 10): "))
+        else:
+            start_length = 0
         filter = EKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, start_mode = start_mode)
+        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, start_mode=start_mode.lower(), start_length=start_length)
     elif filter_to_run == 'SRIF':
         filter = SRIF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
         x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise)

@@ -222,9 +222,10 @@ class EKF:
             print(f"EKF Time Step {k}/{len(time_vector)-1}         ", end='\r')
             # Integrate from previous time to current time
             previous_time = time_vector[k-1]
-            [_, augmented_state_history] = self.integrator.integrate_stm(time, X_k_0, teval=[previous_time, time], initial_time=previous_time, DMC=(process_noise_approach=='DMC'), beta_mat=beta_mat)
+            _, augmented_state_history = self.integrator.integrate_stm(time, X_k_0, teval=[previous_time, time], initial_time=previous_time, DMC=(process_noise_approach=='DMC'), beta_mat=beta_mat)
 
             # Separate state and STM
+            breakpoint()
             raw_state = augmented_state_history[:,-1]
             X_k = raw_state[0:raw_state_length]
             raw_stm = raw_state[raw_state_length:].reshape((raw_state_length, raw_state_length))
@@ -289,7 +290,7 @@ class EKF:
                     [H_sc, H_station] = measurement_jacobian(X_k, station_state_eci)
                     H_total = np.concatenate((H_sc, np.zeros((2, raw_state_length - 6))), axis = 1)  # Pad H_sc to match full state size
 
-                    if 'Stations' in self.integrator.mode:
+                    if 'Stations' in self.integrator.estimation_mode:
                         ecef_to_eci = self.coordinate_mgr.compute_DCM('ECEF', 'ECI', time=time_vector[j])
                         H_station_ecef = H_station @ ecef_to_eci
 
