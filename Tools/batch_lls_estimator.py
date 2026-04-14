@@ -117,7 +117,7 @@ class BatchLLSEstimator:
                     H_tilde = np.concatenate((H_sc_tilde, np.zeros((2, raw_state_length - 6))), axis=1)  # Augment H_tilde to match full state size
                     
                     # Add station position partials if estimating station positions
-                    if 'Stations' in self.integrator.mode:
+                    if 'Stations' in self.integrator.estimation_mode:
                         ecef_to_eci = self.coordinate_mgr.compute_DCM('ECEF', 'ECI', time=time_vector[j])
                         H_station_tilde_ecef = H_station_tilde @ ecef_to_eci  # Transform partials to ECEF frame
 
@@ -129,7 +129,7 @@ class BatchLLSEstimator:
                     H = H_tilde @ stm
                     
                     H_matrix[i, j] = H
-
+            
             # Accumulate observations
             for i, time in enumerate(time_vector):
                 if considered_measurements == 'Range':
@@ -146,6 +146,7 @@ class BatchLLSEstimator:
                 
                 # Only compute Lambda and N accumulation for available measurements
                 for res, H in zip(residuals_i, H_i):
+                    breakpoint()
                     if ~np.isnan(res).any():
                         Lambda += H.T @ R_inv @ H
                         N += (H.T @ R_inv @ res).flatten()
@@ -180,7 +181,7 @@ class BatchLLSEstimator:
                 residuals_df.at[idx, 'post-fit'] = residuals
 
             # Update station positions in measurement managers if estimating station positions
-            if 'Stations' in self.integrator.mode:
+            if 'Stations' in self.integrator.estimation_mode:
                 num_stations = self.integrator.number_of_stations
                 first_station_index = raw_state_length - 3 * num_stations
                 for s in range(num_stations):

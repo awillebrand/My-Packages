@@ -37,7 +37,7 @@ part_2_station_locations = {
     'DSS13': {'lat': 35.247164, 'lon': 243.205, 'alt': 1.07114904}   # Goldstone, CA
 }
 
-observation_noise = np.array([0.005, 0.0005])  # Range noise: 5 meters, Range rate noise: 0.5 mm/s
+observation_noise = np.diag([0.005, 0.0005])  # Range noise: 5 meters, Range rate noise: 0.5 mm/s
 
 # A priori state estimates
 x = -274096790.0

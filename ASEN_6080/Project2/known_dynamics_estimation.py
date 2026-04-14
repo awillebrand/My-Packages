@@ -4,9 +4,15 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import scipy.io
-from constants import truth_data_file_path, known_dynamics_measurement_file_path, mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, AU, initial_epoch, initial_epoch_jd, initial_spin_angle, earth_spin_rate, station_locations, part_2_station_locations, observation_noise
+from constants import truth_data_file_path, known_dynamics_measurement_file_path, mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, C_r, initial_epoch, initial_epoch_jd, initial_spin_angle, earth_spin_rate, station_locations, part_2_station_locations, observation_noise, a_priori_state, a_priori_covariance
 from Tools.measurement_manager import MeasurementMgr
 from Tools.integrator import Integrator
+from Tools.batch_lls_estimator import BatchLLSEstimator
+from Tools.LKF import LKF
+from Tools.EKF import EKF
+from Tools.SRIF import SRIF
+from Tools.UKF import UKF
+from Tools.plotting_functions import plot_residuals, plot_state_errors
 np.set_printoptions(linewidth=200)
 """
 This file performs filtering on the provided measurement data for part 2 of the project which uses the known dynamics model.
@@ -29,12 +35,12 @@ def load_truth_state_data(file_path):
     data = scipy.io.loadmat(file_path)
     time_vector = data['Tt_50'].flatten()  # Flatten to convert from 2D array to 1D array
     state_vectors = data['Xt_50']  # This should already be in the correct shape (6, N)
-    
+
     return {
         'time_vector': time_vector,
         'state_vectors': state_vectors
     }
-
+    
 def load_measurement_data(file_path):
     """
     Load the measurement data from the provided text file path. Converts measurements to a pa
@@ -84,7 +90,7 @@ def convert_measurements_to_df(measurements : dict, station_names : list, dt = 6
 
     measurement_vectors = measurements['measurements']
     
-    # Create a DataFrame in format of 'Time', 'DSS34', 'DSS65', 'DSS13' for both range and range rate measurements
+    # Create a DataFrame in format of 'Time', 'DSS34_measurements', 'DSS65_measurements', 'DSS13_measurements' for both range and range rate measurements
     # First need to separate out measurements from each station into separate 2xN numpy arrays with shape (2, N) where
     # first row is range and second row is range rate. Also need to make sure times between measurements are consistent
     # with time vector and all nans.
@@ -111,14 +117,48 @@ def convert_measurements_to_df(measurements : dict, station_names : list, dt = 6
    
     measurement_data_frame = pd.DataFrame({
         'time': time_vector,
-        station_names[0]: list(measurement_matrix[:, 0:2]),
-        station_names[1]: list(measurement_matrix[:, 2:4]),
-        station_names[2]: list(measurement_matrix[:, 4:6])
+        f"{station_names[0]}_measurements": list(measurement_matrix[:, 0:2]),
+        f"{station_names[1]}_measurements": list(measurement_matrix[:, 2:4]),
+        f"{station_names[2]}_measurements": list(measurement_matrix[:, 4:6])
     })    
 
     return measurement_data_frame
 
+def interpolate_truth_to_measurement_times(truth_data, measurement_time_vector):
+    """
+    Interpolate the truth data state vectors to the measurement time vector for comparison.
+
+    Parameters
+    ----------
+    truth_data : dict
+        A dictionary containing the time vector and state vectors from the truth data.
+    measurement_time_vector : np.ndarray
+        The time vector corresponding to the measurements.
+    Returns
+    -------
+    np.ndarray
+        An array of interpolated state vectors corresponding to the measurement time vector.
+    """
+    day_50_idx = np.searchsorted(meas_time_vector, 50*24*3600)  # Find index corresponding to 50 days in seconds
+
+    truth_time_vector = truth_data['time_vector']
+    truth_state_vectors = truth_data['state_vectors']
+
+    interpolated_state_vectors = np.zeros((7, len(measurement_time_vector[:day_50_idx])))  # Initialize array for interpolated state vectors
+
+    for i in range(7):
+        interpolated_state_vectors[i, :] = np.interp(measurement_time_vector[:day_50_idx], truth_time_vector, truth_state_vectors[:, i])
+
+    return interpolated_state_vectors
+
 if __name__ == "__main__":
+    # User specifies the filter to run in terminal. Options are 'Batch', 'LKF', 'EKF', 'SRIF', 'UKF'
+    filter_to_run = input("Enter the filter to run (Batch, LKF, EKF, SRIF, UKF): ")
+    if filter_to_run not in ['Batch', 'LKF', 'EKF', 'SRIF', 'UKF']:
+        print("Invalid filter choice. Please enter one of the following: Batch, LKF, EKF, SRIF, UKF")
+        exit()
+    
+
     # Load truth data and measurement data
     truth_data = load_truth_state_data(truth_data_file_path)
     measurement_data = load_measurement_data(known_dynamics_measurement_file_path)
@@ -126,6 +166,9 @@ if __name__ == "__main__":
     # Convert measurement data to DataFrame format
     measurement_df = convert_measurements_to_df(measurement_data, station_names=list(station_locations.keys()))
 
+    meas_time_vector = measurement_df['time'].values
+    truth_time_vector = truth_data['time_vector']
+    
     # Initialize Measurement Manager with ground station parameters
     station_mgrs = []
     for station_name, station_info in station_locations.items():
@@ -138,7 +181,74 @@ if __name__ == "__main__":
         station_mgrs.append(mgr)
 
     # Initialize Integrator with known dynamics (e.g., two-body problem)
-    integrator = Integrator(mu_sun, R_e, mode='TwoBody')
+    integrator = Integrator(
+        mu=mu_earth,
+        R_e=R_e,        
+        dynamical_mode=['mu', 'SRP', 'Third Body'],  # Include 2-body and SRP effects for this test
+        estimation_mode=['SRP'],
+        parameter_indices=[6],
+        Cr=C_r,
+        srp_area_to_mass=SRP_area_to_mass,  # Use the area-to-mass ratio from constants
+        solar_flux=solar_flux,
+        number_of_stations=0,
+        mu_third_body=mu_sun,
+        central_body='Earth',
+        third_body='Sun',
+        initial_epoch_jd=initial_epoch_jd,
+        initial_epoch=initial_epoch,
+        earth_spin_rate=earth_spin_rate
+    )
 
     # Perform filtering using the loaded measurement data and truth data
-    # This is where you would implement your filtering algorithm (e.g., EKF, UKF) using the integrator and measurement managers
+    if filter_to_run == 'Batch':
+        max_iterations = int(input("Enter the maximum number of iterations for the Batch LLS Estimator (e.g., 10): "))
+        tol = float(input("Enter the convergence tolerance for the Batch LLS Estimator (e.g., 1e-6): "))
+        print("=" * 50)
+        print("Running Batch LLS Estimator...")
+        print("=" * 50, end='\n')
+        filter = BatchLLSEstimator(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
+        x, P, residuals_df = filter.estimate_initial_state(a_priori_state, measurement_df, observation_noise, a_priori_covariance=a_priori_covariance, max_iterations=max_iterations, tol=tol)
+        # Integrate the estimated initial state forward in time to compare to truth data
+        _, augmented_x_hist = integrator.integrate_stm(meas_time_vector[-1], x, teval=meas_time_vector)
+        x_hist = augmented_x_hist[:7, :]  # Extract the state history from the augmented state history
+        STM_hist = augmented_x_hist[7:, :]  # Extract the STM history from the augmented state history
+        P_hist = np.zeros((7,7, len(meas_time_vector)))  # Initialize an array to hold the covariance history
+        for i in range(len(meas_time_vector)):
+            STM = STM_hist[:, i].reshape((7, 7))  # Reshape the STM from the augmented state history
+            P_hist[:, :, i] = STM @ a_priori_covariance @ STM.T  # Propagate the covariance using the STM
+    elif filter_to_run == 'LKF':
+        filter = LKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
+        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, max_iterations=1)
+    elif filter_to_run == 'EKF':
+        start_mode = str(input("Enter Start Mode for EKF ('Hot' or 'Cold'): "))
+        filter = EKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
+        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, start_mode = start_mode)
+    elif filter_to_run == 'SRIF':
+        filter = SRIF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
+        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise)
+    elif filter_to_run == 'UKF':
+        alpha = float(input("Enter alpha parameter for UKF (e.g., 1e-3): "))
+        beta = float(input("Enter beta parameter for UKF (e.g., 2): "))
+        filter = UKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
+        x_hist, P_hist, residuals_df = filter.run(a_priori_state, a_priori_covariance, meas_time_vector, measurement_df, R=observation_noise, alpha=alpha, beta=beta)
+
+    # Pull state estimates for first 50 days to compare to truth data
+    day_50_idx = np.searchsorted(meas_time_vector, 50*24*3600)  # Find index corresponding to 50 days in seconds
+    x_hist_50days = x_hist[:, :day_50_idx]
+    P_hist_50days = P_hist[:, :, :day_50_idx]
+    
+    # Interpolate truth data to measurement time vector for first 50 days
+    interpolated_truth_state_vectors = interpolate_truth_to_measurement_times(truth_data, meas_time_vector)
+
+    # Compute state estimation errors for first 50 days
+    estimation_errors = x_hist_50days - interpolated_truth_state_vectors
+
+    plot_state_errors(meas_time_vector[:day_50_idx], estimation_errors, P_hist_50days, filter_name=filter_to_run, file_directory='ASEN_6080/Project2/figures')
+    # fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.02, subplot_titles=['X Position', 'Y Position', 'Z Position'])
+    # for i in range(3):
+    #     fig.add_trace(go.Scatter(x=truth_time_vector, y=truth_data['state_vectors'][:,i], mode='lines', name='Truth'), row=i+1, col=1)
+    #     fig.add_trace(go.Scatter(x=meas_time_vector[:day_50_idx], y=x_hist_50days[i,:], mode='lines', name='Estimated'), row=i+1, col=1)
+    # fig.update_layout(title='Comparison of Estimated Trajectory to Truth Data for First 50 Days', xaxis_title='Time (s)', yaxis_title='Position (km)')
+    # fig.show()
+
+    
