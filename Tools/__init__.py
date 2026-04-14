@@ -4,6 +4,7 @@ from .generic_functions import state_jacobian, measurement_jacobian, compute_den
 from .integrator import Integrator
 from .coordinate_manager import CoordinateMgr
 from .measurement_manager import MeasurementMgr
+from .B_Plane_manager import BPlaneMgr
 from .batch_lls_estimator import BatchLLSEstimator
 from .ephemeris_manager import EphemerisMgr
 from .LKF import LKF
@@ -22,6 +23,7 @@ __all__ = [
     "Integrator",
     "CoordinateMgr",
     "MeasurementMgr",
+    "BPlaneMgr",
     "BatchLLSEstimator",
     "EphemerisMgr",
     "LKF",

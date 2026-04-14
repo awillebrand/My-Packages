@@ -255,7 +255,7 @@ if __name__ == "__main__":
         alpha = float(input("Enter alpha parameter for UKF (e.g., 1e-3): "))
         beta = float(input("Enter beta parameter for UKF (e.g., 2): "))
         print("=" * 50)
-        print("Running UKF...")
+        print("Running SRUKF...")
         print("=" * 50, end='\n')
         filter = UKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
         x_hist, P_hist, residuals_df = filter.run(a_priori_state, a_priori_covariance, meas_time_vector, measurement_df, R=observation_noise, alpha=alpha, beta=beta)

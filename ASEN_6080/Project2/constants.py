@@ -17,6 +17,8 @@ solar_flux = 1357                           # Solar radiation pressure flux at 1
 SRP_area_to_mass = 0.01                     # Area-to-mass ratio for solar radiation pressure in m^2/kg
 AU = 149597870.7                            # Astronomical Unit in km
 
+RSOI = 925000.0                               # Radius of Sphere of Influence for Earth in km
+
 # Initial Conditions
 initial_epoch = 0                   # Initial epoch in seconds
 initial_epoch_jd = 2456296.25       # Initial epoch in Julian Date (J2000)
