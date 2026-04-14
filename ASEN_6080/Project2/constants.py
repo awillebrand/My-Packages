@@ -26,18 +26,18 @@ initial_spin_angle = 0.0                    # Initial Earth spin angle in radian
 earth_spin_rate = 7.29211585275553E-5   # Earth's rotation rate in rad per second
 
 station_locations = {
-    'DSS34': {'lat': -35.398333, 'lon': 148.981944, 'alt': 0.691750},  # Canberra, Australia
-    'DSS65': {'lat': 40.427222, 'lon': 355.749444, 'alt': 0.834539}, # Madrid, Spain
-    'DSS13': {'lat': 35.247164, 'lon': 243.205, 'alt': 1.07114904}   # Goldstone, CA
+    'DSS34': {'lat': -35.398333, 'lon': 148.981944, 'radius': 0.691750 + R_e},  # Canberra, Australia
+    'DSS65': {'lat': 40.427222, 'lon': 355.749444, 'radius': 0.834539 + R_e}, # Madrid, Spain
+    'DSS13': {'lat': 35.247164, 'lon': 243.205, 'radius': 1.07114904 + R_e}   # Goldstone, CA
 }
 
 part_2_station_locations = {
-    'DSS34': {'lat': -35.398333, 'lon': 148.981944, 'alt': 0.691750},  # Canberra, Australia
-    'DSS65': {'lat': 40.427222, 'lon': -355.749444, 'alt': 0.834539}, # Madrid, Spain
-    'DSS13': {'lat': 35.247164, 'lon': 243.205, 'alt': 1.07114904}   # Goldstone, CA
+    'DSS34': {'lat': -35.398333, 'lon': 148.981944, 'radius': 0.691750 + R_e},  # Canberra, Australia
+    'DSS65': {'lat': 40.427222, 'lon': -355.749444, 'radius': 0.834539 + R_e}, # Madrid, Spain
+    'DSS13': {'lat': 35.247164, 'lon': 243.205, 'radius': 1.07114904 + R_e}   # Goldstone, CA
 }
 
-observation_noise = np.diag([0.005, 0.0005])  # Range noise: 5 meters, Range rate noise: 0.5 mm/s
+observation_noise = np.diag([0.005, 5e-7])**2  # Range noise: 5 meters, Range rate noise: 0.5 mm/s
 
 # A priori state estimates
 x = -274096790.0
@@ -49,4 +49,4 @@ vz = -3.88
 C_r = 1.2
 a_priori_state = np.array([x, y, z, vx, vy, vz, C_r])
 
-a_priori_covariance = np.diag([100, 100, 100, 0.1, 0.1, 0.1, 0.1])
+a_priori_covariance = np.diag([100, 100, 100, 0.1, 0.1, 0.1, 0.1])**2

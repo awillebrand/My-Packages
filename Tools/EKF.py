@@ -218,14 +218,11 @@ class EKF:
         post_fit_residuals_mat = np.full((len(self.measurement_mgrs)*2, len(time_vector[1:])), np.nan)  # Assuming 2 measurements per station
         # Perform EKF estimation process
         for k, time in enumerate(time_vector[1:], start=1):
-            
             print(f"EKF Time Step {k}/{len(time_vector)-1}         ", end='\r')
             # Integrate from previous time to current time
             previous_time = time_vector[k-1]
-            _, augmented_state_history = self.integrator.integrate_stm(time, X_k_0, teval=[previous_time, time], initial_time=previous_time, DMC=(process_noise_approach=='DMC'), beta_mat=beta_mat)
-
+            [_, augmented_state_history] = self.integrator.integrate_stm(time+0.01, X_k_0, teval=[previous_time, time], initial_time=previous_time, DMC=(process_noise_approach=='DMC'), beta_mat=beta_mat)
             # Separate state and STM
-            breakpoint()
             raw_state = augmented_state_history[:,-1]
             X_k = raw_state[0:raw_state_length]
             raw_stm = raw_state[raw_state_length:].reshape((raw_state_length, raw_state_length))

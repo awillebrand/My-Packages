@@ -463,7 +463,7 @@ class LKF:
             
             x_bar0 = x_bar0 - x_hat0.flatten()  # Update x_bar0 for next iteration  
             x_hat = x_bar0.copy()
-            
+
             # Add post-fit residuals to DataFrame
             for i, mgr in enumerate(self.measurement_mgrs):
                 station_name = self.measurement_mgrs[i].station_name

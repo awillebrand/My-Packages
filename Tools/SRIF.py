@@ -269,7 +269,7 @@ class SRIF:
                     station_state_eci = self.coordinate_mgr.ECEF_to_ECI(mgr.station_state_ecef, time)
                     [H_sc, H_station] = measurement_jacobian(reference_state_history[:6,j], station_state_eci)
                     H_total = np.concatenate((H_sc, np.zeros((2, raw_state_length - 6))), axis = 1)  # Pad H_sc to match full state size
-                    if 'Stations' in self.integrator.mode:
+                    if 'Stations' in self.integrator.estimation_mode:
                         ecef_to_eci = self.coordinate_mgr.compute_DCM('ECEF', 'ECI', time=time_vector[j])
                         H_station_ecef = H_station @ ecef_to_eci
 
@@ -357,7 +357,7 @@ class SRIF:
                 idx = residuals_df[mask].index[0]  # Get the index of the matching row
                 residuals_df.at[idx, 'post-fit'] = measurement_residuals
 
-            if 'Stations' in self.integrator.mode:
+            if 'Stations' in self.integrator.estimation_mode:
                 num_stations = self.integrator.number_of_stations
                 first_station_index = raw_state_length - 3 * num_stations
                 for s in range(num_stations):

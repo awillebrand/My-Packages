@@ -2,7 +2,7 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
-from ASEN_6080.Tools import Integrator, MeasurementMgr, CoordinateMgr, BatchLLSEstimator
+from Tools import Integrator, MeasurementMgr, CoordinateMgr, BatchLLSEstimator
 from plotly.subplots import make_subplots
 
 measurements = pd.read_pickle(".\ASEN_6080\Project1\data\conditioned_measurements.pkl")
@@ -32,7 +32,7 @@ station_3_mgr = MeasurementMgr("station_394", station_state_ecef=station_3_state
 
 station_mgr_list = [station_1_mgr, station_2_mgr, station_3_mgr]
 
-integrator = Integrator(mu, R_e, mode=['mu','J2','Drag','Stations'], parameter_indices=[6,7,8,9], spacecraft_area=spacecraft_area, spacecraft_mass=spacecraft_mass, number_of_stations=3)
+integrator = Integrator(mu=mu, R_e=R_e, J2=J2, Cd=C_d, dynamical_mode = ['mu','J2','Drag'], estimation_mode=['mu','J2','Drag','Stations'], parameter_indices=[6,7,8,9], spacecraft_area=spacecraft_area, spacecraft_mass=spacecraft_mass, number_of_stations=3, initial_epoch_jd=0)
 
 a_priori_covariance = np.diag([1, 1, 1, 1, 1, 1, 1E2, 1E6, 1E6, 1E-16, 1E-16, 1E-16, 1, 1, 1, 1, 1, 1])  # Given
 # a_priori_covariance = np.diag([1, 1, 1, 1, 1, 1, 1E2, 1E-6, 10, 1E-16, 1E-16, 1E-16, 1, 1, 1, 1, 1, 1])

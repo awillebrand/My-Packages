@@ -86,7 +86,8 @@ def convert_measurements_to_df(measurements : dict, station_names : list, dt = 6
     pd.DataFrame
         A DataFrame containing the time and measurements with appropriate column names.
     """
-    time_vector = np.arange(measurements['time_vector'][0], measurements['time_vector'][-1]+dt, dt)  # Create a time vector with consistent time steps
+    #time_vector = np.arange(measurements['time_vector'][0], measurements['time_vector'][-1]+dt, dt)  # Create a time vector with consistent time steps
+    time_vector = measurements['time_vector']  # Use the original time vector from the measurements to ensure consistency with measurement times
 
     measurement_vectors = measurements['measurements']
     
@@ -168,8 +169,7 @@ if __name__ == "__main__":
 
     meas_time_vector = measurement_df['time'].values
     truth_time_vector = truth_data['time_vector']
-    
-    # Initialize Measurement Manager with ground station parameters
+
     station_mgrs = []
     for station_name, station_info in part_2_station_locations.items():
         mgr = MeasurementMgr(
@@ -177,8 +177,10 @@ if __name__ == "__main__":
             station_lat=station_info['lat'],
             station_lon=station_info['lon'],
             initial_earth_spin_angle=initial_spin_angle,
-            earth_spin_rate=earth_spin_rate
+            earth_spin_rate=earth_spin_rate,
+            R_e=station_info['radius']
         )
+        
         station_mgrs.append(mgr)
 
     # Initialize Integrator with known dynamics (e.g., two-body problem)
@@ -240,13 +242,26 @@ if __name__ == "__main__":
         filter = EKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
         x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, start_mode=start_mode.lower(), start_length=start_length)
     elif filter_to_run == 'SRIF':
+        max_iterations = int(input("Enter the maximum number of iterations for the SRIF (e.g., 10): "))
+        print("=" * 50)
+        print("Running SRIF...")
+        print("=" * 50, end='\n')
         filter = SRIF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise)
+        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R_noise=observation_noise, max_iterations=max_iterations)
+        print("=" * 50)
+        print("SRIF Run Complete...")
+        print("=" * 50, end='\n')
     elif filter_to_run == 'UKF':
         alpha = float(input("Enter alpha parameter for UKF (e.g., 1e-3): "))
         beta = float(input("Enter beta parameter for UKF (e.g., 2): "))
+        print("=" * 50)
+        print("Running UKF...")
+        print("=" * 50, end='\n')
         filter = UKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
         x_hist, P_hist, residuals_df = filter.run(a_priori_state, a_priori_covariance, meas_time_vector, measurement_df, R=observation_noise, alpha=alpha, beta=beta)
+        print("=" * 50)
+        print("UKF Run Complete...")
+        print("=" * 50, end='\n')
 
     # Pull state estimates for first 50 days to compare to truth data
     day_50_idx = np.searchsorted(meas_time_vector, 50*24*3600)  # Find index corresponding to 50 days in seconds
@@ -260,11 +275,13 @@ if __name__ == "__main__":
     estimation_errors = x_hist_50days - interpolated_truth_state_vectors
 
     plot_state_errors(meas_time_vector[:day_50_idx], estimation_errors, P_hist_50days, filter_name=filter_to_run, file_directory='ASEN_6080/Project2/figures')
-    # fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.02, subplot_titles=['X Position', 'Y Position', 'Z Position'])
-    # for i in range(3):
-    #     fig.add_trace(go.Scatter(x=truth_time_vector, y=truth_data['state_vectors'][:,i], mode='lines', name='Truth'), row=i+1, col=1)
-    #     fig.add_trace(go.Scatter(x=meas_time_vector[:day_50_idx], y=x_hist_50days[i,:], mode='lines', name='Estimated'), row=i+1, col=1)
-    # fig.update_layout(title='Comparison of Estimated Trajectory to Truth Data for First 50 Days', xaxis_title='Time (s)', yaxis_title='Position (km)')
-    # fig.show()
+    plot_residuals(meas_time_vector, residuals_df, filter_name=filter_to_run, file_directory='ASEN_6080/Project2/figures/residuals')
+
+    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.02, subplot_titles=['X Position', 'Y Position', 'Z Position'])
+    for i in range(3):
+        fig.add_trace(go.Scatter(x=truth_time_vector, y=truth_data['state_vectors'][:,i], mode='lines', name='Truth'), row=i+1, col=1)
+        fig.add_trace(go.Scatter(x=meas_time_vector[:day_50_idx], y=x_hist_50days[i,:], mode='lines', name='Estimated'), row=i+1, col=1)
+    fig.update_layout(title='Comparison of Estimated Trajectory to Truth Data for First 50 Days', xaxis_title='Time (s)', yaxis_title='Position (km)')
+    fig.show()
 
     

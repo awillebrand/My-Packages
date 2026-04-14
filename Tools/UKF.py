@@ -80,7 +80,6 @@ class UKF:
                 try:
                     sqrt_P = np.linalg.cholesky(P)
                 except np.linalg.LinAlgError:
-                    breakpoint()
                     raise ValueError("Covariance matrix is not positive definite.")
 
         # Initialize sigma points array
