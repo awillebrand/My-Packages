@@ -57,7 +57,7 @@ class BPlaneMgr:
         _, e_mag, a = self.get_ecc_and_sma()
 
         # Compute the semi-minor axis
-        b = a * np.sqrt(e_mag**2 - 1)
+        b = np.abs(a) * np.sqrt(e_mag**2 - 1)
 
         # Compute the B-plane frame unit vectors
         s_hat = v_vec / v_norm

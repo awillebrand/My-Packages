@@ -375,15 +375,19 @@ if __name__ == "__main__":
         print("B-plane Crossing Covariance:", B_plane_crossing_covariance)
 
         # Rotate the B-plane crossing state and covariance into the B-plane frame using the DCM from the BPlaneMgr
-        b_plane_manager = BPlaneMgr(RSOI_crossing_state, mu_earth)
-        s_hat, t_hat, r_hat, B_vec = b_plane_manager.compute_b_plane_frame()
+        # b_plane_manager = BPlaneMgr(RSOI_crossing_state, mu_earth)
+        # s_hat, t_hat, r_hat, B_vec = b_plane_manager.compute_b_plane_frame()
 
-        # B·T and B·R are the projections of the B-vector onto the T and R axes
-        B_dot_T = np.dot(B_vec, t_hat)
-        B_dot_R = np.dot(B_vec, r_hat)
-        center = -np.array([B_dot_T, B_dot_R])
-        
+        # # B·T and B·R are the projections of the B-vector onto the T and R axes
+        # B_dot_T = np.dot(B_vec, t_hat)
+        # B_dot_R = np.dot(B_vec, r_hat)
+        # center = np.array([B_dot_T, B_dot_R])
+
+        b_plane_manager = BPlaneMgr(RSOI_crossing_state[:6], mu_earth)
         DCM_ECI_to_B_plane = b_plane_manager.compute_b_plane_DCM()
+        B_plane_crossing_pos_in_B_plane_frame = DCM_ECI_to_B_plane @ B_plane_crossing_state[:3]
+        center = B_plane_crossing_pos_in_B_plane_frame[1:3]  # T and R components
+        
         # B_plane_crossing_pos_in_B_plane_frame = DCM_ECI_to_B_plane @ B_plane_crossing_state[0:3]
         B_plane_crossing_pos_covariance_in_B_plane_frame = DCM_ECI_to_B_plane @ B_plane_crossing_covariance[:3,:3] @ DCM_ECI_to_B_plane.T
 
