@@ -199,6 +199,7 @@ class BatchLLSEstimator:
                 print(f"x_hat = {np.linalg.norm(x_hat)}")
                 print(f"Max relative correction = {np.max(np.abs(x_hat) / (np.abs(estimated_state) + 1e-10))}")
                 x_correction = x_correction - x_hat
+                
         print("Maximum iterations reached without convergence.")
         
         P_0 = np.linalg.inv(Lambda)

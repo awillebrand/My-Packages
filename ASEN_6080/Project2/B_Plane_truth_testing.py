@@ -309,7 +309,7 @@ if __name__ == "__main__":
             P_hist = np.zeros((7,7, len(meas_time_vector)))  # Initialize an array to hold the covariance history
             for j in range(len(meas_time_vector)):
                 STM = STM_hist[:, j].reshape((7, 7))  # Reshape the STM from the augmented state history
-                P_hist[:, :, j] = STM @ a_priori_covariance @ STM.T  # Propagate the covariance using the STM
+                P_hist[:, :, j] = STM @ P @ STM.T  # Propagate the covariance using the STM
         elif filter_to_run == 'LKF':
             if i == 0:  # Only ask for these parameters once since they are the same for all runs
                 max_iterations = int(input("Enter the maximum number of iterations for the LKF (e.g., 10): "))
@@ -325,10 +325,10 @@ if __name__ == "__main__":
         elif filter_to_run == 'EKF':
             if i == 0:  # Only ask for these parameters once since they are the same for all runs
                 start_mode = str(input("Enter Start Mode for EKF ('Warm' or 'Cold'): "))
-            if start_mode.lower() == 'warm':
-                start_length = int(input("Enter the number of measurements to use for the hot start (e.g., 10): "))
-            else:
-                start_length = 0
+                if start_mode.lower() == 'warm':
+                    start_length = int(input("Enter the number of measurements to use for the hot start (e.g., 10): "))
+                else:
+                    start_length = 0
             filter = EKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
             x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, start_mode=start_mode.lower(), start_length=start_length)
         elif filter_to_run == 'SRIF':
@@ -371,29 +371,19 @@ if __name__ == "__main__":
         final_covariance = P_hist[:, :, -1]  # Get the final covariance from the filter
         B_plane_crossing_covariance = B_plane_crossing_stm @ final_covariance @ B_plane_crossing_stm.T  # Propagate the covariance to the B-plane crossing time using the STM
 
+        # Project the RSOI crossing state into 
         print("B-plane Crossing State:", B_plane_crossing_state)
         print("B-plane Crossing Covariance:", B_plane_crossing_covariance)
 
-        # Rotate the B-plane crossing state and covariance into the B-plane frame using the DCM from the BPlaneMgr
-        # b_plane_manager = BPlaneMgr(RSOI_crossing_state, mu_earth)
-        # s_hat, t_hat, r_hat, B_vec = b_plane_manager.compute_b_plane_frame()
-
-        # # B·T and B·R are the projections of the B-vector onto the T and R axes
-        # B_dot_T = np.dot(B_vec, t_hat)
-        # B_dot_R = np.dot(B_vec, r_hat)
-        # center = np.array([B_dot_T, B_dot_R])
-
+        # Rotate the B-plane crossing covariance into the B-plane frame
         b_plane_manager = BPlaneMgr(RSOI_crossing_state[:6], mu_earth)
         DCM_ECI_to_B_plane = b_plane_manager.compute_b_plane_DCM()
-        B_plane_crossing_pos_in_B_plane_frame = DCM_ECI_to_B_plane @ B_plane_crossing_state[:3]
-        center = B_plane_crossing_pos_in_B_plane_frame[1:3]  # T and R components
-        
-        # B_plane_crossing_pos_in_B_plane_frame = DCM_ECI_to_B_plane @ B_plane_crossing_state[0:3]
         B_plane_crossing_pos_covariance_in_B_plane_frame = DCM_ECI_to_B_plane @ B_plane_crossing_covariance[:3,:3] @ DCM_ECI_to_B_plane.T
 
-        # Compute the covariance ellipse in the B-plane frame
-        
-        #center = B_plane_crossing_pos_in_B_plane_frame[1:3]  # The center of the ellipse is given by the y and z components of the state in the B-plane frame
+        # B-Plane target is defined by removing the s_hat (v_hat) component of the position vector at the RSOI crossing point (Odd but how professor wants us to do it)
+        B_plane_RSOI_crossing_pos = DCM_ECI_to_B_plane @ RSOI_crossing_state[0:3]
+
+        center = B_plane_RSOI_crossing_pos[1:3]
         reduced_covariance = B_plane_crossing_pos_covariance_in_B_plane_frame[1:3, 1:3]  # The covariance for the ellipse is given by the y and z components of the covariance in the B-plane frame
         b_plane_covariance_ellipse = covariance_ellipse_2D(center, reduced_covariance, n_std=3)  # Compute the covariance ellipse at 3-sigma
 

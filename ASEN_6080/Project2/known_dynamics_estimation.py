@@ -215,13 +215,14 @@ if __name__ == "__main__":
         print("Batch LLS Estimation Complete...")
         print("=" * 50, end='\n')
         # Integrate the estimated initial state forward in time to compare to truth data
-        _, augmented_x_hist = integrator.integrate_stm(meas_time_vector[-1], x, teval=meas_time_vector)
+        _, augmented_x_hist = integrator.integrate_stm(meas_time_vector[-1], x[0:7], teval=meas_time_vector)
         x_hist = augmented_x_hist[:7, :]  # Extract the state history from the augmented state history
         STM_hist = augmented_x_hist[7:, :]  # Extract the STM history from the augmented state history
         P_hist = np.zeros((7,7, len(meas_time_vector)))  # Initialize an array to hold the covariance history
         for i in range(len(meas_time_vector)):
             STM = STM_hist[:, i].reshape((7, 7))  # Reshape the STM from the augmented state history
-            P_hist[:, :, i] = STM @ a_priori_covariance @ STM.T  # Propagate the covariance using the STM
+            P_hist[:, :, i] = STM @ P @ STM.T  # Propagate the covariance using the STM
+
     elif filter_to_run == 'LKF':
         max_iterations = int(input("Enter the maximum number of iterations for the LKF (e.g., 10): "))
         tol = float(input("Enter the convergence tolerance for the LKF (e.g., 1e-6): "))
@@ -265,23 +266,46 @@ if __name__ == "__main__":
 
     # Pull state estimates for first 50 days to compare to truth data
     day_50_idx = np.searchsorted(meas_time_vector, 50*24*3600)  # Find index corresponding to 50 days in seconds
-    x_hist_50days = x_hist[:, :day_50_idx]
-    P_hist_50days = P_hist[:, :, :day_50_idx]
+    
     
     # Interpolate truth data to measurement time vector for first 50 days
-    interpolated_truth_state_vectors = interpolate_truth_to_measurement_times(truth_data, meas_time_vector)
+    if filter_to_run == 'Batch':
+        _, augmented_x_hist = integrator.integrate_stm(truth_time_vector[-1], x[0:7], teval=truth_time_vector)
+        x_hist_50days = augmented_x_hist  # Extract the state history from the augmented state history
+        STM_hist = augmented_x_hist[7:, :]  # Extract the STM history from the augmented state history
+        P_hist_50days = np.zeros((7,7, len(truth_time_vector)))  # Initialize an array to hold the covariance history
+        for i in range(len(truth_time_vector)):
+            STM = STM_hist[:, i].reshape((7, 7))  # Reshape the STM from the augmented state history
+            P_hist_50days[:, :, i] = STM @ P @ STM.T  # Propagate the covariance using the STM
+        interpolated_truth_state_vectors = truth_data['state_vectors']
 
-    # Compute state estimation errors for first 50 days
-    estimation_errors = x_hist_50days - interpolated_truth_state_vectors
+        # Compute state estimation errors for first 50 days
+        estimation_errors = x_hist_50days - interpolated_truth_state_vectors.T
+        plot_state_errors(truth_time_vector, estimation_errors, P_hist_50days, filter_name=filter_to_run, file_directory='ASEN_6080/Project2/figures')
+        plot_residuals(meas_time_vector, residuals_df, filter_name=filter_to_run, file_directory='ASEN_6080/Project2/figures/residuals')
 
-    plot_state_errors(meas_time_vector[:day_50_idx], estimation_errors, P_hist_50days, filter_name=filter_to_run, file_directory='ASEN_6080/Project2/figures')
-    plot_residuals(meas_time_vector, residuals_df, filter_name=filter_to_run, file_directory='ASEN_6080/Project2/figures/residuals')
+        fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.02, subplot_titles=['X Position', 'Y Position', 'Z Position'])
+        for i in range(3):
+            fig.add_trace(go.Scatter(x=truth_time_vector, y=truth_data['state_vectors'][:,i], mode='lines', name='Truth'), row=i+1, col=1)
+            fig.add_trace(go.Scatter(x=truth_time_vector, y=x_hist_50days[i,:], mode='lines', name='Estimated'), row=i+1, col=1)
+        fig.update_layout(title='Comparison of Estimated Trajectory to Truth Data for First 50 Days', xaxis_title='Time (s)', yaxis_title='Position (km)')
+        fig.show()
+    else:
+        x_hist_50days = x_hist[:, :day_50_idx]
+        P_hist_50days = P_hist[:, :, :day_50_idx]
+        interpolated_truth_state_vectors = interpolate_truth_to_measurement_times(truth_data, meas_time_vector)
 
-    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.02, subplot_titles=['X Position', 'Y Position', 'Z Position'])
-    for i in range(3):
-        fig.add_trace(go.Scatter(x=truth_time_vector, y=truth_data['state_vectors'][:,i], mode='lines', name='Truth'), row=i+1, col=1)
-        fig.add_trace(go.Scatter(x=meas_time_vector[:day_50_idx], y=x_hist_50days[i,:], mode='lines', name='Estimated'), row=i+1, col=1)
-    fig.update_layout(title='Comparison of Estimated Trajectory to Truth Data for First 50 Days', xaxis_title='Time (s)', yaxis_title='Position (km)')
-    fig.show()
+        # Compute state estimation errors for first 50 days
+        estimation_errors = x_hist_50days - interpolated_truth_state_vectors
+
+        plot_state_errors(meas_time_vector[:day_50_idx], estimation_errors, P_hist_50days, filter_name=filter_to_run, file_directory='ASEN_6080/Project2/figures')
+        plot_residuals(meas_time_vector, residuals_df, filter_name=filter_to_run, file_directory='ASEN_6080/Project2/figures/residuals')
+
+        fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.02, subplot_titles=['X Position', 'Y Position', 'Z Position'])
+        for i in range(3):
+            fig.add_trace(go.Scatter(x=truth_time_vector, y=truth_data['state_vectors'][:,i], mode='lines', name='Truth'), row=i+1, col=1)
+            fig.add_trace(go.Scatter(x=meas_time_vector[:day_50_idx], y=x_hist_50days[i,:], mode='lines', name='Estimated'), row=i+1, col=1)
+        fig.update_layout(title='Comparison of Estimated Trajectory to Truth Data for First 50 Days', xaxis_title='Time (s)', yaxis_title='Position (km)')
+        fig.show()
 
     
