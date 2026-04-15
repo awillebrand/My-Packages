@@ -394,7 +394,7 @@ def measurement_jacobian(sat_state : np.array, station_state : np.array, earth_r
     
     return H_sc, H_station
 
-def covariance_ellipse(center, cov_matrix, num_points=120):
+def covariance_ellipse(center, cov_matrix, num_points=120, n_std=3):
     """
     This function computes the covariance ellipse for a N dimensional Gaussian distribution given its mean and covariance matrix.
     Parameters:
@@ -425,11 +425,11 @@ def covariance_ellipse(center, cov_matrix, num_points=120):
     z_sphere = np.cos(phi)
 
     # Scale the unit sphere by the eigenvalues (which represent the lengths of the ellipse axes)
-    ellipse_points = eigenvectors @ np.diag(3*np.sqrt(eigenvalues)) @ np.array([x_sphere.flatten(), y_sphere.flatten(), z_sphere.flatten()])
+    ellipse_points = eigenvectors @ np.diag(n_std*np.sqrt(eigenvalues)) @ np.array([x_sphere.flatten(), y_sphere.flatten(), z_sphere.flatten()])
 
     return ellipse_points.T + center
 
-def covariance_ellipse_2D(center, cov_matrix, num_points=120, sigma_level=3):
+def covariance_ellipse_2D(center, cov_matrix, num_points=120, n_std=3):
     """
     This function computes the covariance ellipse for a 2 dimensional Gaussian distribution given its mean and covariance matrix.
     Parameters:
@@ -461,7 +461,7 @@ def covariance_ellipse_2D(center, cov_matrix, num_points=120, sigma_level=3):
     y_circle = np.sin(theta)
 
     # Scale the unit circle by the eigenvalues (which represent the lengths of the ellipse axes)
-    ellipse_points = eigenvectors @ np.diag(sigma_level*np.sqrt(eigenvalues)) @ np.array([x_circle.flatten(), y_circle.flatten()])
+    ellipse_points = eigenvectors @ np.diag(n_std*np.sqrt(eigenvalues)) @ np.array([x_circle.flatten(), y_circle.flatten()])
 
     return ellipse_points.T + center
 

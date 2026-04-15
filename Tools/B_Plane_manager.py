@@ -10,7 +10,8 @@ class BPlaneMgr:
 
     def get_ecc_and_sma(self):
         r_vec = self.state_vector[:3]
-        v_vec = self.state_vector[3:]
+        v_vec = self.state_vector[3:6]
+
         r_norm = np.linalg.norm(r_vec)
         v_norm = np.linalg.norm(v_vec)
 
@@ -27,7 +28,7 @@ class BPlaneMgr:
 
     def compute_perifocal_frame_vectors(self):
         r_vec = self.state_vector[:3]
-        v_vec = self.state_vector[3:]
+        v_vec = self.state_vector[3:6]
 
         # Compute specific angular momentum vector
         h_vec = np.cross(r_vec, v_vec)
@@ -45,7 +46,7 @@ class BPlaneMgr:
     
     def compute_b_plane_frame(self):
         r_vec = self.state_vector[:3]
-        v_vec = self.state_vector[3:]
+        v_vec = self.state_vector[3:6]
         r_norm = np.linalg.norm(r_vec)
         v_norm = np.linalg.norm(v_vec)
 
@@ -56,12 +57,12 @@ class BPlaneMgr:
         _, e_mag, a = self.get_ecc_and_sma()
 
         # Compute the semi-minor axis
-        b = a * np.sqrt(1 - e_mag**2)
+        b = a * np.sqrt(e_mag**2 - 1)
 
         # Compute the B-plane frame unit vectors
         s_hat = v_vec / v_norm
 
-        n_hat = np.array([0, 0, -1]).T
+        n_hat = np.array([0, 0, 1]).T
 
         t_hat = np.cross(s_hat, n_hat) / np.linalg.norm(np.cross(s_hat, n_hat))
 

@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import scipy.io
-from constants import truth_data_file_path, known_dynamics_measurement_file_path, mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, C_r, initial_epoch, initial_epoch_jd, initial_spin_angle, earth_spin_rate, station_locations, part_2_station_locations, observation_noise, a_priori_state, a_priori_covariance
+from constants import truth_data_file_path, known_dynamics_measurement_file_path, mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, C_r, initial_epoch, initial_epoch_jd, initial_spin_angle, earth_spin_rate, station_locations, part_2_station_locations, observation_noise, a_priori_state, a_priori_covariance, RSOI
 from Tools.measurement_manager import MeasurementMgr
 from Tools.integrator import Integrator
 from Tools.batch_lls_estimator import BatchLLSEstimator

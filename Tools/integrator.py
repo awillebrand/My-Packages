@@ -592,7 +592,7 @@ class Integrator:
         sol = solve_ivp(self.sigma_points_eom, t_span, initial_state, method='RK45', rtol=2.23e-14, atol=1e-16, t_eval=teval)
         return sol.t, sol.y
     
-    def integrate_stm(self, t_final, initial_state, phi_0 = None, teval = None, initial_time : float = 0, DMC : bool = False, beta_mat : np.ndarray = None):
+    def integrate_stm(self, t_final, initial_state, phi_0 = None, teval = None, events = None, initial_time : float = 0, DMC : bool = False, beta_mat : np.ndarray = None):
         # Determine state length based on mode
         state_length = 6
 
@@ -622,8 +622,12 @@ class Integrator:
 
         augmented_initial_state = np.hstack((initial_state, phi_0))
         t_span = (initial_time, t_final)
-        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=2.23e-14, atol=1e-16, t_eval=teval, args=(DMC, beta_mat))
-        return sol.t, sol.y
+        if events == None:
+            sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=2.23e-14, atol=1e-16, t_eval=teval, args=(DMC, beta_mat))
+            return sol.t, sol.y
+        else:
+            sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=2.23e-14, atol=1e-16, t_eval=teval, events=events, args=(DMC, beta_mat))
+            return sol.t_events, sol.y_events
     
     def integrate_stm_and_theta(self, t_final, initial_state, phi_0 = None, theta_0 = None, teval = None, initial_time : float = 0, consider_parameters : list = []):
         # This function integrates the STM and the sensitivity matrix for the consider parameters, theta. The initial state is augmented by both the STM and theta, and the full_dynamics function is modified to compute the time derivative of both the STM and theta.
