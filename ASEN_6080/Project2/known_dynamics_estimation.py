@@ -188,9 +188,9 @@ if __name__ == "__main__":
         mu=mu_earth,
         R_e=R_e,        
         dynamical_mode=['mu', 'SRP', 'Third Body'],  # Include 2-body and SRP effects for this test
-        estimation_mode=['SRP'],
-        parameter_indices=[6],
-        Cr=C_r,
+        estimation_mode=[],
+        parameter_indices=[],
+        Cr=1,
         srp_area_to_mass=SRP_area_to_mass,  # Use the area-to-mass ratio from constants
         solar_flux=solar_flux,
         number_of_stations=0,
@@ -202,8 +202,10 @@ if __name__ == "__main__":
         earth_spin_rate=earth_spin_rate
     )
 
+    
     # Perform filtering using the loaded measurement data and truth data
     if filter_to_run == 'Batch':
+        state_length = len(a_priori_state)
         max_iterations = int(input("Enter the maximum number of iterations for the Batch LLS Estimator (e.g., 10): "))
         tol = float(input("Enter the convergence tolerance for the Batch LLS Estimator (e.g., 1e-6): "))
         print("=" * 50)
@@ -215,12 +217,12 @@ if __name__ == "__main__":
         print("Batch LLS Estimation Complete...")
         print("=" * 50, end='\n')
         # Integrate the estimated initial state forward in time to compare to truth data
-        _, augmented_x_hist = integrator.integrate_stm(meas_time_vector[-1], x[0:7], teval=meas_time_vector)
-        x_hist = augmented_x_hist[:7, :]  # Extract the state history from the augmented state history
-        STM_hist = augmented_x_hist[7:, :]  # Extract the STM history from the augmented state history
-        P_hist = np.zeros((7,7, len(meas_time_vector)))  # Initialize an array to hold the covariance history
+        _, augmented_x_hist = integrator.integrate_stm(meas_time_vector[-1], x[0:state_length], teval=meas_time_vector)
+        x_hist = augmented_x_hist[:state_length, :]  # Extract the state history from the augmented state history
+        STM_hist = augmented_x_hist[state_length:, :]  # Extract the STM history from the augmented state history
+        P_hist = np.zeros((state_length,state_length, len(meas_time_vector)))  # Initialize an array to hold the covariance history
         for i in range(len(meas_time_vector)):
-            STM = STM_hist[:, i].reshape((7, 7))  # Reshape the STM from the augmented state history
+            STM = STM_hist[:, i].reshape((state_length, state_length))  # Reshape the STM from the augmented state history
             P_hist[:, :, i] = STM @ P @ STM.T  # Propagate the covariance using the STM
 
     elif filter_to_run == 'LKF':
@@ -270,17 +272,17 @@ if __name__ == "__main__":
     
     # Interpolate truth data to measurement time vector for first 50 days
     if filter_to_run == 'Batch':
-        _, augmented_x_hist = integrator.integrate_stm(truth_time_vector[-1], x[0:7], teval=truth_time_vector)
+        _, augmented_x_hist = integrator.integrate_stm(truth_time_vector[-1], x[0:state_length], teval=truth_time_vector)
         x_hist_50days = augmented_x_hist  # Extract the state history from the augmented state history
-        STM_hist = augmented_x_hist[7:, :]  # Extract the STM history from the augmented state history
-        P_hist_50days = np.zeros((7,7, len(truth_time_vector)))  # Initialize an array to hold the covariance history
+        STM_hist = augmented_x_hist[state_length:, :]  # Extract the STM history from the augmented state history
+        P_hist_50days = np.zeros((state_length,state_length, len(truth_time_vector)))  # Initialize an array to hold the covariance history
         for i in range(len(truth_time_vector)):
-            STM = STM_hist[:, i].reshape((7, 7))  # Reshape the STM from the augmented state history
+            STM = STM_hist[:, i].reshape((state_length, state_length))  # Reshape the STM from the augmented state history
             P_hist_50days[:, :, i] = STM @ P @ STM.T  # Propagate the covariance using the STM
         interpolated_truth_state_vectors = truth_data['state_vectors']
 
         # Compute state estimation errors for first 50 days
-        estimation_errors = x_hist_50days - interpolated_truth_state_vectors.T
+        estimation_errors = x_hist_50days[0:6, :] - interpolated_truth_state_vectors[:, 0:6].T
         plot_state_errors(truth_time_vector, estimation_errors, P_hist_50days, filter_name=filter_to_run, file_directory='ASEN_6080/Project2/figures')
         plot_residuals(meas_time_vector, residuals_df, filter_name=filter_to_run, file_directory='ASEN_6080/Project2/figures/residuals')
 

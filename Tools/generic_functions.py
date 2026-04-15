@@ -110,10 +110,14 @@ def state_jacobian(r : np.array,
         if 'SRP' in mode and srp_area_to_mass == None:
             raise Warning("SRP partials requested but srp_area_to_mass not provided. Defaulting to zero.")
         C_r = 0
+        sun_pos = np.zeros(3)
+        P_solar = 0
+        srp_area_to_mass = 0
     if mu_third_body == None:
         if 'Third Body' in mode:
             raise Warning("Third body partials requested but mu_third_body not provided. Defaulting to zero.")
         mu_third_body = 0
+        third_body_state = np.zeros(6)
     if DMC and beta_mat is None:
         raise ValueError("Beta must be provided for dynamic model compensation.")
     
@@ -205,7 +209,7 @@ def state_jacobian(r : np.array,
 
     # Compute third body partials with respect to position components
     # Compute vector from spacecraft to third body and its magnitude
-    r_sc_third_body = sun_pos - r
+    r_sc_third_body = third_body_state[0:3] - r
     r_third_body = np.linalg.norm(r_sc_third_body)
     delta_x_third_body = r_sc_third_body[0]
     delta_y_third_body = r_sc_third_body[1]

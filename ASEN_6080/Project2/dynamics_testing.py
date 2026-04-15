@@ -116,7 +116,7 @@ if __name__ == "__main__":
                 fig.update_yaxes(title_text='Position Error (km)', showexponent="all", exponentformat="e", row=i, col=j)
             else:
                 fig.update_yaxes(title_text='Velocity Error (km/s)', showexponent="all", exponentformat="e", row=i, col=j)
-    fig.show()
+    fig.write_html('ASEN_6080/Project2/figures/dynamics_test_state_error.html')
 
     # Plot relative state error over time
     fig = make_subplots(rows=3, cols=2, subplot_titles=('Relative X Error', 'Relative Vx Error', 'Relative Y Error', 'Relative Vy Error', 'Relative Z Error', 'Relative Vz Error'))
@@ -134,8 +134,8 @@ if __name__ == "__main__":
                 fig.update_yaxes(title_text='Relative Position Error', showexponent="all", exponentformat="e", row=i, col=j)
             else:
                 fig.update_yaxes(title_text='Relative Velocity Error', showexponent="all", exponentformat="e", row=i, col=j)
-    fig.show()
-
+    fig.write_html('ASEN_6080/Project2/figures/dynamics_test_relative_state_error.html')
+    
     # Compute difference between truth STM and integrated STM
     truth_stm = state_vectors[7:, :].reshape((7, 7, state_vectors.shape[1]), order='F')  # Reshape truth STM from the truth data
     integrated_stm = augmented_integrated_states[7:, :].reshape((7, 7, augmented_integrated_states.shape[1]))  # Reshape integrated STM from the integrator output
