@@ -453,15 +453,13 @@ def covariance_ellipse_2D(center, cov_matrix, num_points=120, n_std=3):
     order = np.argsort(eigenvalues)[::-1]
     eigenvalues = eigenvalues[order]
     eigenvectors = eigenvectors[:, order]
-    # Generate points on a unit sphere
-    phi = np.linspace(0, np.pi, num_points)
+    
+    # Generate points on a unit circle
     theta = np.linspace(0, 2 * np.pi, num_points)
-    phi, theta = np.meshgrid(phi, theta)
     x_circle = np.cos(theta)
     y_circle = np.sin(theta)
 
-    # Scale the unit circle by the eigenvalues (which represent the lengths of the ellipse axes)
-    ellipse_points = eigenvectors @ np.diag(n_std*np.sqrt(eigenvalues)) @ np.array([x_circle.flatten(), y_circle.flatten()])
+    ellipse_points = eigenvectors @ np.diag(n_std * np.sqrt(eigenvalues)) @ np.array([x_circle, y_circle])
 
     return ellipse_points.T + center
 

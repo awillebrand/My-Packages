@@ -377,7 +377,7 @@ if __name__ == "__main__":
     # Plot the B-plane crossing point and covariance ellipse in the B-plane frame
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=[B_plane_crossing_pos_in_B_plane_frame[1]], y=[B_plane_crossing_pos_in_B_plane_frame[2]], mode='markers', name='B-plane Crossing Point'))
-    fig.add_trace(go.Scatter(x=b_plane_covariance_ellipse[0, :], y=b_plane_covariance_ellipse[1, :], mode='lines', name='3-sigma Covariance Ellipse'))
+    fig.add_trace(go.Scatter(x=b_plane_covariance_ellipse[:, 0], y=b_plane_covariance_ellipse[:, 0], mode='lines', name='3-sigma Covariance Ellipse'))
     fig.update_layout(title='B-plane Crossing Point and Covariance Ellipse', xaxis_title='B-plane y (km)', yaxis_title='B-plane z (km)', legend=dict(x=0.8, y=0.95))
     fig.show()
 
