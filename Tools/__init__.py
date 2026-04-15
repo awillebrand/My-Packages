@@ -2,6 +2,7 @@
 
 from .generic_functions import state_jacobian, measurement_jacobian, compute_density, covariance_ellipse, covariance_ellipse_2D, compute_consider_parameter_partials
 from .integrator import Integrator
+from .integrator_old import IntegratorOld
 from .coordinate_manager import CoordinateMgr
 from .measurement_manager import MeasurementMgr
 from .B_Plane_manager import BPlaneMgr
@@ -21,6 +22,7 @@ __all__ = [
     "covariance_ellipse",
     "covariance_ellipse_2D",
     "Integrator",
+    "IntegratorOld"
     "CoordinateMgr",
     "MeasurementMgr",
     "BPlaneMgr",

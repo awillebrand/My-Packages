@@ -307,9 +307,9 @@ if __name__ == "__main__":
             x_hist = augmented_x_hist[:7, :]  # Extract the state history from the augmented state history
             STM_hist = augmented_x_hist[7:, :]  # Extract the STM history from the augmented state history
             P_hist = np.zeros((7,7, len(meas_time_vector)))  # Initialize an array to hold the covariance history
-            for i in range(len(meas_time_vector)):
-                STM = STM_hist[:, i].reshape((7, 7))  # Reshape the STM from the augmented state history
-                P_hist[:, :, i] = STM @ a_priori_covariance @ STM.T  # Propagate the covariance using the STM
+            for j in range(len(meas_time_vector)):
+                STM = STM_hist[:, j].reshape((7, 7))  # Reshape the STM from the augmented state history
+                P_hist[:, :, j] = STM @ a_priori_covariance @ STM.T  # Propagate the covariance using the STM
         elif filter_to_run == 'LKF':
             if i == 0:  # Only ask for these parameters once since they are the same for all runs
                 max_iterations = int(input("Enter the maximum number of iterations for the LKF (e.g., 10): "))
@@ -381,8 +381,8 @@ if __name__ == "__main__":
         B_plane_crossing_pos_covariance_in_B_plane_frame = DCM_ECI_to_B_plane @ B_plane_crossing_covariance[:3,:3] @ DCM_ECI_to_B_plane.T
 
         # Compute the covariance ellipse in the B-plane frame
-        center = (DCM_ECI_to_B_plane @ RSOI_crossing_state[0:3])[1:3]  # The center of the ellipse is given by the y and z components of the state in the B-plane frame
-        # center = B_plane_crossing_pos_in_B_plane_frame[1:3]  # The center of the ellipse is given by the y and z components of the state in the B-plane frame
+        
+        center = B_plane_crossing_pos_in_B_plane_frame[1:3]  # The center of the ellipse is given by the y and z components of the state in the B-plane frame
         reduced_covariance = B_plane_crossing_pos_covariance_in_B_plane_frame[1:3, 1:3]  # The covariance for the ellipse is given by the y and z components of the covariance in the B-plane frame
         b_plane_covariance_ellipse = covariance_ellipse_2D(center, reduced_covariance, n_std=3)  # Compute the covariance ellipse at 3-sigma
 

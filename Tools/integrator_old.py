@@ -2,7 +2,7 @@ import numpy as np
 from .generic_functions import state_jacobian, compute_density, compute_consider_parameter_partials
 from .ephemeris_manager import EphemerisMgr
 from scipy.integrate import solve_ivp
-class Integrator:
+class IntegratorOld:
     def __init__(self, mu : float, R_e : float, J2 : float = 0, J3 : float = 0, Cd : float = 0, mode : list = [], parameter_indices : list = [], spacecraft_area : float = None, spacecraft_mass : float = None, number_of_stations : int = 0, earth_spin_rate : float = 7.2921158553E-5, solar_flux : float = 1357.0, initial_epoch : float = 0):
         """
         Initializes the Integrator class for spacecraft orbit propagation.
@@ -217,6 +217,9 @@ class Integrator:
         J2 = self.J2
         J3 = self.J3
         Cd = self.Cd
+        Cr = 0
+        spacecraft_area = self.spacecraft_area
+        spacecraft_mass = self.spacecraft_mass
         station_positions_ecef = np.array([])
         state_length = 6
         # Determine J2, J3, and Cd based on mode
@@ -258,9 +261,37 @@ class Integrator:
 
             # Compute STM derivative
             if self.mode == []:
-                A = state_jacobian(state[0:3], state[3:6], mu, 0, 0, 0, 0, station_positions_ecef, self.R_e, mode=['BaseMat'], spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
+                A = state_jacobian(state[0:3],
+                                   state[3:6],
+                                   mu=mu,
+                                   R_e=self.R_e,
+                                   mode=['BaseMat'],
+                                   spacecraft_area=self.spacecraft_area,
+                                   spacecraft_mass=self.spacecraft_mass,
+                                   DMC=DMC,
+                                   beta_mat=beta_mat,
+                                   earth_spin_rate=self.earth_spin_rate)
             else:
-                A = state_jacobian(state[0:3], state[3:6], mu, J2, J3, Cd, 0, station_positions_ecef, self.R_e, mode=self.mode, spacecraft_area=self.spacecraft_area, spacecraft_mass=self.spacecraft_mass, DMC=DMC, beta_mat=beta_mat)
+                A = state_jacobian(state[0:3],
+                                   state[3:6],
+                                   mu=mu,
+                                   J2=J2,
+                                   J3=J3,
+                                   C_d=Cd,
+                                   C_r=Cr,
+                                   P_solar=0,
+                                   sun_pos=0,
+                                   mu_third_body=None,
+                                   third_body_state=0,
+                                   station_positions_ecef=station_positions_ecef,
+                                   R_e=self.R_e,
+                                   mode=self.mode,
+                                   spacecraft_area=spacecraft_area,
+                                   spacecraft_mass=spacecraft_mass,
+                                   srp_area_to_mass=0,
+                                   DMC=DMC,
+                                   beta_mat=beta_mat,
+                                   earth_spin_rate=self.earth_spin_rate)
 
             phi_dot = A @ phi
             phi_dot_flat = phi_dot.flatten()

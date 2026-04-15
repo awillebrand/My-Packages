@@ -115,12 +115,22 @@ class SRIF:
         if Q_noise is not None and delta_t is None:
             raise ValueError("delta_t must be provided if Q_noise is not None")
 
+        # if Q_noise is None:
+        #     x_bar = phi @ x_hat
+        #     R_bar = R @ np.linalg.inv(phi)
+        #     if force_triangular:
+        #         R_bar = self.householder_transform(R_bar)
+        #     b_bar = R_bar @ x_bar
         if Q_noise is None:
             x_bar = phi @ x_hat
             R_bar = R @ np.linalg.inv(phi)
-            if force_triangular:
-                R_bar = self.householder_transform(R_bar)
             b_bar = R_bar @ x_bar
+            if force_triangular:
+                A = np.column_stack([R_bar, b_bar])
+                A = self.householder_transform(A)
+                R_bar = A[:, :-1]
+                b_bar = A[:, -1]
+                x_bar = solve_triangular(R_bar, b_bar)
         else:
             R_k_tilde = R @ np.linalg.inv(phi)
             R_u = cholesky(np.linalg.inv(Q_noise))

@@ -2,7 +2,7 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
-from ASEN_6080.Tools import Integrator, MeasurementMgr, SRIF, LKF, plot_state_errors, plot_residuals
+from Tools import IntegratorOld, MeasurementMgr, SRIF, LKF, plot_state_errors, plot_residuals
 from plotly.subplots import make_subplots
 import warnings
 warnings.simplefilter('error', RuntimeWarning)
@@ -18,7 +18,7 @@ J2 = 0.0010826269
 
 raw_state_length = 7
 noise_var = np.array([1e-3, 1e-6])**2 # [range noise = 1 m, range rate noise = 1 mm/s]
-integrator = Integrator(mu, R_e, mode=['J2'], parameter_indices=[6])
+integrator = IntegratorOld(mu, R_e, mode=['J2'], parameter_indices=[6])
 station_1_mgr = MeasurementMgr("station_1", station_lat=-35.398333, station_lon=148.981944, initial_earth_spin_angle=np.deg2rad(122))
 station_2_mgr = MeasurementMgr("station_2", station_lat=40.427222, station_lon=355.749444, initial_earth_spin_angle=np.deg2rad(122))
 station_3_mgr = MeasurementMgr("station_3", station_lat=35.247163, station_lon=243.205, initial_earth_spin_angle=np.deg2rad(122))
@@ -31,8 +31,8 @@ Q = optimal_sigma = 5e-8
 Q = np.diag([optimal_sigma, optimal_sigma, optimal_sigma])**2
 
 srif = SRIF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
-lkf = LKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
-lkf_estimated_state_history, lkf_covariance_history, lkf_residuals_df = lkf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), max_iterations=1)
+# lkf = LKF(integrator, station_mgr_list, initial_earth_spin_angle=np.deg2rad(122))
+# lkf_estimated_state_history, lkf_covariance_history, lkf_residuals_df = lkf.run(initial_state_guess, np.zeros(7), P_0, measurement_data, R=np.diag(noise_var), max_iterations=1)
 
 triangular_srif_estimated_state_history, triangular_srif_estimated_cov_history, triangular_srif_residuals_history = srif.run(
     initial_state_guess.copy(),
@@ -74,7 +74,7 @@ for i, state in enumerate(augmented_truth_state):
     truth_state_history[:, i] = truth_state
     J3_truth_state_history[:, i] = J3_truth_state
 
-lkf_state_errors = lkf_estimated_state_history - truth_state_history
+# lkf_state_errors = lkf_estimated_state_history - truth_state_history
 triangular_state_errors = triangular_srif_estimated_state_history - truth_state_history
 non_triangular_state_errors = non_triangular_srif_estimated_state_history - truth_state_history
 J3_state_errors = noise_srif_estimated_state_history - J3_truth_state_history
@@ -109,18 +109,18 @@ y_axis_limits=[[-600, 600], [-0.5, 0.5]]
 
 triangular_state_errors[0:3,:] *= unit_multipliers[0]  # Convert position errors
 triangular_state_errors[3:6,:] *= unit_multipliers[1]  # Convert velocity errors
-lkf_state_errors[0:3,:] *= unit_multipliers[0]  # Convert position errors
-lkf_state_errors[3:6,:] *= unit_multipliers[1]  # Convert velocity errors
+# lkf_state_errors[0:3,:] *= unit_multipliers[0]  # Convert position errors
+# lkf_state_errors[3:6,:] *= unit_multipliers[1]  # Convert velocity errors
 
-for i in range(lkf_state_errors[0:6].shape[0]):
-    triangular_state_error = triangular_state_errors[i,:]
-    lkf_state_error = lkf_state_errors[i,:]
-    if i < 3:
-        pos_fig.add_trace(go.Scatter(x=time_vector, y=triangular_state_error, mode='lines', name=f'SRIF State Error', line=dict(color='blue'), showlegend=i==0), row=i+1, col=1)
-        pos_fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_error, mode='lines', name=f'LKF State Error', line=dict(color='red', dash='dash'), showlegend=i==0), row=i+1, col=1)
-    else:   
-        vel_fig.add_trace(go.Scatter(x=time_vector, y=triangular_state_error, mode='lines', name=f'SRIF State Error', line=dict(color='blue'), showlegend=i==3), row=i-2, col=1)
-        vel_fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_error, mode='lines', name=f'LKF State Error', line=dict(color='red', dash='dash'), showlegend=i==3), row=i-2, col=1)
+# for i in range(lkf_state_errors[0:6].shape[0]):
+#     triangular_state_error = triangular_state_errors[i,:]
+#     lkf_state_error = lkf_state_errors[i,:]
+#     if i < 3:
+#         pos_fig.add_trace(go.Scatter(x=time_vector, y=triangular_state_error, mode='lines', name=f'SRIF State Error', line=dict(color='blue'), showlegend=i==0), row=i+1, col=1)
+#         pos_fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_error, mode='lines', name=f'LKF State Error', line=dict(color='red', dash='dash'), showlegend=i==0), row=i+1, col=1)
+#     else:   
+#         vel_fig.add_trace(go.Scatter(x=time_vector, y=triangular_state_error, mode='lines', name=f'SRIF State Error', line=dict(color='blue'), showlegend=i==3), row=i-2, col=1)
+#         vel_fig.add_trace(go.Scatter(x=time_vector, y=lkf_state_error, mode='lines', name=f'LKF State Error', line=dict(color='red', dash='dash'), showlegend=i==3), row=i-2, col=1)
 pos_fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22))
 pos_fig.update_yaxes(title_text=f"Position Error ({units[0]})", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e")
 if y_axis_limits is not None:

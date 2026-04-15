@@ -11,8 +11,8 @@ class Integrator:
                  Cd : float = None,
                  Cr : float = None,
                  mu_third_body : float = None,
-                 central_body : str = None,
-                 third_body : str = None,
+                 central_body : str = 'Earth',
+                 third_body : str = 'Sun',
                  dynamical_mode : list = [],
                  estimation_mode : list = [],
                  parameter_indices : list = [],
@@ -23,7 +23,7 @@ class Integrator:
                  earth_spin_rate : float = None,
                  solar_flux : float = None,
                  initial_epoch : float = 0,
-                 initial_epoch_jd : float = None):
+                 initial_epoch_jd : float = 0):
         """
         Initializes the Integrator class for spacecraft orbit propagation.
         Parameters:

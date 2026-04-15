@@ -107,7 +107,7 @@ def state_jacobian(r : np.array,
     if C_r == None:
         if 'SRP' in mode:
             raise Warning("SRP partials requested but C_r not provided. Defaulting to zero.")
-        if srp_area_to_mass == None:
+        if 'SRP' in mode and srp_area_to_mass == None:
             raise Warning("SRP partials requested but srp_area_to_mass not provided. Defaulting to zero.")
         C_r = 0
     if mu_third_body == None:
