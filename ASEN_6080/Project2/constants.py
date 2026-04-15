@@ -19,6 +19,8 @@ AU = 149597870.7                            # Astronomical Unit in km
 
 RSOI = 925000.0                               # Radius of Sphere of Influence for Earth in km
 
+B_plane_target_coords = [9769.737, 14970.824]
+
 # Initial Conditions
 initial_epoch = 0                   # Initial epoch in seconds
 initial_epoch_jd = 2456296.25       # Initial epoch in Julian Date (J2000)

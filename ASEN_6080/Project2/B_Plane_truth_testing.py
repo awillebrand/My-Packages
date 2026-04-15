@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import scipy.io
-from constants import truth_data_file_path, known_dynamics_measurement_file_path, mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, C_r, initial_epoch, initial_epoch_jd, initial_spin_angle, earth_spin_rate, station_locations, part_2_station_locations, observation_noise, a_priori_state, a_priori_covariance, RSOI
+from constants import truth_data_file_path, known_dynamics_measurement_file_path, mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, C_r, initial_epoch, initial_epoch_jd, initial_spin_angle, earth_spin_rate, station_locations, part_2_station_locations, observation_noise, a_priori_state, a_priori_covariance, RSOI, B_plane_target_coords
 from Tools.measurement_manager import MeasurementMgr
 from Tools.integrator import Integrator
 from Tools.batch_lls_estimator import BatchLLSEstimator
@@ -46,7 +46,7 @@ def load_measurement_data(file_path):
         'measurements': measurements
     }
 
-def convert_measurements_to_df(measurements : dict, station_names : list, dt = 60):
+def convert_measurements_to_df(measurements : dict, station_names : list, days_of_data : float):
     """
     Convert the measurement data into a pandas DataFrame to make it compatible with existing filtering code.
 
@@ -56,15 +56,14 @@ def convert_measurements_to_df(measurements : dict, station_names : list, dt = 6
         A dictionary containing the time vector and measurement vectors.
     station_names : list
         A list of station names corresponding to the measurements (e.g., ['DSS34', 'DSS65', 'DSS13']).
-    dt : float
-        The time step to use for the DataFrame index (default is 60 seconds).
+    days_of_data : float
+        The number of days of data to include in the DataFrame. This will be used to filter the measurements to only include those within the specified time frame.
 
     Returns
     -------
     pd.DataFrame
         A DataFrame containing the time and measurements with appropriate column names.
     """
-    days_of_data = float(input("Enter the number of days of measurement data to use (e.g., 50): "))
 
     time_vector = measurements['time_vector']  # Use the original time vector from the measurements to ensure consistency with measurement times
     measurement_vectors = measurements['measurements']
@@ -253,131 +252,148 @@ def integrate_to_B_plane_crossing(DCO_state : np.ndarray, DCO_epoch : float, B_p
     return crossing_time, crossing_state, crossing_stm
 
 if __name__ == "__main__":
-    # Load the measurement data
-    measurements = load_measurement_data(known_dynamics_measurement_file_path)
-
-    # Convert the measurement data into a DataFrame
-    station_names = ['DSS34', 'DSS65', 'DSS13']
-    measurement_df = convert_measurements_to_df(measurements, station_names)
-
-    meas_time_vector = measurement_df['time'].values
-
-    station_mgrs = []
-    for station_name, station_info in part_2_station_locations.items():
-        mgr = MeasurementMgr(
-            station_name,
-            station_lat=station_info['lat'],
-            station_lon=station_info['lon'],
-            initial_earth_spin_angle=initial_spin_angle,
-            earth_spin_rate=earth_spin_rate,
-            R_e=station_info['radius']
-        )
-        
-        station_mgrs.append(mgr)
-
-    # Initialize the integrator with the appropriate initial epoch and gravitational parameter
-    integrator = initialize_integrator(initial_epoch)
-
     filter_to_run = input("Enter the filter to run (Batch, LKF, EKF, SRIF, UKF): ")
     if filter_to_run not in ['Batch', 'LKF', 'EKF', 'SRIF', 'UKF']:
         print("Invalid filter choice. Please enter one of the following: Batch, LKF, EKF, SRIF, UKF")
         exit()
 
-    # Perform filtering using the loaded measurement data
-    if filter_to_run == 'Batch':
-        max_iterations = int(input("Enter the maximum number of iterations for the Batch LLS Estimator (e.g., 10): "))
-        tol = float(input("Enter the convergence tolerance for the Batch LLS Estimator (e.g., 1e-6): "))
-        print("=" * 50)
-        print("Running Batch LLS Estimator...")
-        print("=" * 50, end='\n')
-        filter = BatchLLSEstimator(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x, P, residuals_df = filter.estimate_initial_state(a_priori_state, measurement_df, observation_noise, a_priori_covariance=a_priori_covariance, max_iterations=max_iterations, tol=tol)
-        print("=" * 50)
-        print("Batch LLS Estimation Complete...")
-        print("=" * 50, end='\n')
-        # Integrate the estimated initial state forward in time to compare to truth data
-        _, augmented_x_hist = integrator.integrate_stm(meas_time_vector[-1], x, teval=meas_time_vector)
-        x_hist = augmented_x_hist[:7, :]  # Extract the state history from the augmented state history
-        STM_hist = augmented_x_hist[7:, :]  # Extract the STM history from the augmented state history
-        P_hist = np.zeros((7,7, len(meas_time_vector)))  # Initialize an array to hold the covariance history
-        for i in range(len(meas_time_vector)):
-            STM = STM_hist[:, i].reshape((7, 7))  # Reshape the STM from the augmented state history
-            P_hist[:, :, i] = STM @ a_priori_covariance @ STM.T  # Propagate the covariance using the STM
-    elif filter_to_run == 'LKF':
-        max_iterations = int(input("Enter the maximum number of iterations for the LKF (e.g., 10): "))
-        tol = float(input("Enter the convergence tolerance for the LKF (e.g., 1e-6): "))
-        print("=" * 50)
-        print("Running LKF...")
-        print("=" * 50, end='\n')
-        filter = LKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, max_iterations=max_iterations, convergence_threshold=tol)
-        print("=" * 50)
-        print("LKF Run Complete...")
-        print("=" * 50, end='\n')
-    elif filter_to_run == 'EKF':
-        start_mode = str(input("Enter Start Mode for EKF ('Warm' or 'Cold'): "))
-        if start_mode.lower() == 'warm':
-            start_length = int(input("Enter the number of measurements to use for the hot start (e.g., 10): "))
-        else:
-            start_length = 0
-        filter = EKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, start_mode=start_mode.lower(), start_length=start_length)
-    elif filter_to_run == 'SRIF':
-        max_iterations = int(input("Enter the maximum number of iterations for the SRIF (e.g., 10): "))
-        print("=" * 50)
-        print("Running SRIF...")
-        print("=" * 50, end='\n')
-        filter = SRIF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R_noise=observation_noise, max_iterations=max_iterations)
-        print("=" * 50)
-        print("SRIF Run Complete...")
-        print("=" * 50, end='\n')
-    elif filter_to_run == 'UKF':
-        alpha = float(input("Enter alpha parameter for UKF (e.g., 1e-3): "))
-        beta = float(input("Enter beta parameter for UKF (e.g., 2): "))
-        print("=" * 50)
-        print("Running SRUKF...")
-        print("=" * 50, end='\n')
-        filter = UKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x_hist, P_hist, residuals_df = filter.run(a_priori_state, a_priori_covariance, meas_time_vector, measurement_df, R=observation_noise, alpha=alpha, beta=beta)
-        print("=" * 50)
-        print("UKF Run Complete...")
-        print("=" * 50, end='\n')
-
-    # Take final state estimate from the filter as DCO state and epoch
-    DCO_state = x_hist[:, -1]
-    DCO_epoch = meas_time_vector[-1]
-    
-    # Integrate to 3*RSOI crossing and get LTOF to B-plane
-    RSOI_crossing_time, RSOI_crossing_state = integrate_to_3RSOI(DCO_state, DCO_epoch)
-    LTOF_to_B_plane = get_LTOF_to_B_Plane(RSOI_crossing_state)
-
-    # Integrate to B-plane crossing
-    B_plane_crossing_epoch = RSOI_crossing_time + LTOF_to_B_plane
-    B_plane_crossing_time, B_plane_crossing_state, B_plane_crossing_stm = integrate_to_B_plane_crossing(DCO_state, DCO_epoch, B_plane_crossing_epoch)
-
-    # Map final filter covariance to B-plane crossing time using the STM
-    final_covariance = P_hist[:, :, -1]  # Get the final covariance from the filter
-    B_plane_crossing_covariance = B_plane_crossing_stm @ final_covariance @ B_plane_crossing_stm.T  # Propagate the covariance to the B-plane crossing time using the STM
-
-    print("B-plane Crossing State:", B_plane_crossing_state)
-    print("B-plane Crossing Covariance:", B_plane_crossing_covariance)
-
-    # Rotate the B-plane crossing state and covariance into the B-plane frame using the DCM from the BPlaneMgr
-    b_plane_manager = BPlaneMgr(B_plane_crossing_state, mu_earth)
-    DCM_ECI_to_B_plane = b_plane_manager.compute_b_plane_DCM()
-    B_plane_crossing_pos_in_B_plane_frame = DCM_ECI_to_B_plane @ B_plane_crossing_state[0:3]
-    B_plane_crossing_pos_covariance_in_B_plane_frame = DCM_ECI_to_B_plane @ B_plane_crossing_covariance[:3,:3] @ DCM_ECI_to_B_plane.T
-
-    # Compute the covariance ellipse in the B-plane frame
-    center = B_plane_crossing_pos_in_B_plane_frame[1:3]  # The center of the ellipse is given by the y and z components of the state in the B-plane frame
-    reduced_covariance = B_plane_crossing_pos_covariance_in_B_plane_frame[1:3, 1:3]  # The covariance for the ellipse is given by the y and z components of the covariance in the B-plane frame
-    b_plane_covariance_ellipse = covariance_ellipse_2D(center, reduced_covariance, n_std=3)  # Compute the covariance ellipse at 3-sigma
-
     # Plot the B-plane crossing point and covariance ellipse in the B-plane frame
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=[B_plane_crossing_pos_in_B_plane_frame[1]], y=[B_plane_crossing_pos_in_B_plane_frame[2]], mode='markers', name='B-plane Crossing Point'))
-    fig.add_trace(go.Scatter(x=b_plane_covariance_ellipse[:, 0], y=b_plane_covariance_ellipse[:, 0], mode='lines', name='3-sigma Covariance Ellipse'))
-    fig.update_layout(title='B-plane Crossing Point and Covariance Ellipse', xaxis_title='B-plane y (km)', yaxis_title='B-plane z (km)', legend=dict(x=0.8, y=0.95))
+    fig.add_trace(go.Scatter(x=[B_plane_target_coords[0]], y=[B_plane_target_coords[1]], mode='markers', name='B-plane Target Point', marker=dict(color='orange', size=5)))
+
+    times_in_consideration = [50, 100, 150, 200]
+    colors = ['blue', 'green', 'red', 'purple']
+    for i, time in enumerate(times_in_consideration):
+        # Load the measurement data
+        measurements = load_measurement_data(known_dynamics_measurement_file_path)
+
+        # Convert the measurement data into a DataFrame
+        station_names = ['DSS34', 'DSS65', 'DSS13']
+        measurement_df = convert_measurements_to_df(measurements, station_names, time)
+
+        meas_time_vector = measurement_df['time'].values
+
+        station_mgrs = []
+        for station_name, station_info in part_2_station_locations.items():
+            mgr = MeasurementMgr(
+                station_name,
+                station_lat=station_info['lat'],
+                station_lon=station_info['lon'],
+                initial_earth_spin_angle=initial_spin_angle,
+                earth_spin_rate=earth_spin_rate,
+                R_e=station_info['radius']
+            )
+            
+            station_mgrs.append(mgr)
+
+        # Initialize the integrator with the appropriate initial epoch and gravitational parameter
+        integrator = initialize_integrator(initial_epoch)
+
+        # Perform filtering using the loaded measurement data
+        if filter_to_run == 'Batch':
+            if i == 0:  # Only ask for these parameters once since they are the same for all runs
+                max_iterations = int(input("Enter the maximum number of iterations for the Batch LLS Estimator (e.g., 10): "))
+                tol = float(input("Enter the convergence tolerance for the Batch LLS Estimator (e.g., 1e-6): "))
+            print("=" * 50)
+            print("Running Batch LLS Estimator...")
+            print("=" * 50, end='\n')
+            filter = BatchLLSEstimator(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
+            x, P, residuals_df = filter.estimate_initial_state(a_priori_state, measurement_df, observation_noise, a_priori_covariance=a_priori_covariance, max_iterations=max_iterations, tol=tol)
+            print("=" * 50)
+            print("Batch LLS Estimation Complete...")
+            print("=" * 50, end='\n')
+            # Integrate the estimated initial state forward in time to compare to truth data
+            _, augmented_x_hist = integrator.integrate_stm(meas_time_vector[-1], x, teval=meas_time_vector)
+            x_hist = augmented_x_hist[:7, :]  # Extract the state history from the augmented state history
+            STM_hist = augmented_x_hist[7:, :]  # Extract the STM history from the augmented state history
+            P_hist = np.zeros((7,7, len(meas_time_vector)))  # Initialize an array to hold the covariance history
+            for i in range(len(meas_time_vector)):
+                STM = STM_hist[:, i].reshape((7, 7))  # Reshape the STM from the augmented state history
+                P_hist[:, :, i] = STM @ a_priori_covariance @ STM.T  # Propagate the covariance using the STM
+        elif filter_to_run == 'LKF':
+            if i == 0:  # Only ask for these parameters once since they are the same for all runs
+                max_iterations = int(input("Enter the maximum number of iterations for the LKF (e.g., 10): "))
+                tol = float(input("Enter the convergence tolerance for the LKF (e.g., 1e-6): "))
+            print("=" * 50)
+            print("Running LKF...")
+            print("=" * 50, end='\n')
+            filter = LKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
+            x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, max_iterations=max_iterations, convergence_threshold=tol)
+            print("=" * 50)
+            print("LKF Run Complete...")
+            print("=" * 50, end='\n')
+        elif filter_to_run == 'EKF':
+            if i == 0:  # Only ask for these parameters once since they are the same for all runs
+                start_mode = str(input("Enter Start Mode for EKF ('Warm' or 'Cold'): "))
+            if start_mode.lower() == 'warm':
+                start_length = int(input("Enter the number of measurements to use for the hot start (e.g., 10): "))
+            else:
+                start_length = 0
+            filter = EKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
+            x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, start_mode=start_mode.lower(), start_length=start_length)
+        elif filter_to_run == 'SRIF':
+            if i == 0:  # Only ask for these parameters once since they are the same for all runs
+                max_iterations = int(input("Enter the maximum number of iterations for the SRIF (e.g., 10): "))
+            print("=" * 50)
+            print("Running SRIF...")
+            print("=" * 50, end='\n')
+            filter = SRIF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
+            x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R_noise=observation_noise, max_iterations=max_iterations)
+            print("=" * 50)
+            print("SRIF Run Complete...")
+            print("=" * 50, end='\n')
+        elif filter_to_run == 'UKF':
+            if i == 0:  # Only ask for these parameters once since they are the same for all runs
+                alpha = float(input("Enter alpha parameter for UKF (e.g., 1e-3): "))
+                beta = float(input("Enter beta parameter for UKF (e.g., 2): "))
+            print("=" * 50)
+            print("Running SRUKF...")
+            print("=" * 50, end='\n')
+            filter = UKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
+            x_hist, P_hist, residuals_df = filter.run(a_priori_state, a_priori_covariance, meas_time_vector, measurement_df, R=observation_noise, alpha=alpha, beta=beta)
+            print("=" * 50)
+            print("UKF Run Complete...")
+            print("=" * 50, end='\n')
+
+        # Take final state estimate from the filter as DCO state and epoch
+        DCO_state = x_hist[:, -1]
+        DCO_epoch = meas_time_vector[-1]
+        
+        # Integrate to 3*RSOI crossing and get LTOF to B-plane
+        RSOI_crossing_time, RSOI_crossing_state = integrate_to_3RSOI(DCO_state, DCO_epoch)
+        LTOF_to_B_plane = get_LTOF_to_B_Plane(RSOI_crossing_state)
+
+        # Integrate to B-plane crossing
+        B_plane_crossing_epoch = RSOI_crossing_time + LTOF_to_B_plane
+        B_plane_crossing_time, B_plane_crossing_state, B_plane_crossing_stm = integrate_to_B_plane_crossing(DCO_state, DCO_epoch, B_plane_crossing_epoch)
+
+        # Map final filter covariance to B-plane crossing time using the STM
+        final_covariance = P_hist[:, :, -1]  # Get the final covariance from the filter
+        B_plane_crossing_covariance = B_plane_crossing_stm @ final_covariance @ B_plane_crossing_stm.T  # Propagate the covariance to the B-plane crossing time using the STM
+
+        print("B-plane Crossing State:", B_plane_crossing_state)
+        print("B-plane Crossing Covariance:", B_plane_crossing_covariance)
+
+        # Rotate the B-plane crossing state and covariance into the B-plane frame using the DCM from the BPlaneMgr
+        b_plane_manager = BPlaneMgr(RSOI_crossing_state, mu_earth)
+        DCM_ECI_to_B_plane = b_plane_manager.compute_b_plane_DCM()
+        B_plane_crossing_pos_in_B_plane_frame = DCM_ECI_to_B_plane @ B_plane_crossing_state[0:3]
+        B_plane_crossing_pos_covariance_in_B_plane_frame = DCM_ECI_to_B_plane @ B_plane_crossing_covariance[:3,:3] @ DCM_ECI_to_B_plane.T
+
+        # Compute the covariance ellipse in the B-plane frame
+        center = (DCM_ECI_to_B_plane @ RSOI_crossing_state[0:3])[1:3]  # The center of the ellipse is given by the y and z components of the state in the B-plane frame
+        # center = B_plane_crossing_pos_in_B_plane_frame[1:3]  # The center of the ellipse is given by the y and z components of the state in the B-plane frame
+        reduced_covariance = B_plane_crossing_pos_covariance_in_B_plane_frame[1:3, 1:3]  # The covariance for the ellipse is given by the y and z components of the covariance in the B-plane frame
+        b_plane_covariance_ellipse = covariance_ellipse_2D(center, reduced_covariance, n_std=3)  # Compute the covariance ellipse at 3-sigma
+
+        #fig.add_trace(go.Scatter(x=[B_plane_crossing_pos_in_B_plane_frame[1]], y=[B_plane_crossing_pos_in_B_plane_frame[2]], mode='markers', name=f'{time} days', marker=dict(color=colors[i], size=5)))
+        fig.add_trace(go.Scatter(x=[center[0]], y=[center[1]], mode='markers', name=f'{time} days', marker=dict(color=colors[i], size=5)))
+        fig.add_trace(go.Scatter(x=b_plane_covariance_ellipse[:, 0], y=b_plane_covariance_ellipse[:, 1], mode='lines', name=f'{time} days', marker=dict(color=colors[i]), showlegend=False))
+
+    fig.update_layout(title='B-plane Crossing Point and Covariance Ellipses',
+                      xaxis_title='B-plane T (km)',
+                      yaxis_title='B-plane R (km)',
+                      yaxis=dict(autorange='reversed'),
+                      legend=dict(x=0.8, y=0.95))
     fig.show()
 
