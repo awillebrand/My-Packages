@@ -83,7 +83,7 @@ class BPlaneMgr:
         return DCM
     
     def compute_LOTF(self):
-        v_inf = np.linalg.norm(self.state_vector[3:])
+        v_inf = np.linalg.norm(self.state_vector[3:6])
 
         _, e_mag, a = self.get_ecc_and_sma()
         p_hat, _, _ = self.compute_perifocal_frame_vectors()
