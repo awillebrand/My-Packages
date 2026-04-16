@@ -102,28 +102,23 @@ if __name__ == "__main__":
     # Integrate the equations of motion using the integrator
     _, integrated_states = integrator.integrate_eom(t_f, initial_state, teval=measurement_time_vector)
 
-    # Plotting the results to compare the integrated trajectory to the truth data
-    fig = go.Figure()
-    fig.add_trace(go.Scatter3d(
-        x=integrated_states[0, :], y=integrated_states[1, :], z=integrated_states[2, :],
-        mode='markers',
-        name='Integrated Trajectory',
-        marker=dict(size=3, color='red')
-    ))
-    fig.update_layout(
-        title='Comparison of Integrated Trajectory to Truth Data',
-        scene=dict(
-            xaxis_title='X (km)',
-            yaxis_title='Y (km)',
-            zaxis_title='Z (km)'
-        )
-    )
-    fig.show()
-
-    # Compute radii for each measurement station since they have different altitudes
-    DSS34_radius = R_e + part_2_station_locations['DSS34']['alt']
-    DSS65_radius = R_e + part_2_station_locations['DSS65']['alt']
-    DSS13_radius = R_e + part_2_station_locations['DSS13']['alt']
+    # # Plotting the results to compare the integrated trajectory to the truth data
+    # fig = go.Figure()
+    # fig.add_trace(go.Scatter3d(
+    #     x=integrated_states[0, :], y=integrated_states[1, :], z=integrated_states[2, :],
+    #     mode='markers',
+    #     name='Integrated Trajectory',
+    #     marker=dict(size=3, color='red')
+    # ))
+    # fig.update_layout(
+    #     title='Comparison of Integrated Trajectory to Truth Data',
+    #     scene=dict(
+    #         xaxis_title='X (km)',
+    #         yaxis_title='Y (km)',
+    #         zaxis_title='Z (km)'
+    #     )
+    # )
+    # fig.show()
 
     # Initialize measurement managers
     DSS34_measurement_mgr = MeasurementMgr(
@@ -132,7 +127,7 @@ if __name__ == "__main__":
         station_lon=part_2_station_locations['DSS34']['lon'],
         initial_earth_spin_angle=initial_spin_angle,
         earth_spin_rate=earth_spin_rate,
-        R_e=DSS34_radius
+        R_e=part_2_station_locations['DSS34']['radius']
     )
 
     DSS65_measurement_mgr = MeasurementMgr(
@@ -141,7 +136,7 @@ if __name__ == "__main__":
         station_lon=part_2_station_locations['DSS65']['lon'],
         initial_earth_spin_angle=initial_spin_angle,
         earth_spin_rate=earth_spin_rate,
-        R_e=DSS65_radius
+        R_e=part_2_station_locations['DSS65']['radius']
     )
 
     DSS13_measurement_mgr = MeasurementMgr(
@@ -150,7 +145,7 @@ if __name__ == "__main__":
         station_lon=part_2_station_locations['DSS13']['lon'],
         initial_earth_spin_angle=initial_spin_angle,
         earth_spin_rate=earth_spin_rate,
-        R_e=DSS13_radius
+        R_e=part_2_station_locations['DSS13']['radius']
     )
 
     measurement_mgr_list = [DSS34_measurement_mgr, DSS65_measurement_mgr, DSS13_measurement_mgr]
@@ -161,9 +156,9 @@ if __name__ == "__main__":
     measurement_errors = np.zeros(measurement_vectors.shape)  # Initialize an array to store measurement errors
     truth_simulated_measurements_mat = np.zeros((truth_state_vectors.shape[1], measurement_vectors.shape[1]))  # Initialize an array to store simulated measurements for comparison
     for i, measurement_mgr in enumerate(measurement_mgr_list):
-        truth_simulated_measurements = measurement_mgr.simulate_measurements(truth_state_vectors, truth_time_vector, coordinate_frame='ECI', noise=True, noise_sigma=observation_noise, ignore_visibility=False).T
+        truth_simulated_measurements = measurement_mgr.simulate_measurements(truth_state_vectors, truth_time_vector, coordinate_frame='ECI', noise=True, noise_sigma=np.diag(observation_noise), ignore_visibility=False).T
         truth_simulated_measurements_mat[:, 2*i:2*i+2] = truth_simulated_measurements  # Store the simulated measurements for this station
-        simulated_measurements = measurement_mgr.simulate_measurements(integrated_states, measurement_time_vector, coordinate_frame='ECI', noise=True, noise_sigma=observation_noise, ignore_visibility=False).T
+        simulated_measurements = measurement_mgr.simulate_measurements(integrated_states, measurement_time_vector, coordinate_frame='ECI', noise=True, noise_sigma=np.diag(observation_noise), ignore_visibility=False).T
         range_error = simulated_measurements[:, 0] - measurement_vectors[:, i]  # Assuming range measurements are in even columns
         range_rate_error = simulated_measurements[:, 1] - measurement_vectors[:, i+3]  # Assuming range rate measurements are in odd columns
         measurement_error = np.vstack((range_error, range_rate_error)).T  # Combine range and range rate errors into a single array
@@ -182,7 +177,7 @@ if __name__ == "__main__":
                 fig.update_yaxes(title_text='Range Error (km)', showexponent="all", exponentformat="e", row=i, col=j)
             else:
                 fig.update_yaxes(title_text='Range Rate Error (km/s)', showexponent="all", exponentformat="e", row=i, col=j)
-    fig.show()
+    fig.write_html('ASEN_6080/Project2/figures/measurement_errors.html')
 
     # Plot the simulated measurements about the truth trajectory with the truth measurements for comparison
     fig = make_subplots(rows=3, cols=2, subplot_titles=('DSS34 Range', 'DSS34 Range Rate', 'DSS65 Range', 'DSS65 Range Rate', 'DSS13 Range', 'DSS13 Range Rate'))
@@ -199,4 +194,4 @@ if __name__ == "__main__":
                 fig.update_yaxes(title_text='Range (km)', showexponent="all", exponentformat="e", row=i, col=j)
             else:
                 fig.update_yaxes(title_text='Range Rate (km/s)', showexponent="all", exponentformat="e", row=i, col=j)
-    fig.show()
+    fig.write_html('ASEN_6080/Project2/figures/simulated_measurements_vs_truth.html')

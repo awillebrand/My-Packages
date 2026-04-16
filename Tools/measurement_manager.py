@@ -129,7 +129,6 @@ class MeasurementMgr:
                 if noise:
                     range_mag += np.random.normal(0.0, noise_sigma[0])
                     range_rate += np.random.normal(0.0, noise_sigma[1])
-
                 measurement_history[0, i] = range_mag
                 measurement_history[1, i] = range_rate
             else:
