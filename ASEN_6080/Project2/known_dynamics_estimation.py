@@ -188,9 +188,9 @@ if __name__ == "__main__":
         mu=mu_earth,
         R_e=R_e,        
         dynamical_mode=['mu', 'SRP', 'Third Body'],  # Include 2-body and SRP effects for this test
-        estimation_mode=[],
-        parameter_indices=[],
-        Cr=1,
+        estimation_mode=['SRP'],
+        parameter_indices=[6],
+        Cr=C_r,
         srp_area_to_mass=SRP_area_to_mass,  # Use the area-to-mass ratio from constants
         solar_flux=solar_flux,
         number_of_stations=0,
@@ -202,10 +202,9 @@ if __name__ == "__main__":
         earth_spin_rate=earth_spin_rate
     )
 
-    
+    state_length = len(a_priori_state)
     # Perform filtering using the loaded measurement data and truth data
     if filter_to_run == 'Batch':
-        state_length = len(a_priori_state)
         max_iterations = int(input("Enter the maximum number of iterations for the Batch LLS Estimator (e.g., 10): "))
         tol = float(input("Enter the convergence tolerance for the Batch LLS Estimator (e.g., 1e-6): "))
         print("=" * 50)
@@ -232,7 +231,7 @@ if __name__ == "__main__":
         print("Running LKF...")
         print("=" * 50, end='\n')
         filter = LKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, max_iterations=max_iterations, convergence_threshold=tol)
+        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(state_length), a_priori_covariance, measurement_df, R=observation_noise, max_iterations=max_iterations, convergence_threshold=tol)
         print("=" * 50)
         print("LKF Run Complete...")
         print("=" * 50, end='\n')
@@ -243,14 +242,14 @@ if __name__ == "__main__":
         else:
             start_length = 0
         filter = EKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, start_mode=start_mode.lower(), start_length=start_length)
+        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(state_length), a_priori_covariance, measurement_df, R=observation_noise, start_mode=start_mode.lower(), start_length=start_length)
     elif filter_to_run == 'SRIF':
         max_iterations = int(input("Enter the maximum number of iterations for the SRIF (e.g., 10): "))
         print("=" * 50)
         print("Running SRIF...")
         print("=" * 50, end='\n')
         filter = SRIF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R_noise=observation_noise, max_iterations=max_iterations)
+        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(state_length), a_priori_covariance, measurement_df, R_noise=observation_noise, max_iterations=max_iterations)
         print("=" * 50)
         print("SRIF Run Complete...")
         print("=" * 50, end='\n')

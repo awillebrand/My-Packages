@@ -466,15 +466,22 @@ class Integrator:
             # Compute STM derivative
             if self.estimation_mode == []:
                 A = state_jacobian(state[0:3],
-                                   state[3:6],
-                                   mu=mu,
-                                   R_e=self.R_e,
-                                   mode=['BaseMat'],
-                                   spacecraft_area=spacecraft_area,
-                                   spacecraft_mass=spacecraft_mass,
-                                   DMC=DMC,
-                                   beta_mat=beta_mat,
-                                   earth_spin_rate=self.earth_spin_rate)
+                                    state[3:6],
+                                    mu=mu,
+                                    R_e=self.R_e,
+                                    C_r=Cr,
+                                    P_solar=self.P_solar,
+                                    sun_pos=sun_pos,
+                                    mu_third_body=mu_third_body,
+                                    third_body_state=relative_third_body_state,
+                                    estimation_mode=self.estimation_mode,
+                                    dynamical_mode=self.dynamical_mode,
+                                    spacecraft_area=spacecraft_area,
+                                    spacecraft_mass=spacecraft_mass,
+                                    srp_area_to_mass=self.srp_area_to_mass,
+                                    DMC=DMC,
+                                    beta_mat=beta_mat,
+                                    earth_spin_rate=self.earth_spin_rate)
             else:
                 A = state_jacobian(state[0:3],
                                    state[3:6],
@@ -489,7 +496,8 @@ class Integrator:
                                    third_body_state=relative_third_body_state,
                                    station_positions_ecef=station_positions_ecef,
                                    R_e=self.R_e,
-                                   mode=self.estimation_mode,
+                                   estimation_mode=self.estimation_mode,
+                                   dynamical_mode=self.dynamical_mode,
                                    spacecraft_area=spacecraft_area,
                                    spacecraft_mass=spacecraft_mass,
                                    srp_area_to_mass=self.srp_area_to_mass,
@@ -528,7 +536,8 @@ class Integrator:
                                third_body_state=relative_third_body_state,
                                station_positions_ecef=station_positions_ecef,
                                R_e=self.R_e,
-                               mode=self.estimation_mode,
+                               estimation_mode=self.estimation_mode,
+                               dynamical_mode=self.dynamical_mode,
                                spacecraft_area=self.spacecraft_area,
                                spacecraft_mass=self.spacecraft_mass,
                                srp_area_to_mass=self.srp_area_to_mass,
@@ -570,7 +579,7 @@ class Integrator:
             nxN array of spacecraft states over time in ECI frame."""
         
         t_span = (0, t_final)
-        sol = solve_ivp(self.equations_of_motion, t_span, initial_state, method='RK45', rtol=2.23e-14, atol=1e-16, t_eval=teval, args=(False, None))
+        sol = solve_ivp(self.equations_of_motion, t_span, initial_state, method='DOP853', rtol=2.23e-14, atol=1e-16, t_eval=teval, args=(False, None))
         return sol.t, sol.y
     
     def integrate_sigma_points(self, t_final, initial_state, teval = None):
@@ -589,7 +598,7 @@ class Integrator:
             L(2L+1)xN array of sigma point states over time in ECI frame."""
         
         t_span = (0, t_final)
-        sol = solve_ivp(self.sigma_points_eom, t_span, initial_state, method='RK45', rtol=2.23e-14, atol=1e-16, t_eval=teval)
+        sol = solve_ivp(self.sigma_points_eom, t_span, initial_state, method='DOP853', rtol=2.23e-14, atol=1e-16, t_eval=teval)
         return sol.t, sol.y
     
     def integrate_stm(self, t_final, initial_state, phi_0 = None, teval = None, events = None, initial_time : float = 0, DMC : bool = False, beta_mat : np.ndarray = None):
@@ -623,10 +632,10 @@ class Integrator:
         augmented_initial_state = np.hstack((initial_state, phi_0))
         t_span = (initial_time, t_final)
         if events == None:
-            sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=2.23e-14, atol=1e-16, t_eval=teval, args=(DMC, beta_mat))
+            sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='DOP853', rtol=2.23e-14, atol=1e-16, t_eval=teval, args=(DMC, beta_mat))
             return sol.t, sol.y
         else:
-            sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=2.23e-14, atol=1e-16, t_eval=teval, events=events, args=(DMC, beta_mat))
+            sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='DOP853', rtol=2.23e-14, atol=1e-16, t_eval=teval, events=events, args=(DMC, beta_mat))
             return sol.t_events, sol.y_events
     
     def integrate_stm_and_theta(self, t_final, initial_state, phi_0 = None, theta_0 = None, teval = None, initial_time : float = 0, consider_parameters : list = []):
@@ -665,6 +674,6 @@ class Integrator:
         augmented_initial_state = np.hstack((initial_state, phi_0, theta_0))
         t_span = (initial_time, t_final)
 
-        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='RK45', rtol=2.23e-14, atol=1e-16, t_eval=teval, args=(False, None, consider_parameters))
+        sol = solve_ivp(self.full_dynamics, t_span, augmented_initial_state, method='DOP853', rtol=2.23e-14, atol=1e-16, t_eval=teval, args=(False, None, consider_parameters))
         return sol.t, sol.y
         

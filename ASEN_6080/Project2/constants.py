@@ -51,6 +51,6 @@ vx = 32.67
 vy = -8.94
 vz = -3.88
 C_r = 1.2
-a_priori_state = np.array([x, y, z, vx, vy, vz])
+a_priori_state = np.array([x, y, z, vx, vy, vz, C_r])
 
-a_priori_covariance = np.diag([100, 100, 100, 0.1, 0.1, 0.1])**2
+a_priori_covariance = np.diag([100, 100, 100, 0.1, 0.1, 0.1, 0.1])**2
