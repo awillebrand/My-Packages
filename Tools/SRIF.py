@@ -206,7 +206,8 @@ class SRIF:
             Q_noise : np.ndarray = None,
             R_noise : np.ndarray = 0,
             max_iterations : int = 1,
-            triangularize_time_update : bool = True):
+            triangularize_time_update : bool = True,
+            tolerance : float = 1e-6):
         """
         Run the SRIF for a given set of measurements.
         Parameters:
@@ -240,7 +241,7 @@ class SRIF:
         raw_state_length = len(initial_state)
         x_0 = initial_state+x_bar0.flatten()
         time_vector = measurement_data['time'].values
-
+        previous_state_correction_norm = np.linalg.norm(initial_x_correction) # Initialize previous state correction for convergence checking
         initial_station_positions = []
         for mgr in self.measurement_mgrs:
             initial_station_positions.append(mgr.station_state_ecef[0:3])
@@ -376,6 +377,19 @@ class SRIF:
                     self.measurement_mgrs[s].station_state_ecef[0:3] = new_station_position
                     self.measurement_mgrs[s].lat, self.measurement_mgrs[s].lon = self.coordinate_mgr.ECEF_to_GCS(new_station_position)
 
+            # Check if iteration has converged by looking at the norm of the state correction
+            state_correction_norm = np.linalg.norm(x_hat)
+            diff = np.abs(state_correction_norm - previous_state_correction_norm)
+            print(f"Iteration {iteration+1} completed. State correction norm: {diff}")
+            if diff < tolerance:
+                print("Convergence achieved based on state correction norm.")
+                break
+            else:
+                # Update reference trajectory for next iteration
+                x_0 = state_estimates[:, 0]  # Use the corrected initial state
+                previous_state_correction_norm = state_correction_norm
+                x_hat = np.zeros_like(initial_state)  # Reset deviation
+                R = cholesky(np.linalg.inv(initial_covariance))  # Reset information matrix
         # Reset station positions to original values after LKF iterations
         for i, mgr in enumerate(self.measurement_mgrs):
             mgr.station_state_ecef[0:3] = initial_station_positions[i]

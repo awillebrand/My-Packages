@@ -55,6 +55,7 @@ def load_measurement_data(file_path):
     dict
         A dictionary containing the time vector and measurement vectors from the measurement data.
     """
+    
     with open(file_path, 'r') as f:
         data_string = f.read().replace(',', ' ')  # Replace commas with spaces to handle comma-separated values
 
@@ -68,7 +69,7 @@ def load_measurement_data(file_path):
         'measurements': measurements
     }
 
-def convert_measurements_to_df(measurements : dict, station_names : list, dt = 60):
+def convert_measurements_to_df(measurements : dict, station_names : list, days_of_data):
     """
     Convert the measurement data into a pandas DataFrame to make it compatible with existing filtering code.
 
@@ -91,6 +92,11 @@ def convert_measurements_to_df(measurements : dict, station_names : list, dt = 6
 
     measurement_vectors = measurements['measurements']
     
+    max_time = days_of_data * 24 * 3600  # Convert days to seconds
+    valid_indices = time_vector <= max_time
+    time_vector = time_vector[valid_indices]
+    measurement_vectors = measurement_vectors[valid_indices, :]
+
     # Create a DataFrame in format of 'Time', 'DSS34_measurements', 'DSS65_measurements', 'DSS13_measurements' for both range and range rate measurements
     # First need to separate out measurements from each station into separate 2xN numpy arrays with shape (2, N) where
     # first row is range and second row is range rate. Also need to make sure times between measurements are consistent
@@ -102,7 +108,7 @@ def convert_measurements_to_df(measurements : dict, station_names : list, dt = 6
         station_measurements = measurement_vectors[:, [i, i+3]]  # Get the measurements for this station and transpose to shape (2, N)\
 
         # Determine what times these measurements occurred
-        measurement_times = measurements['time_vector'][~np.isnan(station_measurements[:, 0])]  # Get the times where range measurements are not nan
+        measurement_times = time_vector[~np.isnan(station_measurements[:, 0])]  # Get the times where range measurements are not nan
     
         # Find the index in the time_vector where these times occur
         measurement_indices = np.searchsorted(time_vector, measurement_times)
@@ -158,14 +164,14 @@ if __name__ == "__main__":
     if filter_to_run not in ['Batch', 'LKF', 'EKF', 'SRIF', 'UKF']:
         print("Invalid filter choice. Please enter one of the following: Batch, LKF, EKF, SRIF, UKF")
         exit()
-    
+    days_of_data = int(input("Enter the number of days of data to use for filtering (e.g., 50): "))
 
     # Load truth data and measurement data
     truth_data = load_truth_state_data(truth_data_file_path)
     measurement_data = load_measurement_data(known_dynamics_measurement_file_path)
 
     # Convert measurement data to DataFrame format
-    measurement_df = convert_measurements_to_df(measurement_data, station_names=list(station_locations.keys()))
+    measurement_df = convert_measurements_to_df(measurement_data, station_names=list(station_locations.keys()), days_of_data=days_of_data)
 
     meas_time_vector = measurement_df['time'].values
     truth_time_vector = truth_data['time_vector']
@@ -245,11 +251,12 @@ if __name__ == "__main__":
         x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(state_length), a_priori_covariance, measurement_df, R=observation_noise, start_mode=start_mode.lower(), start_length=start_length)
     elif filter_to_run == 'SRIF':
         max_iterations = int(input("Enter the maximum number of iterations for the SRIF (e.g., 10): "))
+        tol = float(input("Enter the convergence tolerance for the SRIF (e.g., 1e-6): "))
         print("=" * 50)
         print("Running SRIF...")
         print("=" * 50, end='\n')
         filter = SRIF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(state_length), a_priori_covariance, measurement_df, R_noise=observation_noise, max_iterations=max_iterations)
+        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(state_length), a_priori_covariance, measurement_df, R_noise=observation_noise, max_iterations=max_iterations, tolerance=tol)
         print("=" * 50)
         print("SRIF Run Complete...")
         print("=" * 50, end='\n')
@@ -257,7 +264,7 @@ if __name__ == "__main__":
         alpha = float(input("Enter alpha parameter for UKF (e.g., 1e-3): "))
         beta = float(input("Enter beta parameter for UKF (e.g., 2): "))
         print("=" * 50)
-        print("Running SRUKF...")
+        print("Running UKF...")
         print("=" * 50, end='\n')
         filter = UKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
         x_hist, P_hist, residuals_df = filter.run(a_priori_state, a_priori_covariance, meas_time_vector, measurement_df, R=observation_noise, alpha=alpha, beta=beta)

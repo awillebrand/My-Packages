@@ -156,9 +156,9 @@ if __name__ == "__main__":
     measurement_errors = np.zeros(measurement_vectors.shape)  # Initialize an array to store measurement errors
     truth_simulated_measurements_mat = np.zeros((truth_state_vectors.shape[1], measurement_vectors.shape[1]))  # Initialize an array to store simulated measurements for comparison
     for i, measurement_mgr in enumerate(measurement_mgr_list):
-        truth_simulated_measurements = measurement_mgr.simulate_measurements(truth_state_vectors, truth_time_vector, coordinate_frame='ECI', noise=True, noise_sigma=np.diag(observation_noise), ignore_visibility=False).T
+        truth_simulated_measurements = measurement_mgr.simulate_measurements(truth_state_vectors, truth_time_vector, coordinate_frame='ECI', noise=True, noise_sigma=np.sqrt(np.diag(observation_noise)), ignore_visibility=False).T
         truth_simulated_measurements_mat[:, 2*i:2*i+2] = truth_simulated_measurements  # Store the simulated measurements for this station
-        simulated_measurements = measurement_mgr.simulate_measurements(integrated_states, measurement_time_vector, coordinate_frame='ECI', noise=True, noise_sigma=np.diag(observation_noise), ignore_visibility=False).T
+        simulated_measurements = measurement_mgr.simulate_measurements(integrated_states, measurement_time_vector, coordinate_frame='ECI', noise=True, noise_sigma=np.sqrt(np.diag(observation_noise)), ignore_visibility=False).T
         range_error = simulated_measurements[:, 0] - measurement_vectors[:, i]  # Assuming range measurements are in even columns
         range_rate_error = simulated_measurements[:, 1] - measurement_vectors[:, i+3]  # Assuming range rate measurements are in odd columns
         measurement_error = np.vstack((range_error, range_rate_error)).T  # Combine range and range rate errors into a single array

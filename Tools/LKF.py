@@ -313,6 +313,7 @@ class LKF:
             covariance_estimates = np.zeros((raw_state_length, raw_state_length, len(time_vector)))
             for k, time in enumerate(time_vector):
                 print(f"Processing time step {k+1} of {len(time_vector)}                       ", end='\r')
+                
                 current_measurement_residuals = measurement_residuals_matrix[:,:,:,k]
                 # Integrate directly between time steps to get phi for bad beta values, otherwise use STM history
                 if process_noise_approach == 'DMC':
@@ -389,7 +390,8 @@ class LKF:
                     x_bar, predict_P = self.predict(x_hat, P, phi, stacked_H, stacked_R)
 
                     # Add process noise
-                    if process_noise_approach == 'SNC':
+                    dt = time_vector[k] - time_vector[k-1] if k > 0 else 0
+                    if process_noise_approach == 'SNC' and dt < 120:  # Only add SNC process noise for reasonable time steps to avoid numerical issues
                         if Q_frame == 'RIC':
                             # Transform Q from RIC to ECI frame
                             dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time, orbit_state=reference_state_history[:,k])

@@ -231,7 +231,8 @@ class EKF:
             # Predict covariance
             predict_P = self.predict(P, phi)
             # Add process noise if using SNC approach
-            if process_noise_approach == 'SNC':
+            dt = time_vector[k] - time_vector[k-1]
+            if process_noise_approach == 'SNC' and dt < 120:
                     if Q_frame == 'RIC':
                         # Transform Q from RIC to ECI frame
                         dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time, orbit_state=X_k)

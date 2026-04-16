@@ -259,7 +259,7 @@ if __name__ == "__main__":
 
     # Plot the B-plane crossing point and covariance ellipse in the B-plane frame
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=[B_plane_target_coords[0]], y=[B_plane_target_coords[1]], mode='markers', name='B-plane Target Point', marker=dict(color='orange', size=5)))
+    fig.add_trace(go.Scatter(x=[B_plane_target_coords[0]], y=[B_plane_target_coords[1]], mode='markers', name='B-plane Target Point', marker=dict(color='orange', size=10)))
 
     times_in_consideration = [50, 100, 150, 200]
     colors = ['blue', 'green', 'red', 'purple']
@@ -314,11 +314,17 @@ if __name__ == "__main__":
             if i == 0:  # Only ask for these parameters once since they are the same for all runs
                 max_iterations = int(input("Enter the maximum number of iterations for the LKF (e.g., 10): "))
                 tol = float(input("Enter the convergence tolerance for the LKF (e.g., 1e-6): "))
+                process_noise_type = str(input("Enter the process noise approach for the LKF ('SNC' or 'None'): "))
+                if process_noise_type != "None":
+                    Q = input("Enter the process noise covariance matrix Q as a flattened list (e.g., for a 3x3 identity matrix, enter 1, 1, 1): ")
+                    Q = np.diag([float(q) for q in Q.split(',')])  # Convert the input string into a diagonal matrix
+                else:
+                    process_noise_type = None
             print("=" * 50)
             print("Running LKF...")
             print("=" * 50, end='\n')
             filter = LKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-            x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, max_iterations=max_iterations, convergence_threshold=tol)
+            x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, max_iterations=max_iterations, convergence_threshold=tol, process_noise_approach=process_noise_type, Q=Q)
             print("=" * 50)
             print("LKF Run Complete...")
             print("=" * 50, end='\n')
@@ -334,11 +340,12 @@ if __name__ == "__main__":
         elif filter_to_run == 'SRIF':
             if i == 0:  # Only ask for these parameters once since they are the same for all runs
                 max_iterations = int(input("Enter the maximum number of iterations for the SRIF (e.g., 10): "))
+                tol = float(input("Enter the convergence tolerance for the SRIF (e.g., 1e-6): "))
             print("=" * 50)
             print("Running SRIF...")
             print("=" * 50, end='\n')
             filter = SRIF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-            x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R_noise=observation_noise, max_iterations=max_iterations)
+            x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R_noise=observation_noise, max_iterations=max_iterations, tolerance=tol)
             print("=" * 50)
             print("SRIF Run Complete...")
             print("=" * 50, end='\n')
@@ -388,13 +395,13 @@ if __name__ == "__main__":
         b_plane_covariance_ellipse = covariance_ellipse_2D(center, reduced_covariance, n_std=3)  # Compute the covariance ellipse at 3-sigma
 
         #fig.add_trace(go.Scatter(x=[B_plane_crossing_pos_in_B_plane_frame[1]], y=[B_plane_crossing_pos_in_B_plane_frame[2]], mode='markers', name=f'{time} days', marker=dict(color=colors[i], size=5)))
-        fig.add_trace(go.Scatter(x=[center[0]], y=[center[1]], mode='markers', name=f'{time} days', marker=dict(color=colors[i], size=5)))
+        fig.add_trace(go.Scatter(x=[center[0]], y=[center[1]], mode='markers', name=f'{time} days', marker=dict(color=colors[i], size=10)))
         fig.add_trace(go.Scatter(x=b_plane_covariance_ellipse[:, 0], y=b_plane_covariance_ellipse[:, 1], mode='lines', name=f'{time} days', marker=dict(color=colors[i]), showlegend=False))
 
-    fig.update_layout(title='B-plane Crossing Point and Covariance Ellipses',
+    fig.update_layout(title=f"B-plane Crossing Point and Covariance Ellipse for {filter_to_run}",
                       xaxis_title='B-plane T (km)',
                       yaxis_title='B-plane R (km)',
                       yaxis=dict(autorange='reversed'),
                       legend=dict(x=0.8, y=0.95))
-    fig.show()
+    fig.write_html(f"ASEN_6080/Project2/figures/B_plane_crossing_{filter_to_run}.html")
 
