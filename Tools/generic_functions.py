@@ -595,6 +595,10 @@ def state_jacobian(r : np.array,
     for value in estimation_mode:
         if 'mu' in value:
             # Compute gravity parameter partials
+            if 'J2' not in dynamical_mode:
+                J2 = 0
+            if 'J3' not in dynamical_mode:
+                J3 = 0
             a_xmu = -x / r_norm**3 + (3 / 2) * J2 * R_e**2 * x / r_norm ** 5 * (5 * z**2 / r_norm**2 - 1) + (5 / 2) * J3 * R_e**3 * x * z / r_norm**7 * (7 * z**2 / r_norm**2 - 3)
             a_ymu = -y / r_norm**3 + (3 / 2) * J2 * R_e**2 * y / r_norm ** 5 * (5 * z**2 / r_norm**2 - 1) + (5 / 2) * J3 * R_e**3 * y * z / r_norm**7 * (7 * z**2 / r_norm**2 - 3)
             a_zmu = -z / r_norm**3 + (3 / 2) * J2 * R_e**2 * z / r_norm ** 5 * (5 * z**2 / r_norm**2 - 3) + (5 / 2) * J3 * R_e**3 / r_norm**5 * (7 * z**4 / r_norm**4 - 6 * z**2 / r_norm**2 + 3 / 5)
@@ -606,6 +610,8 @@ def state_jacobian(r : np.array,
             temp_A[5, -1] = a_zmu
 
         if 'J2' in value:
+            if 'mu' not in dynamical_mode:
+                mu = 0
             temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
 
             a_xJ2 = (3 / 2) * mu * R_e**2 * x / r_norm**5 * (5 * z**2 / r_norm**2 - 1)
@@ -618,6 +624,8 @@ def state_jacobian(r : np.array,
             temp_A[5, -1] = a_zJ2
 
         if 'J3' in value:
+            if 'mu' not in dynamical_mode:
+                mu = 0
             #  J3 partials to A
             temp_A = np.pad(temp_A, ((0,1),(0,1)), 'constant')
             a_xJ3 = (5 / 2) * mu * R_e**3 * x * z / r_norm**7 * (7 * z**2 / r_norm**2 - 3)

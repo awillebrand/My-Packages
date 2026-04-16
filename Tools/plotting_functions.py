@@ -224,6 +224,7 @@ def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filte
             fig.write_image(f"{file_directory}/pngs/{filter_name}_post_fit_residuals_iteration_{iteration+1}.png")
         except Exception as e:
             pass
+        return fig
 
 def plot_state_errors(time_vector: np.ndarray, state_errors: np.ndarray, covariance_history : np.array, filter_name: str, file_directory: str, unit_multipliers: list = [1, 1], units = ['km', 'km/s'], y_axis_limits: list[list] = None, sigma_num : int = 3):
     """

@@ -386,7 +386,7 @@ class SRIF:
                 break
             else:
                 # Update reference trajectory for next iteration
-                x_0 = state_estimates[:, 0]  # Use the corrected initial state
+                x_0 = x_0 + np.linalg.inv(stm_history[:,:,-1]) @ x_hat
                 previous_state_correction_norm = state_correction_norm
                 x_hat = np.zeros_like(initial_state)  # Reset deviation
                 R = cholesky(np.linalg.inv(initial_covariance))  # Reset information matrix

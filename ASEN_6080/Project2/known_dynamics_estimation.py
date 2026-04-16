@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import scipy.io
-from constants import truth_data_file_path, known_dynamics_measurement_file_path, mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, C_r, initial_epoch, initial_epoch_jd, initial_spin_angle, earth_spin_rate, station_locations, part_2_station_locations, observation_noise, a_priori_state, a_priori_covariance, RSOI
+from constants import truth_data_file_path, known_dynamics_measurement_file_path, mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, testing_C_r, initial_epoch, initial_epoch_jd, initial_spin_angle, earth_spin_rate, station_locations, part_2_station_locations, observation_noise, testing_a_priori_state, testing_a_priori_covariance, RSOI
 from Tools.measurement_manager import MeasurementMgr
 from Tools.integrator import Integrator
 from Tools.batch_lls_estimator import BatchLLSEstimator
@@ -196,7 +196,7 @@ if __name__ == "__main__":
         dynamical_mode=['mu', 'SRP', 'Third Body'],  # Include 2-body and SRP effects for this test
         estimation_mode=['SRP'],
         parameter_indices=[6],
-        Cr=C_r,
+        Cr=testing_C_r,
         srp_area_to_mass=SRP_area_to_mass,  # Use the area-to-mass ratio from constants
         solar_flux=solar_flux,
         number_of_stations=0,
@@ -208,7 +208,7 @@ if __name__ == "__main__":
         earth_spin_rate=earth_spin_rate
     )
 
-    state_length = len(a_priori_state)
+    state_length = len(testing_a_priori_state)
     # Perform filtering using the loaded measurement data and truth data
     if filter_to_run == 'Batch':
         max_iterations = int(input("Enter the maximum number of iterations for the Batch LLS Estimator (e.g., 10): "))
@@ -217,7 +217,7 @@ if __name__ == "__main__":
         print("Running Batch LLS Estimator...")
         print("=" * 50, end='\n')
         filter = BatchLLSEstimator(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x, P, residuals_df = filter.estimate_initial_state(a_priori_state, measurement_df, observation_noise, a_priori_covariance=a_priori_covariance, max_iterations=max_iterations, tol=tol)
+        x, P, residuals_df = filter.estimate_initial_state(testing_a_priori_state, measurement_df, observation_noise, a_priori_covariance=testing_a_priori_covariance, max_iterations=max_iterations, tol=tol)
         print("=" * 50)
         print("Batch LLS Estimation Complete...")
         print("=" * 50, end='\n')
@@ -237,7 +237,7 @@ if __name__ == "__main__":
         print("Running LKF...")
         print("=" * 50, end='\n')
         filter = LKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(state_length), a_priori_covariance, measurement_df, R=observation_noise, max_iterations=max_iterations, convergence_threshold=tol)
+        x_hist, P_hist, residuals_df = filter.run(testing_a_priori_state, np.zeros(state_length), testing_a_priori_covariance, measurement_df, R=observation_noise, max_iterations=max_iterations, convergence_threshold=tol)
         print("=" * 50)
         print("LKF Run Complete...")
         print("=" * 50, end='\n')
@@ -248,7 +248,7 @@ if __name__ == "__main__":
         else:
             start_length = 0
         filter = EKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(state_length), a_priori_covariance, measurement_df, R=observation_noise, start_mode=start_mode.lower(), start_length=start_length)
+        x_hist, P_hist, residuals_df = filter.run(testing_a_priori_state, np.zeros(state_length), testing_a_priori_covariance, measurement_df, R=observation_noise, start_mode=start_mode.lower(), start_length=start_length)
     elif filter_to_run == 'SRIF':
         max_iterations = int(input("Enter the maximum number of iterations for the SRIF (e.g., 10): "))
         tol = float(input("Enter the convergence tolerance for the SRIF (e.g., 1e-6): "))
@@ -256,7 +256,7 @@ if __name__ == "__main__":
         print("Running SRIF...")
         print("=" * 50, end='\n')
         filter = SRIF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(state_length), a_priori_covariance, measurement_df, R_noise=observation_noise, max_iterations=max_iterations, tolerance=tol)
+        x_hist, P_hist, residuals_df = filter.run(testing_a_priori_state, np.zeros(state_length), testing_a_priori_covariance, measurement_df, R_noise=observation_noise, max_iterations=max_iterations, tolerance=tol)
         print("=" * 50)
         print("SRIF Run Complete...")
         print("=" * 50, end='\n')
@@ -267,7 +267,7 @@ if __name__ == "__main__":
         print("Running UKF...")
         print("=" * 50, end='\n')
         filter = UKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x_hist, P_hist, residuals_df = filter.run(a_priori_state, a_priori_covariance, meas_time_vector, measurement_df, R=observation_noise, alpha=alpha, beta=beta)
+        x_hist, P_hist, residuals_df = filter.run(testing_a_priori_state, testing_a_priori_covariance, meas_time_vector, measurement_df, R=observation_noise, alpha=alpha, beta=beta)
         print("=" * 50)
         print("UKF Run Complete...")
         print("=" * 50, end='\n')
@@ -290,7 +290,7 @@ if __name__ == "__main__":
         # Compute state estimation errors for first 50 days
         estimation_errors = x_hist_50days[0:6, :] - interpolated_truth_state_vectors[:, 0:6].T
         plot_state_errors(truth_time_vector, estimation_errors, P_hist_50days, filter_name=filter_to_run, file_directory='ASEN_6080/Project2/figures')
-        plot_residuals(meas_time_vector, residuals_df, filter_name=filter_to_run, file_directory='ASEN_6080/Project2/figures/residuals')
+        plot_residuals(meas_time_vector, residuals_df, filter_name=filter_to_run, file_directory=f'ASEN_6080/Project2/figures/residuals/{filter_to_run}')
 
         fig = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.02, subplot_titles=['X Position', 'Y Position', 'Z Position'])
         for i in range(3):

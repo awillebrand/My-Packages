@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import scipy.io
-from constants import truth_data_file_path, known_dynamics_measurement_file_path, mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, C_r, initial_epoch, initial_epoch_jd, initial_spin_angle, earth_spin_rate, station_locations, part_2_station_locations, observation_noise, a_priori_state, a_priori_covariance, RSOI, B_plane_target_coords
+from constants import known_dynamics_measurement_file_path, mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, testing_C_r, initial_epoch, initial_epoch_jd, initial_spin_angle, earth_spin_rate, station_locations, part_2_station_locations, observation_noise, testing_a_priori_state, testing_a_priori_covariance, RSOI, B_plane_target_coords
 from Tools.measurement_manager import MeasurementMgr
 from Tools.integrator import Integrator
 from Tools.batch_lls_estimator import BatchLLSEstimator
@@ -133,7 +133,7 @@ def initialize_integrator(starting_epoch):
         dynamical_mode=['mu', 'SRP', 'Third Body'],  # Include 2-body and SRP effects for this test
         estimation_mode=['SRP'],
         parameter_indices=[6],
-        Cr=C_r,
+        Cr=testing_C_r,
         srp_area_to_mass=SRP_area_to_mass,  # Use the area-to-mass ratio from constants
         solar_flux=solar_flux,
         number_of_stations=0,
@@ -298,7 +298,7 @@ if __name__ == "__main__":
             print("Running Batch LLS Estimator...")
             print("=" * 50, end='\n')
             filter = BatchLLSEstimator(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-            x, P, residuals_df = filter.estimate_initial_state(a_priori_state, measurement_df, observation_noise, a_priori_covariance=a_priori_covariance, max_iterations=max_iterations, tol=tol)
+            x, P, residuals_df = filter.estimate_initial_state(testing_a_priori_state, measurement_df, observation_noise, a_priori_covariance=testing_a_priori_covariance, max_iterations=max_iterations, tol=tol)
             print("=" * 50)
             print("Batch LLS Estimation Complete...")
             print("=" * 50, end='\n')
@@ -320,11 +320,12 @@ if __name__ == "__main__":
                     Q = np.diag([float(q) for q in Q.split(',')])  # Convert the input string into a diagonal matrix
                 else:
                     process_noise_type = None
+                    Q = None
             print("=" * 50)
             print("Running LKF...")
             print("=" * 50, end='\n')
             filter = LKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-            x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, max_iterations=max_iterations, convergence_threshold=tol, process_noise_approach=process_noise_type, Q=Q)
+            x_hist, P_hist, residuals_df = filter.run(testing_a_priori_state, np.zeros(7), testing_a_priori_covariance, measurement_df, R=observation_noise, max_iterations=max_iterations, convergence_threshold=tol, process_noise_approach=process_noise_type, Q=Q)
             print("=" * 50)
             print("LKF Run Complete...")
             print("=" * 50, end='\n')
@@ -336,7 +337,7 @@ if __name__ == "__main__":
                 else:
                     start_length = 0
             filter = EKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-            x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R=observation_noise, start_mode=start_mode.lower(), start_length=start_length)
+            x_hist, P_hist, residuals_df = filter.run(testing_a_priori_state, np.zeros(7), testing_a_priori_covariance, measurement_df, R=observation_noise, start_mode=start_mode.lower(), start_length=start_length)
         elif filter_to_run == 'SRIF':
             if i == 0:  # Only ask for these parameters once since they are the same for all runs
                 max_iterations = int(input("Enter the maximum number of iterations for the SRIF (e.g., 10): "))
@@ -345,7 +346,7 @@ if __name__ == "__main__":
             print("Running SRIF...")
             print("=" * 50, end='\n')
             filter = SRIF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-            x_hist, P_hist, residuals_df = filter.run(a_priori_state, np.zeros(7), a_priori_covariance, measurement_df, R_noise=observation_noise, max_iterations=max_iterations, tolerance=tol)
+            x_hist, P_hist, residuals_df = filter.run(testing_a_priori_state, np.zeros(7), testing_a_priori_covariance, measurement_df, R_noise=observation_noise, max_iterations=max_iterations, tolerance=tol)
             print("=" * 50)
             print("SRIF Run Complete...")
             print("=" * 50, end='\n')
@@ -357,7 +358,7 @@ if __name__ == "__main__":
             print("Running SRUKF...")
             print("=" * 50, end='\n')
             filter = UKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-            x_hist, P_hist, residuals_df = filter.run(a_priori_state, a_priori_covariance, meas_time_vector, measurement_df, R=observation_noise, alpha=alpha, beta=beta)
+            x_hist, P_hist, residuals_df = filter.run(testing_a_priori_state, testing_a_priori_covariance, meas_time_vector, measurement_df, R=observation_noise, alpha=alpha, beta=beta)
             print("=" * 50)
             print("UKF Run Complete...")
             print("=" * 50, end='\n')

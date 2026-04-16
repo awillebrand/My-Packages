@@ -386,7 +386,6 @@ class LKF:
                     stacked_R = block_diag(*visible_R)
                     
                     # Predict and update steps
-
                     x_bar, predict_P = self.predict(x_hat, P, phi, stacked_H, stacked_R)
 
                     # Add process noise
