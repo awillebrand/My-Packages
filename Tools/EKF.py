@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from Tools import Integrator, MeasurementMgr, CoordinateMgr, measurement_jacobian, LKF
+from Tools import Integrator, MeasurementMgr, CoordinateMgr, measurement_jacobian, LKF, AdaptiveSNC
 from scipy.linalg import block_diag
 
 class EKF:
@@ -130,7 +130,8 @@ class EKF:
             start_length : int = 100,
             process_noise_approach : str = 'None',
             Q_frame : str = 'ECI',
-            beta_mat : np.ndarray = None):
+            beta_mat : np.ndarray = None,
+            adaptive_snc : AdaptiveSNC = None,):
         """
         Run the Extended Kalman Filter over the provided measurement data.
 
@@ -157,18 +158,23 @@ class EKF:
             The reference frame of the process noise covariance matrix Q ('ECI' or 'RIC'). Default is 'ECI'.
         beta_mat : np.ndarray, optional
             A 3x3 diagonal matrix of time constants for DMC. Required if process_noise_approach is 'DMC'.
+        adaptive_snc : AdaptiveSNC, optional
+            An instance of the AdaptiveSNC class for adaptive sequential noise covariance. Required if process_noise_approach is 'Adaptive SNC'.
         Returns:
         Tuple
             A tuple containing the state estimates and covariance estimates over time.
         """
         if start_mode not in ['cold', 'warm']:
             raise ValueError("Invalid start_mode. Choose 'cold' or 'warm'.")
-        if process_noise_approach not in ['None', 'SNC', 'DMC']:
-            raise ValueError("Invalid process_noise_approach. Must be 'None', 'SNC', or 'DMC'.")
+        if process_noise_approach not in ['None', 'SNC', 'DMC', 'Adaptive SNC']:
+            raise ValueError("Invalid process_noise_approach. Must be 'None', 'SNC', 'Adaptive SNC', or 'DMC'.")
         if process_noise_approach == 'SNC' and Q is None:
             raise ValueError("Process noise covariance matrix Q must be provided for SNC approach.")
+        if process_noise_approach == 'Adaptive SNC' and adaptive_snc is None:
+            raise ValueError("An instance of the AdaptiveSNC class must be provided for Adaptive SNC approach.")
         if process_noise_approach == 'DMC' and (Q is None or beta_mat is None):
             raise ValueError("Process noise covariance matrix Q and beta_mat must be provided for DMC approach.")
+
         measurement_data = input_measurement_data.copy()
         raw_state_length = len(initial_state)
         time_vector = measurement_data['time'].values
@@ -276,6 +282,7 @@ class EKF:
                 base_residuals = np.full((len(self.measurement_mgrs), 2), np.nan)  # Assuming 2 measurements per station
                 for i in visible_station_indices:
                     mgr = self.measurement_mgrs[i]
+
                     station_state_eci = self.coordinate_mgr.ECEF_to_ECI(mgr.station_state_ecef, time)
                     measurement = mgr.simulate_measurements(np.vstack(X_k[:6]), np.array([time]), 'ECI', noise=False, ignore_visibility=True)
                         
@@ -312,6 +319,20 @@ class EKF:
                     visible_R = [R for _ in visible_station_indices]
                     stacked_R = block_diag(*visible_R)
 
+                    if process_noise_approach == 'Adaptive SNC' and adaptive_snc is not None:
+                        if adaptive_snc.add_Q_adaptive(stacked_residuals, stacked_H, predict_P, stacked_R):
+
+                            Q_adaptive = adaptive_snc.Q_adaptive
+                            # If adaptive SNC indicates to add process noise, add it to the predicted covariance
+                            if Q_frame == 'RIC':
+                                # Transform Q from RIC to ECI frame
+                                dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time, orbit_state=X_k)
+                                Q_eci = dcm.T @ Q_adaptive @ dcm
+                            elif Q_frame == 'ECI':
+                                Q_eci = Q_adaptive
+
+                            predict_P[0:6, 0:6] = predict_P[0:6, 0:6] + Q_eci[0:6, 0:6]  # Add only the state covariance portion of Q_adaptive
+
                     # Update step
                     x_hat, P = self.update(predict_P, stacked_residuals, stacked_H, stacked_R)
             
@@ -323,6 +344,13 @@ class EKF:
                 print("NaN detected in state estimate!")
             X_k_0 = updated_state
 
+            # Update station positions in state vector if estimating station positions
+            if 'Stations' in self.integrator.estimation_mode:
+                for i in range(len(self.measurement_mgrs)):
+                    station_partial_index = raw_state_length - 3 * len(self.measurement_mgrs) + i * 3
+                    new_station_position = X_k_0[station_partial_index:station_partial_index+3]
+                    self.measurement_mgrs[i].station_state_ecef[0:3] = new_station_position
+                    self.measurement_mgrs[i].R_e = np.linalg.norm(new_station_position)
 
             # Post-fit residuals calculation for visible stations
             for i in visible_station_indices:
