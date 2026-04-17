@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from Tools import Integrator, MeasurementMgr, CoordinateMgr, measurement_jacobian
+from Tools import Integrator, MeasurementMgr, CoordinateMgr, measurement_jacobian, AdaptiveSNC
 from scipy.linalg import block_diag
 import warnings
 
@@ -169,7 +169,8 @@ class LKF:
             process_noise_approach : str = 'None',
             Q_frame : str = 'ECI',
             beta_mat : np.ndarray = None,
-            apply_smoothing : bool = False):
+            apply_smoothing : bool = False,
+            adaptive_snc : bool = None):
         """
         Run the Linearized Kalman Filter over a series of measurements.
         Parameters:
@@ -197,14 +198,20 @@ class LKF:
             The reference frame of the process noise covariance matrix Q ('ECI' or 'RIC'). Default is 'ECI'.
         beta_mat : np.ndarray, optional
             A 3x3 diagonal matrix of time constants for dynamic model compensation. Required if process_noise_approach is 'DMC'. Default is None.
+        apply_smoothing : bool, optional
+            Whether to apply Rauch-Tung-Striebel smoothing after the forward pass. Default is False.
+        adaptive_snc : AdaptiveSNC, optional
+            An instance of the AdaptiveSNC class for adaptive sequential noise covariance. If provided, the LKF will use the adaptive SNC approach for handling process noise. Default is None.
         Returns:
         state_estimates : list
             A list of state estimates at each measurement time.
         covariance_estimates : list
             A list of covariance estimates at each measurement time.
         """
-        if process_noise_approach not in ['None', 'SNC', 'DMC']:
+        if process_noise_approach not in ['None', 'SNC', 'DMC', 'Adaptive SNC']:
             raise ValueError("Invalid process_noise_approach. Must be 'None', 'SNC', or 'DMC'.")
+        if process_noise_approach == 'Adaptive SNC' and adaptive_snc is None:
+            raise ValueError("An instance of the AdaptiveSNC class must be provided for the 'Adaptive SNC' process noise approach.")
         if process_noise_approach == 'SNC' and Q is None:
             raise ValueError("Process noise covariance matrix Q must be provided for SNC approach.")
         if process_noise_approach == 'DMC' and (beta_mat is None or Q is None):
@@ -413,6 +420,21 @@ class LKF:
                         predict_P[0:6, -3:] = predict_P[0:6, -3:] + Q_w[0:6, 6:]  # Add state-DMC cross covariance
                         predict_P[-3:, 0:6] = predict_P[-3:, 0:6] + Q_w[6:, 0:6]  # Add DMC-state cross covariance
                         predict_P[-3:, -3:] = predict_P[-3:, -3:] + Q_w[6:, 6:]  # Add DMC covariance
+
+                    if process_noise_approach == 'Adaptive SNC' and adaptive_snc is not None:
+                        if adaptive_snc.add_Q_adaptive(stacked_residuals, stacked_H, predict_P, stacked_R):
+
+                            Q_adaptive = adaptive_snc.Q_adaptive
+                            # If adaptive SNC indicates to add process noise, add it to the predicted covariance
+                            if Q_frame == 'RIC':
+                                # Transform Q from RIC to ECI frame
+                                dcm = self.coordinate_mgr.compute_DCM('ECI', 'RIC', time=time, orbit_state=reference_state_history[:,k])
+                                Q_eci = dcm.T @ Q_adaptive @ dcm
+                            elif Q_frame == 'ECI':
+                                Q_eci = Q_adaptive
+
+                            predict_P[0:6, 0:6] = predict_P[0:6, 0:6] + Q_eci[0:6, 0:6]  # Add only the state covariance portion of Q_adaptive
+
                     prediction_covariance_estimates[:,:,k] = predict_P
 
                     x_hat, P = self.update(x_bar, predict_P, stacked_residuals, stacked_H, stacked_R)

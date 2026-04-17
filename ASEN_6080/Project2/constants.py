@@ -1,5 +1,5 @@
 import numpy as np
-
+from Tools.adaptive_snc import AdaptiveSNC
 """
 This file contains constants used in the ASEN 6080 Project 2 code. These constants include physical
 parameters,initial conditions, and any other fixed values that are relevant to the project.
@@ -70,3 +70,7 @@ C_r = 1.0
 a_priori_state = np.array([x, y, z, vx, vy, vz, C_r])
 a_priori_covariance = np.diag([100, 100, 100, 0.1, 0.1, 0.1, 0.1])**2
 
+# Adapative SNCparams
+alpha = 0.05
+window = 10
+Q_adaptive = 1e-4

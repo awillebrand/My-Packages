@@ -10,11 +10,12 @@ from Tools.batch_lls_estimator import BatchLLSEstimator
 from Tools.LKF import LKF
 from Tools.EKF import EKF
 from Tools.SRIF import SRIF
-from Tools.UKF import UKF
+from Tools.adaptive_snc import AdaptiveSNC
 from Tools.plotting_functions import plot_residuals, plot_state_errors
 
 from constants import unknown_dynamics_measurement_file_path, a_priori_state, a_priori_covariance, observation_noise, initial_spin_angle, earth_spin_rate, station_locations
 from constants import C_r, mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, initial_epoch, initial_epoch_jd
+from constants import alpha, window, Q_adaptive
 np.set_printoptions(linewidth=200)
 
 def load_measurement_data(file_path):
@@ -235,23 +236,29 @@ if __name__ == "__main__":
 
     integrator = initialize_integrator(initial_epoch, estimation_mode, parameter_indices)
 
-    print(f"A Priori State: {a_priori_state}")
-    print(f"A Priori Covariance: {a_priori_covariance}\n")
-
     state_length = len(a_priori_state)
 
+    # Set up adaptive SNC
+    adaptive_snc_vec= np.zeros(state_length)
+    adaptive_snc_vec[2:6] = Q_adaptive  # Only apply adaptive SNC to velocity states
+    adaptive_snc_mat = np.diag(adaptive_snc_vec)
+
+    adaptive_snc = AdaptiveSNC(measurement_dimensionality=measurement_df.shape[1], alpha=alpha, window=window, Q_adaptive=adaptive_snc_mat)
+
+    print(f"A Priori State: {a_priori_state}")
+    print(f"A Priori Covariance: {a_priori_covariance}\n")
     if filter_to_run == 'batch':
         max_iterations = int(input("Enter the maximum number of iterations for the Batch LLS Estimator (default is 10): "))
         tol = float(input("Enter the convergence tolerance for the Batch LLS Estimator (default is 1e-6): "))
         print("Running Batch LLS Estimator...")
         print("=" * 50, end='\n')
         estimator = BatchLLSEstimator(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
-        x_est, P_est = estimator.estimate(a_priori_state,
-                                          measurement_df,
-                                          observation_noise,
-                                          a_priori_covariance=a_priori_covariance,
-                                          max_iterations=max_iterations,
-                                          tol=tol)
+        x_est, P_est, residuals_df = estimator.estimate_initial_state(a_priori_state,
+                                                        measurement_df,
+                                                        observation_noise,
+                                                        a_priori_covariance=a_priori_covariance,
+                                                        max_iterations=max_iterations,
+                                                        tol=tol)
         print("=" * 50)
         print("Batch LLS Estimation Complete...")
         print("=" * 50, end='\n')
@@ -267,9 +274,10 @@ if __name__ == "__main__":
     elif filter_to_run == 'lkf':
         max_iterations = int(input("Enter the maximum number of iterations for the LKF (default is 10): "))
         tol = float(input("Enter the convergence tolerance for the LKF (default is 1e-6): "))
-        process_noise_type = str(input("Enter the process noise approach for the LKF ('SNC' or 'None'): "))
-        apply_smoothing = bool(input("Apply smoothing with the LKF? (True/False): "))
-        if process_noise_type != "None":
+        process_noise_type = str(input("Enter the process noise approach for the LKF ('SNC', 'Adaptive SNC', or 'None'): "))
+        apply_smoothing = input("Apply smoothing with the LKF? (True/False): ").lower() == 'true'
+  
+        if process_noise_type == "SNC":
             Q = input("Enter the process noise covariance matrix Q as a flattened list (e.g., for a 3x3 identity matrix, enter 1, 1, 1): ")
             Q = np.diag([float(q) for q in Q.split(',')])  # Convert the input string into a diagonal matrix
         else:
@@ -286,7 +294,8 @@ if __name__ == "__main__":
                                                   convergence_threshold=tol,
                                                   process_noise_approach=process_noise_type,
                                                   Q=Q,
-                                                  apply_smoothing=apply_smoothing)
+                                                  apply_smoothing=apply_smoothing,
+                                                  adaptive_snc=adaptive_snc)
         print("=" * 50)
         print("LKF Run Complete...")
         print("=" * 50, end='\n')
@@ -304,6 +313,7 @@ if __name__ == "__main__":
         else:
             Q = None
 
+        max_iterations = 0
         print("Running EKF...")
         print("=" * 50, end='\n')
         filter = EKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
@@ -333,5 +343,30 @@ if __name__ == "__main__":
     
     period_analyzed = f"{int(period_of_data[0])}-{int(period_of_data[1])}"
 
-    fig_list[-1][0].write_html(f"ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}/PREFIT_{parameters_estimated}IT_{max_iterations}_PER_{period_analyzed}.html")
-    fig_list[-1][1].write_html(f"ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}/POSTFIT_{parameters_estimated}IT_{max_iterations}_PER_{period_analyzed}.html")
+    fig_list[-1][0].write_html(f"ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}/PREFIT_{parameters_estimated}IT_{max_iterations}_PER_{period_analyzed}_{process_noise_type}.html")
+    fig_list[-1][1].write_html(f"ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}/POSTFIT_{parameters_estimated}IT_{max_iterations}_PER_{period_analyzed}_{process_noise_type}.html")
+    
+    print(f"Initial State Estimate:")
+    print(f"Position: {(x_hist[0:3, 0])} km")
+    print(f"Velocity: {(x_hist[3:6, 0])} km/s")
+    print(f"Final State Estimate:")
+    print(f"Position: {(x_hist[0:3, -1])} km | Covariance: {np.diag(P_hist[0:3, 0:3, -1])}")
+    print(f"Velocity: {(x_hist[3:6, -1])} km/s | Covariance: {np.diag(P_hist[3:6, 3:6, -1])}")
+    if 'SRP' in estimation_mode:
+        print(f"SRP Coefficient Estimate: {x_hist[6, -1]} | Covariance: {P_hist[6, 6, -1]}")
+    if 'mu' in estimation_mode:
+        # Find index of mu in the parameter_indices list to pull the correct estimate and covariance from the state history and covariance history
+        mu_index = parameter_indices.index(parameter_indices[estimation_mode.index('mu')])  # Get the index of mu in the parameter_indices list
+        print(f"Gravitational Parameter Estimate: {x_hist[mu_index, -1]} | Covariance: {P_hist[mu_index, mu_index, -1]}")
+    if 'Third Body' in estimation_mode:
+        # Find index of Third Body in the parameter_indices list to pull the correct estimate and covariance from the state history and covariance history
+        third_body_index = parameter_indices.index(parameter_indices[estimation_mode.index('Third Body')])  # Get the index of Third Body in the parameter_indices list
+        print(f"Third Body Gravitational Parameter Estimate: {x_hist[third_body_index, -1]} | Covariance: {P_hist[third_body_index, third_body_index, -1]}")
+    if 'Stations' in estimation_mode:
+        station_index = parameter_indices[estimation_mode.index('Stations')]
+        for station in station_mgrs:
+            print(f"{station.station_name} Position Estimate: {x_hist[station_index:station_index+3, -1]} | Covariance: {np.diag(P_hist[station_index:station_index+3, station_index:station_index+3, -1])}")
+            # Also determine how much station position estimates have changed from the a priori state to the final estimate and print this information
+            station_position_change = x_hist[station_index:station_index+3, -1] - a_priori_state[station_index:station_index+3]
+            print(f"{station.station_name} Position Change from A Priori State: {station_position_change} km")
+            station_index += 3  # Move to the next station position in the state vector for the next iteration of the loop
