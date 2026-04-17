@@ -175,15 +175,16 @@ if __name__ == "__main__":
 
     inputted_estimation_mode = input("Enter the parameters to estimate (e.g., mu, Third Body). SRP is included by default: ")
 
-    if inputted_estimation_mode.strip() == "":
+    if len(inputted_estimation_mode) == 0:
         estimation_mode = ['SRP']  # If no parameters are entered, default to only estimating SRP
-    if ',' not in inputted_estimation_mode:
+    elif ',' not in inputted_estimation_mode:
         estimation_mode = ['SRP', inputted_estimation_mode.strip()]  # Add the inputted estimation mode to the default estimation mode of SRP
     else:
         inputted_estimation_mode = [param.strip() for param in inputted_estimation_mode.split(',')]  # Split the input string into a list if more than one parameters was specified
         estimation_mode = ['SRP'].extend(inputted_estimation_mode)  # Add the inputted estimation mode to the default estimation mode of SRP
 
     parameter_indices = [6] # Initialize with index for C_r, which is always included in estimation
+    flattened_cov = np.diag(a_priori_covariance)
 
     # Update the a priori state and covariance to include the parameters being estimated
     for param in estimation_mode:
@@ -204,7 +205,6 @@ if __name__ == "__main__":
             print(f"Parameter {param} not recognized. Please enter 'mu', 'Third Body', 'Stations', or leave blank if no additional parameters are being estimated.")
             exit()
 
-        flattened_cov = np.diag(a_priori_covariance)
         if param == 'Stations':
             param_covariance = input(f"Enter the covariance estimates for station position (in km and km/s, e.g., 1e-3, 1e-3, 1e-3): ")
             param_covariance = [param.strip() for param in param_covariance.split(',')]
@@ -268,6 +268,7 @@ if __name__ == "__main__":
         max_iterations = int(input("Enter the maximum number of iterations for the LKF (default is 10): "))
         tol = float(input("Enter the convergence tolerance for the LKF (default is 1e-6): "))
         process_noise_type = str(input("Enter the process noise approach for the LKF ('SNC' or 'None'): "))
+        apply_smoothing = bool(input("Apply smoothing with the LKF? (True/False): "))
         if process_noise_type != "None":
             Q = input("Enter the process noise covariance matrix Q as a flattened list (e.g., for a 3x3 identity matrix, enter 1, 1, 1): ")
             Q = np.diag([float(q) for q in Q.split(',')])  # Convert the input string into a diagonal matrix
@@ -284,7 +285,8 @@ if __name__ == "__main__":
                                                   max_iterations=max_iterations,
                                                   convergence_threshold=tol,
                                                   process_noise_approach=process_noise_type,
-                                                  Q=Q)
+                                                  Q=Q,
+                                                  apply_smoothing=apply_smoothing)
         print("=" * 50)
         print("LKF Run Complete...")
         print("=" * 50, end='\n')
