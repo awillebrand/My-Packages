@@ -319,7 +319,6 @@ if __name__ == "__main__":
                     Q = input("Enter the process noise covariance matrix Q as a flattened list (e.g., for a 3x3 identity matrix, enter 1, 1, 1): ")
                     Q = np.diag([float(q) for q in Q.split(',')])  # Convert the input string into a diagonal matrix
                 else:
-                    process_noise_type = None
                     Q = None
             print("=" * 50)
             print("Running LKF...")
@@ -369,8 +368,9 @@ if __name__ == "__main__":
         
         # Integrate to 3*RSOI crossing and get LTOF to B-plane
         RSOI_crossing_time, RSOI_crossing_state = integrate_to_3RSOI(DCO_state, DCO_epoch)
-        LTOF_to_B_plane = get_LTOF_to_B_Plane(RSOI_crossing_state)
 
+        LTOF_to_B_plane = get_LTOF_to_B_Plane(RSOI_crossing_state)
+        
         # Integrate to B-plane crossing
         B_plane_crossing_epoch = RSOI_crossing_time + LTOF_to_B_plane
         B_plane_crossing_time, B_plane_crossing_state, B_plane_crossing_stm = integrate_to_B_plane_crossing(DCO_state, DCO_epoch, B_plane_crossing_epoch)

@@ -45,7 +45,7 @@ def load_measurement_data(file_path):
         'measurements': measurements
     }
 
-def convert_measurements_to_df(measurements : dict, station_names : list):
+def convert_measurements_to_df(measurements : dict, station_names : list, period_of_data : list):
     """
     Convert the measurement data into a pandas DataFrame to make it compatible with existing filtering code.
 
@@ -67,6 +67,15 @@ def convert_measurements_to_df(measurements : dict, station_names : list):
     time_vector = measurements['time_vector']  # Use the original time vector from the measurements to ensure consistency with measurement times
 
     measurement_vectors = measurements['measurements']
+
+    # Find index where time exceeds the specified number of days and truncate the time vector and measurement vectors accordingly
+    min_time = period_of_data[0] * 24 * 3600  # Convert days to seconds
+    max_time = period_of_data[1]* 24 * 3600  # Convert days to seconds
+    
+    valid_indices = (np.where((time_vector >= min_time) & (time_vector <= max_time)))[0]  # Get indices where time is within the specified range
+
+    time_vector = time_vector[valid_indices]
+    measurement_vectors = measurement_vectors[valid_indices, :]
 
     # Create a DataFrame in format of 'Time', 'DSS34_measurements', 'DSS65_measurements', 'DSS13_measurements' for both range and range rate measurements
     # First need to separate out measurements from each station into separate 2xN numpy arrays with shape (2, N) where
@@ -103,7 +112,7 @@ def convert_measurements_to_df(measurements : dict, station_names : list):
     return measurement_data_frame
 
 
-def initialize_integrator(starting_epoch):
+def initialize_integrator(starting_epoch, estimation_mode, parameter_indices):
     """
     Initialize the Integrator object with the appropriate initial epoch and gravitational parameter.
 
@@ -111,6 +120,10 @@ def initialize_integrator(starting_epoch):
     ----------
     starting_epoch : float
         The initial epoch in seconds to initialize the integrator.
+    estimation_mode : list
+        A list of strings indicating which parameters are being estimated (e.g., ['SRP']).
+    parameter_indices : list
+        A list of integers indicating the indices of the parameters being estimated in the state vector (e.g., [6] for C_r).
 
     Returns
     -------
@@ -124,12 +137,12 @@ def initialize_integrator(starting_epoch):
         mu=mu_earth,
         R_e=R_e,        
         dynamical_mode=['mu', 'SRP', 'Third Body'],  # Include 2-body and SRP effects for this test
-        estimation_mode=['SRP', 'mu'],
-        parameter_indices=[6, 7],
+        estimation_mode=estimation_mode,
+        parameter_indices=parameter_indices,
         Cr=C_r,
         srp_area_to_mass=SRP_area_to_mass,  # Use the area-to-mass ratio from constants
         solar_flux=solar_flux,
-        number_of_stations=0,
+        number_of_stations=3,
         mu_third_body=mu_sun,
         central_body='Earth',
         third_body='Sun',
@@ -141,19 +154,7 @@ def initialize_integrator(starting_epoch):
     return integrator
 
 if __name__ == "__main__":
-    # User specifies the filter to run in terminal. Options are 'Batch', 'LKF', 'EKF', 'SRIF', 'UKF'
-    filter_to_run = str(input("Enter the filter to run (Batch, LKF, EKF, SRIF, UKF): ")).lower()
-    if filter_to_run not in ['batch', 'lkf', 'ekf', 'srif', 'ukf']:
-        print("Invalid filter choice. Please enter one of the following: Batch, LKF, EKF, SRIF, UKF")
-        exit()
-
-    # Load measurement data
-    # Load truth data and measurement data
-    measurement_data = load_measurement_data(unknown_dynamics_measurement_file_path)
-
-    # Convert measurement data to DataFrame format
-    measurement_df = convert_measurements_to_df(measurement_data, station_names=list(station_locations.keys()))
-    time_vector = measurement_data['time_vector']
+    # Initialize measurement managers
 
     station_mgrs = []
     for station_name, station_info in station_locations.items():
@@ -168,7 +169,74 @@ if __name__ == "__main__":
         
         station_mgrs.append(mgr)
 
-    integrator = initialize_integrator(initial_epoch)
+    # User specifies the filter to run in terminal. Options are 'Batch', 'LKF', 'EKF', 'SRIF', 'UKF'
+    period_of_data = input("Enter the range of days of measurement data to use for the filters (e.g., 50, 100): ")
+    period_of_data = [int(day.strip()) for day in period_of_data.split(',')]  # Split the input string into a list of floats representing the range of days to use for the filters
+
+    inputted_estimation_mode = input("Enter the parameters to estimate (e.g., mu, Third Body). SRP is included by default: ")
+
+    if inputted_estimation_mode.strip() == "":
+        estimation_mode = ['SRP']  # If no parameters are entered, default to only estimating SRP
+    if ',' not in inputted_estimation_mode:
+        estimation_mode = ['SRP', inputted_estimation_mode.strip()]  # Add the inputted estimation mode to the default estimation mode of SRP
+    else:
+        inputted_estimation_mode = [param.strip() for param in inputted_estimation_mode.split(',')]  # Split the input string into a list if more than one parameters was specified
+        estimation_mode = ['SRP'].extend(inputted_estimation_mode)  # Add the inputted estimation mode to the default estimation mode of SRP
+
+    parameter_indices = [6] # Initialize with index for C_r, which is always included in estimation
+
+    # Update the a priori state and covariance to include the parameters being estimated
+    for param in estimation_mode:
+        if param == 'SRP':
+            continue  # Skip SRP since it is already included in the a priori state and covariance
+
+        parameter_indices.append(parameter_indices[-1] + 1)  # Add the next index for the next parameter being estimated
+
+        if param == 'mu':
+            a_priori_state = np.concatenate((a_priori_state, [mu_earth]))  # Add mu_earth to the a priori state if it is being estimated
+        elif param == 'Third Body':
+            a_priori_state = np.concatenate((a_priori_state, [mu_sun]))  # Add mu_sun to the a priori state if it is being estimated
+        elif param == 'Stations':
+            # Need to pull a priori state position estimates from station location dictionaries
+            for station in station_mgrs:
+                a_priori_state = np.concatenate((a_priori_state, station.station_state_ecef[0:3]))  # Add station position to the a priori state if it is being estimated
+        else:
+            print(f"Parameter {param} not recognized. Please enter 'mu', 'Third Body', 'Stations', or leave blank if no additional parameters are being estimated.")
+            exit()
+
+        flattened_cov = np.diag(a_priori_covariance)
+        if param == 'Stations':
+            param_covariance = input(f"Enter the covariance estimates for station position (in km and km/s, e.g., 1e-3, 1e-3, 1e-3): ")
+            param_covariance = [param.strip() for param in param_covariance.split(',')]
+            param_covariance = [float(cov) for cov in param_covariance]
+            # Reflatten covariance and add to the a priori covariance matrix
+            for station in station_mgrs:
+                flattened_cov = np.concatenate((flattened_cov, np.array(param_covariance)**2))  # Add the covariance for the station position to the flattened covariance array
+                a_priori_covariance = np.diag(flattened_cov)  # Convert back to diagonal covariance matrix
+        else:
+            param_covariance = float(input(f"Enter the a priori covariance for {param}: "))
+            # Add the covariance for this parameter to the a priori covariance matrix
+            flattened_cov = np.concatenate((flattened_cov, [param_covariance**2]))  # Add the covariance for this parameter to the flattened covariance array
+            a_priori_covariance = np.diag(flattened_cov)  # Convert back to diagonal covariance matrix
+
+    filter_to_run = str(input("Enter the filter to run (Batch, LKF, EKF, SRIF, UKF): ")).lower()
+
+    if filter_to_run not in ['batch', 'lkf', 'ekf', 'srif', 'ukf']:
+        print("Invalid filter choice. Please enter one of the following: Batch, LKF, EKF, SRIF, UKF")
+        exit()
+
+    # Load measurement data
+    # Load truth data and measurement data
+    measurement_data = load_measurement_data(unknown_dynamics_measurement_file_path)
+
+    # Convert measurement data to DataFrame format
+    measurement_df = convert_measurements_to_df(measurement_data, station_names=list(station_locations.keys()), period_of_data=period_of_data)
+    time_vector = measurement_data['time_vector']
+
+    integrator = initialize_integrator(initial_epoch, estimation_mode, parameter_indices)
+
+    print(f"A Priori State: {a_priori_state}")
+    print(f"A Priori Covariance: {a_priori_covariance}\n")
 
     state_length = len(a_priori_state)
 
@@ -250,6 +318,18 @@ if __name__ == "__main__":
         print("EKF Run Complete...")
         print("=" * 50, end='\n')
 
-    parameter_estimated = str(input("What parameter was included in estimation: "))
-    residual_fig = plot_residuals(time_vector, residuals_df, filter_name=filter_to_run, file_directory=f'ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}_{parameter_estimated}_{max_iterations}_iterations')
-    residual_fig.show()
+    fig_list = plot_residuals(time_vector, residuals_df, filter_name=filter_to_run, file_directory=f'ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}_{max_iterations}_iterations', auto_save=False)
+
+    parameters_estimated = ""
+    for param, cov in zip(estimation_mode, flattened_cov[6:]):
+        if estimation_mode == ['Stations'] and flag == False:
+            # If estimating station positions, need to include group the 3 covariances for each station together in the parameters_estimated string
+            parameters_estimated += f"{param}_{cov:.2e}_"
+            flag = True
+        else:
+            parameters_estimated += f"{param}_{cov:.2e}_"
+    
+    period_analyzed = f"{int(period_of_data[0])}-{int(period_of_data[1])}"
+
+    fig_list[-1][0].write_html(f"ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}/PREFIT_{parameters_estimated}IT_{max_iterations}_PER_{period_analyzed}.html")
+    fig_list[-1][1].write_html(f"ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}/POSTFIT_{parameters_estimated}IT_{max_iterations}_PER_{period_analyzed}.html")

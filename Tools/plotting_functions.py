@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from plotly.subplots import make_subplots
 
-def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filter_name: str, file_directory : str, colors_list: list = ['red', 'green', 'blue']):
+def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filter_name: str, file_directory : str, auto_save = True, colors_list: list = ['red', 'green', 'blue']):
     """
     Plot pre-fit and post-fit residuals for each iteration of the filter, including scatter plots of residuals over time and histograms of residual distributions. Also compute and print mean, standard deviation, and RMS of residuals for each iteration.
     Parameters:
@@ -16,12 +16,15 @@ def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filte
         Name of the filter being analyzed (e.g., "LKF", "Batch LLS") for plot titles.
     file_directory (str):
         Directory where the plots will be saved.
+    auto_save (bool), optional:
+        If True, automatically save the plots to the specified directory. If False, display the plots without saving. Default is True.
     colors_list (list), optional:
         List of colors to use for different stations in the plots. Default is ['red', 'green', 'blue'].
     Returns:
         None, but saves plots to the specified directory.
 
     """
+    fig_list = []
     for iteration in range(residuals_df['iteration'].max()+1):
         # Combine station residuals into a single vector for RMS calculation, this can be done by adding all the station residuals together for the given iteration (since none overlap in timing)
         relevant_residuals = residuals_df[residuals_df['iteration'] == iteration]['pre-fit'].values.copy()
@@ -51,7 +54,7 @@ def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filte
             relevant_residuals[i][relevant_residuals[i] == 0.0] = np.nan
 
         
-        fig = make_subplots(
+        fig_1 = make_subplots(
             rows=2, cols=2, 
             shared_xaxes=False,
             column_widths=[0.85, 0.15],
@@ -69,11 +72,11 @@ def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filte
             pre_fit_residuals = np.vstack(residuals_df[mask]['pre-fit'])
             
             # Add scatter plots (left column)
-            fig.add_trace(go.Scatter(x=time_vector, y=pre_fit_residuals[0,:]*1E5, 
+            fig_1.add_trace(go.Scatter(x=time_vector, y=pre_fit_residuals[0,:]*1E5, 
                                     mode='markers', name=f'{station_name}', 
                                     marker=dict(color=colors_list[i]), legendgroup=f'group{i}'), 
                          row=1, col=1)
-            fig.add_trace(go.Scatter(x=time_vector, y=pre_fit_residuals[1,:]*1E6, 
+            fig_1.add_trace(go.Scatter(x=time_vector, y=pre_fit_residuals[1,:]*1E6, 
                                     mode='markers', name=f'{station_name}', 
                                     marker=dict(color=colors_list[i]), 
                                     showlegend=False, legendgroup=f'group{i}'), 
@@ -86,28 +89,28 @@ def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filte
             all_range_rate_residuals.extend(valid_range_rate)
         
         # Add histograms (right column) - rotated to be vertical
-        fig.add_trace(go.Histogram(y=all_range_residuals, 
+        fig_1.add_trace(go.Histogram(y=all_range_residuals, 
                                   marker=dict(color='lightblue'),
                                   showlegend=False,
                                   nbinsy=50), 
                      row=1, col=2)
-        fig.add_trace(go.Histogram(y=all_range_rate_residuals, 
+        fig_1.add_trace(go.Histogram(y=all_range_rate_residuals, 
                                   marker=dict(color='lightcoral'),
                                   showlegend=False,
                                   nbinsy=50), 
                      row=2, col=2)
         
-        fig.update_traces(marker=dict(size=4), selector=dict(mode='markers'))
-        fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=1)
-        fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=1)
-        fig.update_xaxes(title_text="Count", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=2)
-        fig.update_xaxes(title_text="Count", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=2)
-        fig.update_yaxes(title_text="Range Residuals (cm)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=1, col=1)
-        fig.update_yaxes(title_text="Range Rate Residuals (mm/s)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=2, col=1)
-        fig.update_yaxes(showexponent="all", exponentformat="e", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=2)
-        fig.update_yaxes(showexponent="all", exponentformat="e", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=2)
-        fig.update_annotations(font=dict(size=24))
-        fig.update_layout(title_text=f"{filter_name} Pre-Fit Residuals at Iteration {iteration+1}",
+        fig_1.update_traces(marker=dict(size=4), selector=dict(mode='markers'))
+        fig_1.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=1)
+        fig_1.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=1)
+        fig_1.update_xaxes(title_text="Count", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=2)
+        fig_1.update_xaxes(title_text="Count", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=2)
+        fig_1.update_yaxes(title_text="Range Residuals (cm)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=1, col=1)
+        fig_1.update_yaxes(title_text="Range Rate Residuals (mm/s)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=2, col=1)
+        fig_1.update_yaxes(showexponent="all", exponentformat="e", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=2)
+        fig_1.update_yaxes(showexponent="all", exponentformat="e", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=2)
+        fig_1.update_annotations(font=dict(size=24))
+        fig_1.update_layout(title_text=f"{filter_name} Pre-Fit Residuals at Iteration {iteration+1}",
                         title_font=dict(size=30),
                         width=1900,  # Increased width to accommodate histograms
                         height=800,
@@ -118,12 +121,13 @@ def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filte
                                     xanchor="left",
                                     x=0.7,
                                     itemsizing='constant'))
-        fig.write_html(f"{file_directory}/{filter_name}_pre_fit_residuals_iteration_{iteration+1}.html")
-        # If a pngs folder is present in the file directory, also save as png
-        try:
-            fig.write_image(f"{file_directory}/pngs/{filter_name}_pre_fit_residuals_iteration_{iteration+1}.png")
-        except Exception as e:
-            pass
+        if auto_save:
+            fig_1.write_html(f"{file_directory}/{filter_name}_pre_fit_residuals_iteration_{iteration+1}.html")
+            # If a pngs folder is present in the file directory, also save as png
+            try:
+                fig_1.write_image(f"{file_directory}/pngs/{filter_name}_pre_fit_residuals_iteration_{iteration+1}.png")
+            except Exception as e:
+                pass
 
         # Combine station residuals into a single vector for RMS calculation, this can be done by adding all the station residuals together for the given iteration (since none overlap in timing)
         relevant_residuals = residuals_df[residuals_df['iteration'] == iteration]['post-fit'].values.copy()
@@ -151,7 +155,7 @@ def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filte
             # Set any NaN values to zero for RMS calculation
             relevant_residuals[i][relevant_residuals[i] == 0.0] = np.nan
 
-        fig = make_subplots(
+        fig_2 = make_subplots(
             rows=2, cols=2, 
             shared_xaxes=False,
             column_widths=[0.85, 0.15],
@@ -169,11 +173,11 @@ def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filte
             post_fit_residuals = np.vstack(residuals_df[mask]['post-fit'])
             
             # Add scatter plots (left column)
-            fig.add_trace(go.Scatter(x=time_vector, y=post_fit_residuals[0,:]*1E5, 
+            fig_2.add_trace(go.Scatter(x=time_vector, y=post_fit_residuals[0,:]*1E5, 
                                     mode='markers', name=f'{station_name}', 
                                     marker=dict(color=colors_list[i]), legendgroup=f'group{i}'), 
                          row=1, col=1)
-            fig.add_trace(go.Scatter(x=time_vector, y=post_fit_residuals[1,:]*1E6, 
+            fig_2.add_trace(go.Scatter(x=time_vector, y=post_fit_residuals[1,:]*1E6, 
                                     mode='markers', name=f'{station_name}', 
                                     marker=dict(color=colors_list[i]), 
                                     showlegend=False, legendgroup=f'group{i}'), 
@@ -186,28 +190,28 @@ def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filte
             all_range_rate_residuals.extend(valid_range_rate)
         
         # Add histograms (right column) - rotated to be vertical
-        fig.add_trace(go.Histogram(y=all_range_residuals, 
+        fig_2.add_trace(go.Histogram(y=all_range_residuals, 
                                   marker=dict(color='lightblue'),
                                   showlegend=False,
                                   nbinsy=50), 
                      row=1, col=2)
-        fig.add_trace(go.Histogram(y=all_range_rate_residuals, 
+        fig_2.add_trace(go.Histogram(y=all_range_rate_residuals, 
                                   marker=dict(color='lightcoral'),
                                   showlegend=False,
                                   nbinsy=50), 
                      row=2, col=2)
         
-        fig.update_traces(marker=dict(size=4), selector=dict(mode='markers'))
-        fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=1)
-        fig.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=1)
-        fig.update_xaxes(title_text="Count", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=2)
-        fig.update_xaxes(title_text="Count", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=2)
-        fig.update_yaxes(title_text="Range Residuals (cm)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=1, col=1)
-        fig.update_yaxes(title_text="Range Rate Residuals (mm/s)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=2, col=1)
-        fig.update_yaxes(showexponent="all", exponentformat="e", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=2)
-        fig.update_yaxes(showexponent="all", exponentformat="e", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=2)
-        fig.update_annotations(font=dict(size=24))
-        fig.update_layout(title_text=f"{filter_name} Post-Fit Residuals at Iteration {iteration+1}",
+        fig_2.update_traces(marker=dict(size=4), selector=dict(mode='markers'))
+        fig_2.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=1)
+        fig_2.update_xaxes(title_text="Time (s)", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=1)
+        fig_2.update_xaxes(title_text="Count", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=2)
+        fig_2.update_xaxes(title_text="Count", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=2)
+        fig_2.update_yaxes(title_text="Range Residuals (cm)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=1, col=1)
+        fig_2.update_yaxes(title_text="Range Rate Residuals (mm/s)", tickfont=dict(size=20), title_font=dict(size=22), showexponent="all", exponentformat="e", row=2, col=1)
+        fig_2.update_yaxes(showexponent="all", exponentformat="e", tickfont=dict(size=20), title_font=dict(size=22), row=1, col=2)
+        fig_2.update_yaxes(showexponent="all", exponentformat="e", tickfont=dict(size=20), title_font=dict(size=22), row=2, col=2)
+        fig_2.update_annotations(font=dict(size=24))
+        fig_2.update_layout(title_text=f"{filter_name} Post-Fit Residuals at Iteration {iteration+1}",
                         title_font=dict(size=30),
                         width=1900,  # Increased width to accommodate histograms
                         height=800,
@@ -218,13 +222,15 @@ def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filte
                                     xanchor="left",
                                     x=0.7,
                                     itemsizing='constant'))
-        fig.write_html(f"{file_directory}/{filter_name}_post_fit_residuals_iteration_{iteration+1}.html")
-        # If a pngs folder is present in the file directory, also save as png
-        try:
-            fig.write_image(f"{file_directory}/pngs/{filter_name}_post_fit_residuals_iteration_{iteration+1}.png")
-        except Exception as e:
-            pass
-        return fig
+        if auto_save:
+            fig_2.write_html(f"{file_directory}/{filter_name}_post_fit_residuals_iteration_{iteration+1}.html")
+            # If a pngs folder is present in the file directory, also save as png
+            try:
+                fig_2.write_image(f"{file_directory}/pngs/{filter_name}_post_fit_residuals_iteration_{iteration+1}.png")
+            except Exception as e:
+                pass
+        fig_list.append((fig_1, fig_2))
+        return fig_list
 
 def plot_state_errors(time_vector: np.ndarray, state_errors: np.ndarray, covariance_history : np.array, filter_name: str, file_directory: str, unit_multipliers: list = [1, 1], units = ['km', 'km/s'], y_axis_limits: list[list] = None, sigma_num : int = 3):
     """

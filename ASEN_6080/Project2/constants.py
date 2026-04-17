@@ -67,7 +67,6 @@ vy = -8.93838913761049
 vz = -3.87881914050316
 C_r = 1.0
 
-mu_earth_covariance = 1e5
-a_priori_state = np.array([x, y, z, vx, vy, vz, C_r, mu_earth])
-a_priori_covariance = np.diag([100, 100, 100, 0.1, 0.1, 0.1, 0.1, mu_earth_covariance])**2
+a_priori_state = np.array([x, y, z, vx, vy, vz, C_r])
+a_priori_covariance = np.diag([100, 100, 100, 0.1, 0.1, 0.1, 0.1])**2
 
