@@ -240,7 +240,7 @@ if __name__ == "__main__":
 
     # Set up adaptive SNC
     adaptive_snc_vec= np.zeros(state_length)
-    adaptive_snc_vec[2:6] = Q_adaptive  # Only apply adaptive SNC to velocity states
+    adaptive_snc_vec[3:6] = Q_adaptive  # Only apply adaptive SNC to velocity states
     adaptive_snc_mat = np.diag(adaptive_snc_vec)
 
     adaptive_snc = AdaptiveSNC(measurement_dimensionality=measurement_df.shape[1], alpha=alpha, window=window, Q_adaptive=adaptive_snc_mat)

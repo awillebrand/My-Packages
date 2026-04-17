@@ -240,6 +240,9 @@ class LKF:
         residuals_df = pd.DataFrame(columns=['iteration', 'station', 'pre-fit', 'post-fit'])
         # Begin iteration loop
         for iteration in range(max_iterations):
+            if adaptive_snc is not None:
+                adaptive_snc.epsilon_window = []  # Reset detector for new 
+                
             print(f"Starting LKF iteration {iteration+1} of {max_iterations}                           ")
             if process_noise_approach == 'DMC':
                 raw_state_length -= 3  # Remove DMC portion of state for integration and STM history, since DMC will be added in as process noise
