@@ -242,7 +242,7 @@ class LKF:
         for iteration in range(max_iterations):
             if adaptive_snc is not None:
                 adaptive_snc.epsilon_window = []  # Reset detector for new 
-                
+
             print(f"Starting LKF iteration {iteration+1} of {max_iterations}                           ")
             if process_noise_approach == 'DMC':
                 raw_state_length -= 3  # Remove DMC portion of state for integration and STM history, since DMC will be added in as process noise
@@ -424,7 +424,7 @@ class LKF:
                         predict_P[-3:, 0:6] = predict_P[-3:, 0:6] + Q_w[6:, 0:6]  # Add DMC-state cross covariance
                         predict_P[-3:, -3:] = predict_P[-3:, -3:] + Q_w[6:, 6:]  # Add DMC covariance
 
-                    if process_noise_approach == 'Adaptive SNC' and adaptive_snc is not None:
+                    if process_noise_approach == 'Adaptive SNC' and adaptive_snc is not None and iteration == max_iterations - 1:
                         if adaptive_snc.add_Q_adaptive(stacked_residuals, stacked_H, predict_P, stacked_R):
 
                             Q_adaptive = adaptive_snc.Q_adaptive

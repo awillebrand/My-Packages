@@ -289,7 +289,7 @@ class EKF:
                     H_total = np.concatenate((H_sc, np.zeros((2, raw_state_length - 6))), axis = 1)  # Pad H_sc to match full state size
 
                     if 'Stations' in self.integrator.estimation_mode:
-                        ecef_to_eci = self.coordinate_mgr.compute_DCM('ECEF', 'ECI', time=time_vector[j])
+                        ecef_to_eci = self.coordinate_mgr.compute_DCM('ECEF', 'ECI', time=time)
                         H_station_ecef = H_station @ ecef_to_eci
 
                         num_stations = self.integrator.number_of_stations

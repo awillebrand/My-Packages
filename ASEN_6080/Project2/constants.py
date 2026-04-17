@@ -71,6 +71,6 @@ a_priori_state = np.array([x, y, z, vx, vy, vz, C_r])
 a_priori_covariance = np.diag([100, 100, 100, 0.1, 0.1, 0.1, 0.1])**2
 
 # Adapative SNCparams
-alpha = 0.05
+alpha = 0.005
 window = 10
-Q_adaptive = 1e-4
+Q_adaptive = 1e-3 # 1 m/s adaptive process noise for velocity states
