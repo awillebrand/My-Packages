@@ -306,8 +306,8 @@ if __name__ == "__main__":
             start_length = int(input("Enter the number of measurements to use for the hot start (e.g., 10): "))
         else:
             start_length = 0
-        process_noise_type = str(input("Enter the process noise approach for the EKF ('SNC' or 'None'): "))
-        if process_noise_type != "None":
+        process_noise_type = str(input("Enter the process noise approach for the EKF ('SNC', 'Adaptive SNC', or 'None'): "))
+        if process_noise_type == "SNC":
             Q = input("Enter the process noise covariance matrix Q as a flattened list (e.g., for a 3x3 identity matrix, enter 1, 1, 1): ")
             Q = np.diag([float(q) for q in Q.split(',')])  # Convert the input string into a diagonal matrix
         else:
@@ -325,7 +325,8 @@ if __name__ == "__main__":
                                                   start_mode=start_mode,
                                                   start_length=start_length,
                                                   process_noise_approach=process_noise_type,
-                                                  Q=Q)
+                                                  Q=Q,
+                                                  adaptive_snc=adaptive_snc)
         print("=" * 50)
         print("EKF Run Complete...")
         print("=" * 50, end='\n')

@@ -193,7 +193,7 @@ class EKF:
             print("Starting EKF in warm start mode.")
             # Run LKF on initial measurements to get initial state correction
             lkf = LKF(self.integrator, self.measurement_mgrs, initial_earth_spin_angle=self.coordinate_mgr.initial_earth_spin_angle, earth_rotation_rate=self.coordinate_mgr.earth_rotation_rate)
-            [lkf_x_history, lkf_P_history, residuals_df] = lkf.run(initial_state, initial_x_correction, initial_covariance, measurement_data.iloc[0:start_length], Q=Q, R=R, max_iterations=1, process_noise_approach=process_noise_approach, Q_frame=Q_frame, beta_mat=beta_mat)
+            [lkf_x_history, lkf_P_history, residuals_df] = lkf.run(initial_state, initial_x_correction, initial_covariance, measurement_data.iloc[0:start_length], Q=Q, R=R, max_iterations=1, process_noise_approach=process_noise_approach, Q_frame=Q_frame, beta_mat=beta_mat, adaptive_snc=adaptive_snc)
                     
             P = lkf_P_history[:,:,-1]
             X_k_0 = lkf_x_history[:,-1]

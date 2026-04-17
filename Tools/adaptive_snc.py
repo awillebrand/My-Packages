@@ -2,7 +2,7 @@ import numpy as np
 from scipy.stats import chi2
 
 class AdaptiveSNC:
-    def __init__(self, alpha : float, window : float, Q_adaptive : float, measurement_dimensionality : int = 2):
+    def __init__(self, alpha : float, window : float, Q_adaptive : np.ndarray, measurement_dimensionality : int = 2):
         """
         This class implements an adaptive sequential noise covariance (SNC) algorithm for outlier detection in measurement data relying on chi squared distribution filter consistency.
         Parameters:
