@@ -63,20 +63,71 @@ for i, time in enumerate(t):
     attitude_errors[i, :3] = sigma_error
     attitude_errors[i, 3:] = omega_error
 
-# Plot the results
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=t, y=attitude_errors[:, 0], mode='lines', name='sigma_1'))
-fig.add_trace(go.Scatter(x=t, y=attitude_errors[:, 1], mode='lines', name='sigma_2'))
-fig.add_trace(go.Scatter(x=t, y=attitude_errors[:, 2], mode='lines', name='sigma_3'))
-fig.update_layout(title='MRP Attitude Error Over Time', xaxis_title='Time (s)', yaxis_title='MRP Components')
-fig.show()
+# Find the errors at 120 seconds
+idx_120 = np.where(t == 120)[0][0]
+attitude_error_at_120 = attitude_errors[idx_120,:]
+initial_attitude_error = attitude_errors[0,:]
 
+# Compute relative drop in error at 120 seconds compared to initial error
+relative_drop = np.abs(attitude_error_at_120 / initial_attitude_error)
+
+# Display the attitude error at 120 seconds as well as the initial errors and the relative drop
+print(f"initial attitude error (MRP components): {initial_attitude_error[:3]}")
+print(f"attitude error at 120 seconds (MRP components): {attitude_error_at_120[:3]}")
+print(f"relative drop in attitude error at 120 seconds compared to initial error: {relative_drop[:3]}\n")
+print(f"initial attitude error (angular velocity components): {initial_attitude_error[3:]}")
+print(f"attitude error at 120 seconds (angular velocity components): {attitude_error_at_120[3:]}")
+print(f"relative drop in attitude error at 120 seconds compared to initial error: {relative_drop[3:]}")
+
+plot_style = dict(
+    font=dict(family='DejaVu Sans, Arial, sans-serif', size=24),
+    xaxis=dict(
+        showgrid=True, gridcolor='white', gridwidth=1,
+        showline=False, zeroline=False,
+        tickfont=dict(size=18),
+    ),
+    yaxis=dict(
+        showgrid=True, gridcolor='white', gridwidth=1,
+        showline=False, zeroline=False,
+         tickfont=dict(size=18)
+    ),
+    legend=dict(
+        x=1.02, y=0.95, xanchor='left', yanchor='middle',
+        bgcolor='rgba(0,0,0,0)', borderwidth=0, font=dict(size=30)
+    ),
+    margin=dict(l=70, r=120, t=70, b=60),
+    height = 400,
+    width = 1200
+)
+title_font = dict(family='DejaVu Sans, Arial, sans-serif', size=30)
+
+# MRP Attitude Error plot
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=t, y=attitude_errors[:, 3], mode='lines', name='omega_1'))
-fig.add_trace(go.Scatter(x=t, y=attitude_errors[:, 4], mode='lines', name='omega_2'))
-fig.add_trace(go.Scatter(x=t, y=attitude_errors[:, 5], mode='lines', name='omega_3'))
-fig.update_layout(title='Angular Velocity Error Over Time', xaxis_title='Time (s)', yaxis_title='Angular Velocity Components (rad/s)')
-fig.show()
+fig.add_trace(go.Scatter(x=t, y=attitude_errors[:, 0], mode='lines', name=r"$\Large\sigma_1$", line=dict(width=5)))
+fig.add_trace(go.Scatter(x=t, y=attitude_errors[:, 1], mode='lines', name=r"$\Large\sigma_2$", line=dict(width=5)))
+fig.add_trace(go.Scatter(x=t, y=attitude_errors[:, 2], mode='lines', name=r"$\Large\sigma_3$", line=dict(width=5)))
+fig.update_layout(
+    **plot_style,
+    title=dict(text=f'{pointing_mode} Pointing MRP Attitude Error Time History', font=title_font),
+    xaxis_title='Time (s)',
+    yaxis_title='MRP',
+)
+fig.write_html(f"ASEN_5010/Final_Project/figures/{pointing_mode}_MRP_attitude_error.html", include_mathjax='cdn')
+fig.write_image(f"ASEN_5010/Final_Project/figures/{pointing_mode}_MRP_attitude_error.png")
+
+# Angular Velocity Error plot
+fig = go.Figure()
+fig.add_trace(go.Scatter(x=t, y=attitude_errors[:, 3], mode='lines', name=r'$\Large\omega_1$', line=dict(width=5)))
+fig.add_trace(go.Scatter(x=t, y=attitude_errors[:, 4], mode='lines', name=r'$\Large\omega_2$', line=dict(width=5)))
+fig.add_trace(go.Scatter(x=t, y=attitude_errors[:, 5], mode='lines', name=r'$\Large\omega_3$', line=dict(width=5)))
+fig.update_layout(
+    **plot_style,
+    title=dict(text=f'{pointing_mode} Pointing Angular Velocity Error Time History', font=title_font),
+    xaxis_title='Time (s)',
+    yaxis_title='Angular Velocity (rad/s)',
+)
+fig.write_html(f"ASEN_5010/Final_Project/figures/{pointing_mode}_angular_velocity_error.html", include_mathjax='cdn')
+fig.write_image(f"ASEN_5010/Final_Project/figures/{pointing_mode}_angular_velocity_error.png")
 
 # Save solutions at interest times to files
 for i, time in enumerate(times_of_interest):

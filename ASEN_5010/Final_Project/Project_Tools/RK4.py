@@ -9,7 +9,7 @@ from Testing_Scripts.initial_conditions import r_mars, r_LMO, raan_LMO, inc_LMO,
 """
 Runge-Kutta 4th order method for solving ordinary differential equations (ODEs).
 """
-def rk4(y0, t, I, P, K, pointing_mode=None):
+def rk4(y0, t, I, P, K, pointing_mode=None, inputted_u=None):
     """
     Perform the RK4 integration.
 
@@ -32,6 +32,8 @@ def rk4(y0, t, I, P, K, pointing_mode=None):
         2. Nadir Pointing: Occurs when the spacecraft is on the shadow side of the planet (LMO spacecraft has positive inertial position coordinates in the n2 axis) and the GMO satellite is not visible.
         3. GMO Pointing: Occurs when the spacecraft is on the shadow side of the planet (LMO spacecraft has positive inertial position coordinates in the n2 axis) and the GMO satellite is visible.
          If a specific pointing mode is provided, it will override the automatic determination based on the simulation scenario.
+    inputted_u : np.ndarray, optional
+        A control vector to be applied at each time step. If None, the control vector will be computed based on the attitude error and angular velocity error relative to the reference frame determined by the pointing mode.
     Returns:
     y : np.array
         Array of solution values corresponding to each time point in t.
@@ -54,12 +56,21 @@ def rk4(y0, t, I, P, K, pointing_mode=None):
 
     n = len(t)
     y = [y0]
+    init_LMO_pos, _ = get_orbit_state(r_LMO, raan_LMO, inc_LMO, ta_0_LMO)
+    init_GMO_pos, _ = get_orbit_state(r_GMO, raan_GMO, inc_GMO, ta_0_GMO)
+    LMO_pos_list = [init_LMO_pos]
+    GMO_pos_list = [init_GMO_pos]
+    mode_list = ['Sun Pointing']
     previous_pointing_mode = None
     for i in range(1, n):
         # Determine the current pointing mode based on mission scenario
         if pointing_mode is None:
             time = t[i-1]
             pos_LMO, _ = get_orbit_state(r_LMO, raan_LMO, inc_LMO, ta_0_LMO + ta_dot_LMO * time)
+            pos_GMO, _ = get_orbit_state(r_GMO, raan_GMO, inc_GMO, ta_0_GMO + ta_dot_GMO * time)
+
+            LMO_pos_list.append(pos_LMO)
+            GMO_pos_list.append(pos_GMO)
 
             if pos_LMO[1] > 0:
                 if previous_pointing_mode != 'Sun':
@@ -67,6 +78,7 @@ def rk4(y0, t, I, P, K, pointing_mode=None):
                 previous_pointing_mode = 'Sun'
                 DCM_ref_func = sun_frame_dcm
                 omega_ref_func = sun_frame_angular_velocity
+                mode_list.append('Sun Pointing')
             else:
                 pos_GMO, _ = get_orbit_state(r_GMO, raan_GMO, inc_GMO, ta_0_GMO + ta_dot_GMO * time)
                 # Check if GMO is visible (this is a placeholder condition; the actual visibility check would depend on the spacecraft's position and the GMO's position)
@@ -77,12 +89,14 @@ def rk4(y0, t, I, P, K, pointing_mode=None):
                     previous_pointing_mode = 'GMO'
                     DCM_ref_func = GMO_pointing_frame_dcm
                     omega_ref_func = GMO_pointing_frame_angular_velocity
+                    mode_list.append('GMO Pointing')
                 else:
                     if previous_pointing_mode != 'Nadir':
                         print("Nadir pointing mode starting at time:", time)
                     previous_pointing_mode = 'Nadir'
                     DCM_ref_func = nadir_frame_dcm
                     omega_ref_func = nadir_frame_angular_velocity
+                    mode_list.append('Nadir Pointing')
 
         dt = t[i] - t[i-1]
         # Compute control vector for current state
@@ -96,7 +110,10 @@ def rk4(y0, t, I, P, K, pointing_mode=None):
         sigma_BR, omega_BR = attitude_error_eval(t, sigma, omega, DCM_ref, omega_ref)
 
         # Compute the control vector based on the attitude error and angular velocity error
-        u = control_vector(P, K, sigma_BR, omega_BR)
+        if inputted_u is not None:
+            u = inputted_u
+        else:
+            u = control_vector(P, K, sigma_BR, omega_BR)
 
         k1 = dt * eom(y[-1], t[i-1], I, u)
         k2 = dt * eom(y[-1] + 0.5 * k1, t[i-1] + 0.5 * dt, I, u)
@@ -112,8 +129,10 @@ def rk4(y0, t, I, P, K, pointing_mode=None):
     
     # Convert to numpy array for easier handling
     y = np.array(y)
+    LMO_pos_list = np.array(LMO_pos_list)
+    GMO_pos_list = np.array(GMO_pos_list)
 
-    return y
+    return y, LMO_pos_list, GMO_pos_list, mode_list
 
 def eom(state, t, I, u):
     """
