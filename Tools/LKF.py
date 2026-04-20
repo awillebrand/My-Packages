@@ -424,9 +424,8 @@ class LKF:
                         predict_P[-3:, 0:6] = predict_P[-3:, 0:6] + Q_w[6:, 0:6]  # Add DMC-state cross covariance
                         predict_P[-3:, -3:] = predict_P[-3:, -3:] + Q_w[6:, 6:]  # Add DMC covariance
 
-                    if process_noise_approach == 'Adaptive SNC' and adaptive_snc is not None and iteration == max_iterations - 1:
+                    if process_noise_approach == 'Adaptive SNC' and adaptive_snc is not None and iteration == max_iterations - 1 and dt < 120:
                         if adaptive_snc.add_Q_adaptive(stacked_residuals, stacked_H, predict_P, stacked_R):
-
                             Q_adaptive = adaptive_snc.Q_adaptive
                             # If adaptive SNC indicates to add process noise, add it to the predicted covariance
                             if Q_frame == 'RIC':
@@ -436,7 +435,9 @@ class LKF:
                             elif Q_frame == 'ECI':
                                 Q_eci = Q_adaptive
 
-                            predict_P[0:6, 0:6] = predict_P[0:6, 0:6] + Q_eci[0:6, 0:6]  # Add only the state covariance portion of Q_adaptive
+                            delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
+                            Gamma = delta_t * np.concatenate((0.5 * delta_t * np.eye(3), np.eye(3)), axis=0)
+                            predict_P[0:6, 0:6] = predict_P[0:6, 0:6] + Gamma @ Q_eci @ Gamma.T
 
                     prediction_covariance_estimates[:,:,k] = predict_P
 

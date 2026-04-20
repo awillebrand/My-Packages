@@ -131,7 +131,9 @@ class EKF:
             process_noise_approach : str = 'None',
             Q_frame : str = 'ECI',
             beta_mat : np.ndarray = None,
-            adaptive_snc : AdaptiveSNC = None,):
+            adaptive_snc : AdaptiveSNC = None,
+            reset_time : float = None,
+            reset_covariance : np.ndarray = None):
         """
         Run the Extended Kalman Filter over the provided measurement data.
 
@@ -160,6 +162,10 @@ class EKF:
             A 3x3 diagonal matrix of time constants for DMC. Required if process_noise_approach is 'DMC'.
         adaptive_snc : AdaptiveSNC, optional
             An instance of the AdaptiveSNC class for adaptive sequential noise covariance. Required if process_noise_approach is 'Adaptive SNC'.
+        reset_time : float, optional
+            A time at which to reset the covariance to the initial values. Used if a maneuver is expected to have occured. Default is None (no reset).
+        reset_covariance : np.ndarray, optional
+            The covariance matrix to reset to at reset_time. If None, will reset to initial_covariance. Default is None.
         Returns:
         Tuple
             A tuple containing the state estimates and covariance estimates over time.
@@ -236,6 +242,15 @@ class EKF:
 
             # Predict covariance
             predict_P = self.predict(P, phi)
+
+            # Check if we need to reset covariance due to expected maneuver
+            if reset_time is not None and time == reset_time:
+                print(f"Resetting covariance at time {reset_time} due to expected maneuver.")
+                if reset_covariance is not None:
+                    predict_P = reset_covariance
+                else:
+                    predict_P = initial_covariance
+
             # Add process noise if using SNC approach
             dt = time_vector[k] - time_vector[k-1]
             if process_noise_approach == 'SNC' and dt < 120:
@@ -319,7 +334,7 @@ class EKF:
                     visible_R = [R for _ in visible_station_indices]
                     stacked_R = block_diag(*visible_R)
 
-                    if process_noise_approach == 'Adaptive SNC' and adaptive_snc is not None:
+                    if process_noise_approach == 'Adaptive SNC' and adaptive_snc is not None and dt < 120:
                         if adaptive_snc.add_Q_adaptive(stacked_residuals, stacked_H, predict_P, stacked_R):
 
                             Q_adaptive = adaptive_snc.Q_adaptive
@@ -330,8 +345,9 @@ class EKF:
                                 Q_eci = dcm.T @ Q_adaptive @ dcm
                             elif Q_frame == 'ECI':
                                 Q_eci = Q_adaptive
-
-                            predict_P[0:6, 0:6] = predict_P[0:6, 0:6] + Q_eci[0:6, 0:6]  # Add only the state covariance portion of Q_adaptive
+                            delta_t = time_vector[k] - time_vector[k-1] if k > 0 else 0
+                            Gamma = np.concatenate((delta_t * np.eye(3), np.eye(3)), axis=0)
+                            predict_P[0:6, 0:6] = predict_P[0:6, 0:6] + Gamma @ Q_eci @ Gamma.T
 
                     # Update step
                     x_hat, P = self.update(predict_P, stacked_residuals, stacked_H, stacked_R)

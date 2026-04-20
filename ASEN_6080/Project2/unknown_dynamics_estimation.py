@@ -207,13 +207,15 @@ if __name__ == "__main__":
             exit()
 
         if param == 'Stations':
-            param_covariance = input(f"Enter the covariance estimates for station position (in km and km/s, e.g., 1e-3, 1e-3, 1e-3): ")
-            param_covariance = [param.strip() for param in param_covariance.split(',')]
-            param_covariance = [float(cov) for cov in param_covariance]
-            # Reflatten covariance and add to the a priori covariance matrix
-            for station in station_mgrs:
-                flattened_cov = np.concatenate((flattened_cov, np.array(param_covariance)**2))  # Add the covariance for the station position to the flattened covariance array
-                a_priori_covariance = np.diag(flattened_cov)  # Convert back to diagonal covariance matrix
+            DSS34_covariance = float(input(f"Enter the covariance estimates for DSS34 position (in km and km/s, e.g., 1e-3): "))
+            DSS65_covariance = float(input(f"Enter the covariance estimates for DSS65 position (in km and km/s, e.g., 1e-3): "))
+            DSS13_covariance = float(input(f"Enter the covariance estimates for DSS13 position (in km and km/s, e.g., 1e-3): "))
+            # Use same value for 3D covariance of station
+            DSS34_covariance = [DSS34_covariance, DSS34_covariance, DSS34_covariance]  # Create a list of the covariance values for the station position
+            DSS65_covariance = [DSS65_covariance, DSS65_covariance, DSS65_covariance]  # Create a list of the covariance values for the station position
+            DSS13_covariance = [DSS13_covariance, DSS13_covariance, DSS13_covariance]  # Create a list of the covariance values for the station position
+            flattened_cov = np.concatenate((flattened_cov, DSS34_covariance, DSS65_covariance, DSS13_covariance))  # Add the covariance for the station positions to the flattened covariance array
+            a_priori_covariance = np.diag(flattened_cov)  # Convert back to diagonal covariance matrix
         else:
             param_covariance = float(input(f"Enter the a priori covariance for {param}: "))
             # Add the covariance for this parameter to the a priori covariance matrix
@@ -239,9 +241,8 @@ if __name__ == "__main__":
     state_length = len(a_priori_state)
 
     # Set up adaptive SNC
-    adaptive_snc_vec= np.zeros(state_length)
-    adaptive_snc_vec[3:6] = Q_adaptive**2  # Only apply adaptive SNC to velocity states
-    adaptive_snc_mat = np.diag(adaptive_snc_vec)
+    
+    adaptive_snc_mat = np.diag([Q_adaptive**2, Q_adaptive**2, Q_adaptive**2])
 
     adaptive_snc = AdaptiveSNC(alpha=alpha, window=window, Q_adaptive=adaptive_snc_mat)
 
@@ -312,7 +313,13 @@ if __name__ == "__main__":
             Q = np.diag([float(q) for q in Q.split(',')])  # Convert the input string into a diagonal matrix
         else:
             Q = None
-
+        reset_day_input = input("Enter a day at which to reset the covariance to the initial values due to an expected maneuver (or leave blank for no reset): ")
+        if reset_day_input:
+            reset_day = float(reset_day_input)
+            reset_time = reset_day * 24 * 3600  # Convert day to seconds
+            reset_covariance = a_priori_covariance  # Reset to the initial covariance
+        else:
+            reset_time = None
         max_iterations = 0
         print("Running EKF...")
         print("=" * 50, end='\n')
@@ -326,7 +333,9 @@ if __name__ == "__main__":
                                                   start_length=start_length,
                                                   process_noise_approach=process_noise_type,
                                                   Q=Q,
-                                                  adaptive_snc=adaptive_snc)
+                                                  adaptive_snc=adaptive_snc,
+                                                  reset_time=reset_time,
+                                                  reset_covariance=reset_covariance)
         print("=" * 50)
         print("EKF Run Complete...")
         print("=" * 50, end='\n')
@@ -334,18 +343,25 @@ if __name__ == "__main__":
     fig_list = plot_residuals(time_vector, residuals_df, filter_name=filter_to_run, file_directory=f'ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}_{max_iterations}_iterations', auto_save=False)
 
     parameters_estimated = ""
+    flag = False
     for param, cov in zip(estimation_mode, flattened_cov[6:]):
-        if estimation_mode == ['Stations'] and flag == False:
+        current_idx = estimation_mode.index(param)
+        if param == 'Stations' and flag == False:
             # If estimating station positions, need to include group the 3 covariances for each station together in the parameters_estimated string
             parameters_estimated += f"{param}_{cov:.2e}_"
+            # get next 6 covariances for the next two stations and add to the parameters_estimated string
+            for i in range(2):
+                idx = current_idx + (i+1)*3  # Get the index for the next station's covariance
+                cov = flattened_cov[6 + idx]  # Get the covariance for the next station
+                parameters_estimated += f"{cov:.2e}_"
             flag = True
         else:
             parameters_estimated += f"{param}_{cov:.2e}_"
     
     period_analyzed = f"{int(period_of_data[0])}-{int(period_of_data[1])}"
 
-    fig_list[-1][0].write_html(f"ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}/PREFIT_{parameters_estimated}IT_{max_iterations}_PER_{period_analyzed}_{process_noise_type}.html")
-    fig_list[-1][1].write_html(f"ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}/POSTFIT_{parameters_estimated}IT_{max_iterations}_PER_{period_analyzed}_{process_noise_type}.html")
+    fig_list[-1][0].write_html(f"ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}/new/PREFIT_{parameters_estimated}IT_{max_iterations}_PER_{period_analyzed}_{process_noise_type}.html")
+    fig_list[-1][1].write_html(f"ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}/new/POSTFIT_{parameters_estimated}IT_{max_iterations}_PER_{period_analyzed}_{process_noise_type}.html")
     
     print(f"Initial State Estimate:")
     print(f"Position: {(x_hist[0:3, 0])} km")
@@ -371,3 +387,7 @@ if __name__ == "__main__":
             station_position_change = x_hist[station_index:station_index+3, -1] - a_priori_state[station_index:station_index+3]
             print(f"{station.station_name} Position Change from A Priori State: {station_position_change} km")
             station_index += 3  # Move to the next station position in the state vector for the next iteration of the loop
+
+    # Save final state estimate and covariance to a text file
+    np.savetxt(f'ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}/new/FINAL_ESTIMATE_{parameters_estimated}IT_{max_iterations}_PER_{period_analyzed}_{process_noise_type}.txt', x_hist[:, -1])
+    np.savetxt(f'ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}/new/FINAL_COVARIANCE_{parameters_estimated}IT_{max_iterations}_PER_{period_analyzed}_{process_noise_type}.txt', P_hist[:, :, -1])
