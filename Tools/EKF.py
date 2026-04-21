@@ -228,6 +228,10 @@ class EKF:
 
         pre_fit_residuals_mat = np.full((len(self.measurement_mgrs)*2, len(time_vector[1:])), np.nan)  # Assuming 2 measurements per station
         post_fit_residuals_mat = np.full((len(self.measurement_mgrs)*2, len(time_vector[1:])), np.nan)  # Assuming 2 measurements per station
+
+        # Flag to track if covariance reset has occurred
+        covariance_reset_occurred = False
+
         # Perform EKF estimation process
         for k, time in enumerate(time_vector[1:], start=1):
             print(f"EKF Time Step {k}/{len(time_vector)-1}         ", end='\r')
@@ -244,8 +248,9 @@ class EKF:
             predict_P = self.predict(P, phi)
 
             # Check if we need to reset covariance due to expected maneuver
-            if reset_time is not None and time == reset_time:
+            if reset_time is not None and time >= reset_time and covariance_reset_occurred == False:
                 print(f"Resetting covariance at time {reset_time} due to expected maneuver.")
+                covariance_reset_occurred = True
                 if reset_covariance is not None:
                     predict_P = reset_covariance
                 else:

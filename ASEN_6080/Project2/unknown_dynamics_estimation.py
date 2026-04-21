@@ -15,7 +15,7 @@ from Tools.plotting_functions import plot_residuals, plot_state_errors
 
 from constants import unknown_dynamics_measurement_file_path, a_priori_state, a_priori_covariance, observation_noise, initial_spin_angle, earth_spin_rate, station_locations
 from constants import C_r, mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, initial_epoch, initial_epoch_jd
-from constants import alpha, window, Q_adaptive
+from constants import alpha, window, Q_adaptive, maneuver_reset_covariance
 np.set_printoptions(linewidth=200)
 
 def load_measurement_data(file_path):
@@ -313,11 +313,11 @@ if __name__ == "__main__":
             Q = np.diag([float(q) for q in Q.split(',')])  # Convert the input string into a diagonal matrix
         else:
             Q = None
-        reset_day_input = input("Enter a day at which to reset the covariance to the initial values due to an expected maneuver (or leave blank for no reset): ")
+        reset_day_input = input("Enter a day at which to reset the covariance values due to an expected maneuver (or leave blank for no reset): ")
         if reset_day_input:
             reset_day = float(reset_day_input)
             reset_time = reset_day * 24 * 3600  # Convert day to seconds
-            reset_covariance = a_priori_covariance  # Reset to the initial covariance
+            reset_covariance = maneuver_reset_covariance  # Reset to the initial covariance
         else:
             reset_time = None
         max_iterations = 0
@@ -340,7 +340,7 @@ if __name__ == "__main__":
         print("EKF Run Complete...")
         print("=" * 50, end='\n')
 
-    fig_list = plot_residuals(time_vector, residuals_df, filter_name=filter_to_run, file_directory=f'ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}_{max_iterations}_iterations', auto_save=False)
+    fig_list = plot_residuals(time_vector, residuals_df, filter_name=filter_to_run, file_directory=f'ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}_{max_iterations}_iterations', auto_save=False, omit_outliers=True)
 
     parameters_estimated = ""
     flag = False
@@ -360,8 +360,8 @@ if __name__ == "__main__":
     
     period_analyzed = f"{int(period_of_data[0])}-{int(period_of_data[1])}"
 
-    fig_list[-1][0].write_html(f"ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}/new/PREFIT_{parameters_estimated}IT_{max_iterations}_PER_{period_analyzed}_{process_noise_type}.html")
-    fig_list[-1][1].write_html(f"ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}/new/POSTFIT_{parameters_estimated}IT_{max_iterations}_PER_{period_analyzed}_{process_noise_type}.html")
+    fig_list[-1][0].write_html(f"ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}/final/PREFIT_{parameters_estimated}IT_{max_iterations}_PER_{period_analyzed}_{process_noise_type}.html")
+    fig_list[-1][1].write_html(f"ASEN_6080/Project2/part_3_figures/residuals/{filter_to_run}/final/POSTFIT_{parameters_estimated}IT_{max_iterations}_PER_{period_analyzed}_{process_noise_type}.html")
     
     print(f"Initial State Estimate:")
     print(f"Position: {(x_hist[0:3, 0])} km")

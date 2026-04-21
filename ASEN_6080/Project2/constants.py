@@ -74,3 +74,4 @@ a_priori_covariance = np.diag([100, 100, 100, 0.1, 0.1, 0.1, 0.1])**2
 alpha = 0.005
 window = 10
 Q_adaptive = 5e-7 # 1 mm/s adaptive process noise for velocity states
+maneuver_reset_covariance = np.diag([10, 10, 10, 0.5, 0.5, 0.5, 0.05, 1e-8, 1e-8, 1e-8, 1e-3, 1e-3, 1e-3, 1e-8, 1e-8, 1e-8])**2

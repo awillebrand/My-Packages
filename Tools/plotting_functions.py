@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from plotly.subplots import make_subplots
 
-def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filter_name: str, file_directory : str, auto_save = True, colors_list: list = ['red', 'green', 'blue']):
+def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filter_name: str, file_directory : str, auto_save = True, colors_list: list = ['red', 'green', 'blue'], omit_outliers = False):
     """
     Plot pre-fit and post-fit residuals for each iteration of the filter, including scatter plots of residuals over time and histograms of residual distributions. Also compute and print mean, standard deviation, and RMS of residuals for each iteration.
     Parameters:
@@ -20,6 +20,8 @@ def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filte
         If True, automatically save the plots to the specified directory. If False, display the plots without saving. Default is True.
     colors_list (list), optional:
         List of colors to use for different stations in the plots. Default is ['red', 'green', 'blue'].
+    omit_outliers (bool), optional:
+        If True, omit outliers from the residuals when calculating statistics and plotting. Outliers can be defined as residuals that are more than 5 standard deviations from the mean. Default is False.
     Returns:
         None, but saves plots to the specified directory.
 
@@ -37,6 +39,14 @@ def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filte
 
         # Reset zeros to NaN so they aren't included in RMS calculation
         combined_residuals[combined_residuals == 0.0] = np.nan
+
+        # If omitting outliers, set any residuals that are more than 5 standard deviations from the mean to NaN
+        if omit_outliers:
+            mean_residuals = np.nanmean(combined_residuals, axis=1)
+            std_residuals = np.nanstd(combined_residuals, axis=1)
+            for i in range(combined_residuals.shape[0]):
+                outlier_mask = np.abs(combined_residuals[i,:] - mean_residuals[i]) > 5 * std_residuals[i]
+                combined_residuals[i, outlier_mask] = np.nan
         
         # Compute RMS of combined residuals for the iteration
         rms_range_residual = np.sqrt(np.abs(np.nanmean((combined_residuals[0,:]*1E5) **2))) # Convert from km to cm for RMS calculation
