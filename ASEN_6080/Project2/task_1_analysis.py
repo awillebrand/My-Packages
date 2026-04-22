@@ -54,11 +54,27 @@ def run_task_1_analysis():
         marker=dict(size=3, color='red')
     ))
     fig.update_layout(
-        title='Comparison of Integrated Trajectory to Truth Data',
+        title=dict(
+            text='Comparison of Integrated Trajectory to Truth Data', 
+            font=dict(size=30)  # Increased from 20
+        ),
         scene=dict(
-            xaxis_title='X (km)',
-            yaxis_title='Y (km)',
-            zaxis_title='Z (km)'
+            xaxis=dict(
+                title=dict(text='X (km)', font=dict(size=18)),
+                tickfont=dict(size=16)  # Larger axis ticks
+            ),
+            yaxis=dict(
+                title=dict(text='Y (km)', font=dict(size=18)),
+                tickfont=dict(size=16)
+            ),
+            zaxis=dict(
+                title=dict(text='Z (km)', font=dict(size=18)),
+                tickfont=dict(size=16)
+            )
+        ),
+        legend=dict(
+            font=dict(size=20),  # Larger legend text
+            itemsizing='constant' # Keeps the legend symbols visible
         )
     )
 
@@ -80,16 +96,20 @@ def run_task_1_analysis():
     fig.add_trace(go.Scatter(x=time_vector, y=state_error[3, :], mode='lines', name='Vx Error'), row=1, col=2)
     fig.add_trace(go.Scatter(x=time_vector, y=state_error[4, :], mode='lines', name='Vy Error'), row=2, col=2)
     fig.add_trace(go.Scatter(x=time_vector, y=state_error[5, :], mode='lines', name='Vz Error'), row=3, col=2)
-    fig.update_layout(title='State Error Between Integrated Trajectory and Truth Data', showlegend=False)
+    fig.update_layout(title='State Error Between Integrated Trajectory and Truth Data', showlegend=False, height = 800, width=1200)
+    fig.update_layout(title_font_size=30)  # Increase main title font size
+    fig.update_annotations(font_size=20)  # Increase subplot title font size
+
 
     for i in range(1, 4):
         for j in range(1, 3):
-            fig.update_xaxes(title_text='Time (s)', row=i, col=j)
+            fig.update_xaxes(title=dict(text='Time (s)', font=dict(size=18)), row=i, col=j)
             if j == 1:
-                fig.update_yaxes(title_text='Position Error (km)', showexponent="all", exponentformat="e", row=i, col=j)
+                fig.update_yaxes(title=dict(text='Relative Position Error', font=dict(size=18)), showexponent="all", exponentformat="e", row=i, col=j)
             else:
-                fig.update_yaxes(title_text='Velocity Error (km/s)', showexponent="all", exponentformat="e", row=i, col=j)
+                fig.update_yaxes(title=dict(text='Relative Velocity Error', font=dict(size=18)), showexponent="all", exponentformat="e", row=i, col=j)
     fig.write_html('ASEN_6080/Project2/final_figures/dynamics_test_state_error.html')
+    fig.write_image('ASEN_6080/Project2/final_figures/pngs/dynamics_test_state_error.png')
 
     # Plot relative state error over time
     fig = make_subplots(rows=3, cols=2, subplot_titles=('Relative X Error', 'Relative Vx Error', 'Relative Y Error', 'Relative Vy Error', 'Relative Z Error', 'Relative Vz Error'))
@@ -99,15 +119,17 @@ def run_task_1_analysis():
     fig.add_trace(go.Scatter(x=time_vector, y=relative_state_error[3, :], mode='lines', name='Relative Vx Error'), row=1, col=2)
     fig.add_trace(go.Scatter(x=time_vector, y=relative_state_error[4, :], mode='lines', name='Relative Vy Error'), row=2, col=2)
     fig.add_trace(go.Scatter(x=time_vector, y=relative_state_error[5, :], mode='lines', name='Relative Vz Error'), row=3, col=2)
-    fig.update_layout(title='Relative State Error Between Integrated Trajectory and Truth Data', showlegend=False)
+    fig.update_layout(title='Relative State Error Between Integrated Trajectory and Truth Data', showlegend=False, height = 900, width=1200)
+    fig.update_layout(title_font_size=30)  # Increase main title font size
     for i in range(1, 4):
         for j in range(1, 3):
-            fig.update_xaxes(title_text='Time (s)', row=i, col=j)
+            fig.update_xaxes(title=dict(text='Time (s)', font=dict(size=18)), row=i, col=j)
             if j == 1:
-                fig.update_yaxes(title_text='Relative Position Error', showexponent="all", exponentformat="e", row=i, col=j)
+                fig.update_yaxes(title=dict(text='Relative Position Error', font=dict(size=18)), showexponent="all", exponentformat="e", row=i, col=j)
             else:
-                fig.update_yaxes(title_text='Relative Velocity Error', showexponent="all", exponentformat="e", row=i, col=j)
+                fig.update_yaxes(title=dict(text='Relative Velocity Error', font=dict(size=18)), showexponent="all", exponentformat="e", row=i, col=j)
     fig.write_html('ASEN_6080/Project2/final_figures/dynamics_test_relative_state_error.html')
+    fig.write_image('ASEN_6080/Project2/final_figures/pngs/dynamics_test_relative_state_error.png')
     
     # Compute difference between truth STM and integrated STM
     truth_stm = state_vectors[7:, :].reshape((7, 7, state_vectors.shape[1]), order='F')  # Reshape truth STM from the truth data

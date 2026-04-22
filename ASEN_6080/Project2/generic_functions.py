@@ -90,16 +90,15 @@ def convert_measurements_to_df(measurements : dict, station_names : list, period
     measurement_matrix = np.full((len(time_vector), len(station_names)*2), np.nan)  # Initialize with nans
     # Loop through for each station
     for i, station_name in enumerate(station_names):
-        # Get the measurements for this station and transpose to shape (2, N)
-        station_measurements = measurement_vectors[:, [i, i+3]] 
+        station_measurements = measurement_vectors[:, [i, i+3]]  # Get the measurements for this station and transpose to shape (2, N)\
 
         # Determine what times these measurements occurred
-        measurement_times = time_vector[~np.isnan(station_measurements[:, 0])]
+        measurement_times = time_vector[~np.isnan(station_measurements[:, 0])]  # Get the times where range measurements are not nan
     
         # Find the index in the time_vector where these times occur
         measurement_indices = np.searchsorted(time_vector, measurement_times)
 
-        # Initialize empty measurement array
+        # Initialize empty measurement array with shape (2, len(time_vector)) filled with nans
         full_measurements = np.full((len(time_vector), 2), np.nan)
 
         # Fill in the measurements at the correct indices
@@ -157,3 +156,30 @@ def initialize_integrator(starting_epoch, estimation_mode, parameter_indices, in
     )
 
     return integrator
+
+def interpolate_truth_to_measurement_times(truth_data, measurement_time_vector):
+    """
+    Interpolate the truth data state vectors to the measurement time vector for comparison.
+
+    Parameters
+    ----------
+    truth_data : dict
+        A dictionary containing the time vector and state vectors from the truth data.
+    measurement_time_vector : np.ndarray
+        The time vector corresponding to the measurements.
+    Returns
+    -------
+    np.ndarray
+        An array of interpolated state vectors corresponding to the measurement time vector.
+    """
+    day_50_idx = np.searchsorted(measurement_time_vector, 50*24*3600)  # Find index corresponding to 50 days in seconds
+
+    truth_time_vector = truth_data['time_vector']
+    truth_state_vectors = truth_data['state_vectors']
+
+    interpolated_state_vectors = np.zeros((7, len(measurement_time_vector[:day_50_idx])))  # Initialize array for interpolated state vectors
+
+    for i in range(7):
+        interpolated_state_vectors[i, :] = np.interp(measurement_time_vector[:day_50_idx], truth_time_vector, truth_state_vectors[:, i])
+
+    return interpolated_state_vectors

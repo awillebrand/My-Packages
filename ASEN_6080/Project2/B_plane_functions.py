@@ -95,7 +95,7 @@ def integrate_to_B_plane_crossing(DCO_state : np.ndarray, DCO_epoch : float, B_p
         A tuple containing the time of B-plane crossing, the state vector, and the STM at the time of crossing.
     """
     # Initialize integrator with the initial epoch
-    integrator = initialize_integrator(DCO_epoch)
+    integrator = initialize_integrator(DCO_epoch, estimation_mode=['SRP'], parameter_indices=[6])
 
     # Integrate the trajectory to the B-plane crossing epoch
     sol = integrator.integrate_stm(B_plane_crossing_epoch, DCO_state, teval=np.array([B_plane_crossing_epoch]))
@@ -157,9 +157,3 @@ def perform_B_plane_analysis(DCO_state, DCO_epoch, DCO_covariance, C_r, fig, col
 
     fig.add_trace(go.Scatter(x=[center[0]], y=[center[1]], mode='markers', name=f'{time} days', marker=dict(color=color, size=10)))
     fig.add_trace(go.Scatter(x=b_plane_covariance_ellipse[:, 0], y=b_plane_covariance_ellipse[:, 1], mode='lines', name=f'{time} days', marker=dict(color=color), showlegend=False))
-
-    fig.update_layout(title=f"B-plane Crossing Point and Covariance Ellipse for {filter_name}",
-                      xaxis_title='B-plane T (km)',
-                      yaxis_title='B-plane R (km)',
-                      yaxis=dict(autorange='reversed'),
-                      legend=dict(x=0.8, y=0.95))

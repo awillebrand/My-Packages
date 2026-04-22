@@ -252,9 +252,16 @@ class EKF:
                 print(f"Resetting covariance at time {reset_time} due to expected maneuver.")
                 covariance_reset_occurred = True
                 if reset_covariance is not None:
+                    # Inflate velocity covariance to reflect uncertainty due to maneuver
                     predict_P = reset_covariance
+                    # predict_P[3,3] = reset_covariance[3,3]
+                    # predict_P[4,4] = reset_covariance[4,4]
+                    # predict_P[5,5] = reset_covariance[5,5]
                 else:
                     predict_P = initial_covariance
+                    # predict_P[3,3] = initial_covariance[3,3]
+                    # predict_P[4,4] = initial_covariance[4,4]
+                    # predict_P[5,5] = initial_covariance[5,5]
 
             # Add process noise if using SNC approach
             dt = time_vector[k] - time_vector[k-1]
