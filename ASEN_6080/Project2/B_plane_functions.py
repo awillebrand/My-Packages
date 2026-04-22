@@ -109,7 +109,7 @@ def integrate_to_B_plane_crossing(DCO_state : np.ndarray, DCO_epoch : float, B_p
 
     return crossing_time, crossing_state, crossing_stm
 
-def perform_B_plane_analysis(DCO_state, DCO_epoch, DCO_covariance, C_r, fig, color, time, filter_name):
+def perform_B_plane_analysis(DCO_state, DCO_epoch, DCO_covariance, C_r, fig, color, time=None):
     """
     Perform the full B-plane analysis by integrating to 3*RSOI crossing, computing the LTOF to the B-plane, and integrating to the B-plane crossing.
 
@@ -155,5 +155,10 @@ def perform_B_plane_analysis(DCO_state, DCO_epoch, DCO_covariance, C_r, fig, col
     reduced_covariance = B_plane_crossing_pos_covariance_in_B_plane_frame[1:3, 1:3]  # The covariance for the ellipse is given by the y and z components of the covariance in the B-plane frame
     b_plane_covariance_ellipse = covariance_ellipse_2D(center, reduced_covariance, n_std=3)  # Compute the covariance ellipse at 3-sigma
 
-    fig.add_trace(go.Scatter(x=[center[0]], y=[center[1]], mode='markers', name=f'{time} days', marker=dict(color=color, size=10)))
-    fig.add_trace(go.Scatter(x=b_plane_covariance_ellipse[:, 0], y=b_plane_covariance_ellipse[:, 1], mode='lines', name=f'{time} days', marker=dict(color=color), showlegend=False))
+    
+    if time != None:
+        fig.add_trace(go.Scatter(x=[center[0]], y=[center[1]], mode='markers', name=f'{time} days', marker=dict(color=color, size=10)))
+        fig.add_trace(go.Scatter(x=b_plane_covariance_ellipse[:, 0], y=b_plane_covariance_ellipse[:, 1], mode='lines', name=f'{time} days', marker=dict(color=color), showlegend=False))
+    else:
+        fig.add_trace(go.Scatter(x=[center[0]], y=[center[1]], mode='markers', name=f'B-plane Crossing Point', marker=dict(color=color, size=10)))
+        fig.add_trace(go.Scatter(x=b_plane_covariance_ellipse[:, 0], y=b_plane_covariance_ellipse[:, 1], mode='lines', name=f'B-plane Crossing Covariance Ellipse', marker=dict(color=color), showlegend=False))

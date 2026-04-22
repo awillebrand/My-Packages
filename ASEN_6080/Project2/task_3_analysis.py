@@ -1,11 +1,15 @@
 import numpy as np
+import plotly.graph_objects as go
 from generic_functions import load_measurement_data, convert_measurements_to_df, initialize_integrator
 from Tools.measurement_manager import MeasurementMgr
 from Tools.adaptive_snc import AdaptiveSNC
 from Tools.integrator import Integrator
+from B_plane_functions import perform_B_plane_analysis
 from Tools.EKF import EKF
+from Tools.LKF import LKF
 from Tools.plotting_functions import plot_residuals
 from constants import task_3_station_locations, initial_epoch, initial_spin_angle, earth_spin_rate, unknown_dynamics_measurement_file_path, a_priori_state, a_priori_covariance, observation_noise
+from constants import mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, initial_epoch_jd
 
 def run_task_3_analysis(period_of_data,
                         estimation_mode,
@@ -22,7 +26,8 @@ def run_task_3_analysis(period_of_data,
                         alpha,
                         window,
                         Q_adaptive,
-                        filter_name):
+                        filter_name,
+                        estimate_b_plane):
 
     mnvr_time = mnvr_day * 24 * 3600
 
@@ -57,22 +62,28 @@ def run_task_3_analysis(period_of_data,
     adaptive_snc = AdaptiveSNC(alpha=alpha, window=window, Q_adaptive=adaptive_snc_mat)
 
     # Add station postion states to the a priori state
-    initial_state_estimate = a_priori_state.copy()
-    for station in station_mgrs:
-        initial_state_estimate = np.concatenate((initial_state_estimate, station.station_state_ecef[0:3]))  # Add station position to the a priori state if it is being estimated
-    state_length = len(initial_state_estimate)
 
     # Initialize the intial covariance estimate
-    initial_covariance_estimate_flattened = np.diag(a_priori_covariance)
-    station_covariance_flattened = np.array(DSS_34_cov + DSS_65_cov + DSS_13_cov)
-    initial_covariance_estimate = np.diag(np.concatenate((initial_covariance_estimate_flattened, station_covariance_flattened)))
-
-    ekf = EKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
+    if 'Stations' in estimation_mode:
+        initial_state_estimate = a_priori_state.copy()
+        for station in station_mgrs:
+            initial_state_estimate = np.concatenate((initial_state_estimate, station.station_state_ecef[0:3]))  # Add station position to the a priori state if it is being estimated
+        state_length = len(initial_state_estimate)
+        initial_covariance_estimate_flattened = np.diag(a_priori_covariance)
+        station_covariance_flattened = np.array(DSS_34_cov + DSS_65_cov + DSS_13_cov)
+        initial_covariance_estimate = np.diag(np.concatenate((initial_covariance_estimate_flattened, station_covariance_flattened)))
+    else:
+        initial_state_estimate = a_priori_state.copy()
+        state_length = len(initial_state_estimate)
+        initial_covariance_estimate = a_priori_covariance.copy()
 
     # ---------------------------------------------------------------------------------------------------------------------------
     # RUN FILTER
     # ---------------------------------------------------------------------------------------------------------------------------
-    x_hist, P_hist, residuals_df = ekf.run(initial_state_estimate,
+
+    if 'EKF' in filter_name:
+        ekf = EKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
+        x_hist, P_hist, residuals_df = ekf.run(initial_state_estimate,
                                            np.zeros(state_length),
                                            initial_covariance_estimate,
                                            measurement_df,
@@ -84,6 +95,24 @@ def run_task_3_analysis(period_of_data,
                                            adaptive_snc=adaptive_snc,
                                            reset_time=mnvr_time,
                                            reset_covariance=mnvr_reset_covariance)
+    elif 'LKF' in filter_name:
+        lkf = LKF(integrator, station_mgrs, initial_earth_spin_angle=0, earth_rotation_rate=earth_spin_rate)
+        x_hist, P_hist, residuals_df = lkf.run(initial_state_estimate,
+                                           np.zeros(state_length),
+                                           initial_covariance_estimate,
+                                           measurement_df,
+                                           R=observation_noise,
+                                           max_iterations=5,
+                                           convergence_threshold=1e-5,
+                                           process_noise_approach=process_noise_type,
+                                           Q=Q,
+                                           adaptive_snc=adaptive_snc,
+                                           apply_smoothing=True)
+
+    else:
+        raise ValueError(f"Invalid filter name: {filter_name}. Must contain either 'EKF' or 'LKF'.")
+
+    
     
     plot_residuals(time_vector, residuals_df, filter_name=filter_name, file_directory=f'ASEN_6080/Project2/final_figures/', auto_save=True, omit_outliers=False)
 
@@ -110,3 +139,23 @@ def run_task_3_analysis(period_of_data,
     with open(f'ASEN_6080/Project2/final_results/final_state_estimate_and_covariance.txt', 'w') as f:
         f.write(f"Final State Estimate:\n{final_state_estimate}\n\n")
         f.write(f"Final Covariance Estimate (Diagonal):\n{final_covariance_estimate}\n")
+
+    if estimate_b_plane:
+        # Compute the B-plane crossing and covariance at crossing using the final state estimate and covariance from the filter
+        C_r = x_hist[6, -1] if 'SRP' in estimation_mode else 1.0  # Use the estimated SRP coefficient if it is being estimated, otherwise use a default value of 1.0
+        DCO_state = x_hist[0:7, -1]  # Use the final state estimate from the filter as the initial state for the integrator
+        DCO_covariance = P_hist[0:7, 0:7, -1]  # Use the final covariance estimate from the filter as the initial covariance for the integrator
+        DCO_epoch = time_vector[-1]  # Use the final time from the measurement data as the initial epoch for the integrator
+
+        fig = go.Figure()
+        perform_B_plane_analysis(DCO_state, DCO_epoch, DCO_covariance, C_r, fig, color='red')
+
+        fig.update_layout(title=f'B-plane Analysis for {filter_name} Filter',
+                                    xaxis_title='B·T (km)',
+                                    yaxis_title='B·R (km)',
+                                    width=800,
+                                    height=600,
+                                    yaxis=dict(autorange='reversed'))
+        fig.write_html(f'ASEN_6080/Project2/final_figures/task3_B_plane_analysis_{filter_name}.html')
+
+    return x_hist, P_hist, residuals_df, time_vector

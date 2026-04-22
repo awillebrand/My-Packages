@@ -3,10 +3,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
-import scipy.io
-from Tools.measurement_manager import MeasurementMgr
-from Tools.integrator import Integrator
-from Tools.EKF import EKF
 from Tools.adaptive_snc import AdaptiveSNC
 from Tools.plotting_functions import plot_residuals, plot_state_errors
 
@@ -46,6 +42,275 @@ if __name__ == "__main__":
     # #                     ekf_start_length=100)
     # run_task_2_B_plane_analysis(filters_to_run=['EKF'], process_noise='SNC', Q=np.diag([1e-22, 1e-22, 1e-22]))
 
+    # ----------------------------------------------------------------------------------------------------------------------------
+    # TASK 3 GENERAL ANALYSIS
+    # ----------------------------------------------------------------------------------------------------------------------------
+
+    print("=" * 50)
+    print(f"Running Task 3 Final Analysis...")
+    print("=" * 50)
+
+    # # Start by showing approach when determining what is wrong with the model
+
+    # # Measurement data time period to use (in days)
+    # period_of_data = [0, 50]
+
+    # # Estimation Parameters
+    # estimation_mode = ['SRP']
+    # parameter_indices = [6]
+
+    # DSS_34_cov = [1e-16, 1e-16, 1e-16]
+    # DSS_65_cov = [0.1, 0.1, 0.1]
+    # DSS_13_cov = [1e-16, 1e-16, 1e-16]
+
+    # # EKF start mode parameters
+    # start_mode = 'warm'
+    # start_length = 3000
+
+    # # Covariance reset parameters
+    # mnvr_day = 217
+    # mnvr_time = mnvr_day * 24 * 3600
+    # mnvr_reset_covariance = np.diag([10, 10, 10, 0.01, 0.01, 0.01, 0.05, 1e-8, 1e-8, 1e-8, 1e-3, 1e-3, 1e-3, 1e-8, 1e-8, 1e-8])**2
+
+    # # SNC parameters
+    # process_noise_type = 'None'
+    # Q = np.diag([5e-10, 5e-10, 5e-10])**2
+
+    # # Adapative SNC parameters
+    # alpha = 0.005
+    # window = 10
+    # Q_adaptive = 5e-7 # 1 mm/s adaptive process noise for velocity states
+
+    # filter_name = f'LKF (Smoothed with Base Model)'
+
+    # x_hist, P_hist, residuals_df = run_task_3_analysis(period_of_data,
+    #                                                    estimation_mode,
+    #                                                    parameter_indices,
+    #                                                    DSS_34_cov,
+    #                                                    DSS_65_cov,
+    #                                                    DSS_13_cov,
+    #                                                    start_mode,
+    #                                                    start_length,
+    #                                                    mnvr_day,
+    #                                                    mnvr_reset_covariance,
+    #                                                    process_noise_type,
+    #                                                    Q,
+    #                                                    alpha,
+    #                                                    window,
+    #                                                    Q_adaptive,
+    #                                                    filter_name,
+    #                                                    estimate_b_plane=False)
+                                                       
+    # # Now estimating DSS65 position with iterated and smoothed LKF
+    # # Start by showing approach when determining what is wrong with the model
+
+    # # Measurement data time period to use (in days)
+    # period_of_data = [0, 50]
+
+    # # Estimation Parameters
+    # estimation_mode = ['SRP', 'Stations']
+    # parameter_indices = [6, 7]
+
+    # DSS_34_cov = [1e-16, 1e-16, 1e-16]
+    # DSS_65_cov = [0.1, 0.1, 0.1]
+    # DSS_13_cov = [1e-16, 1e-16, 1e-16]
+
+    # # EKF start mode parameters
+    # start_mode = 'warm'
+    # start_length = 3000
+
+    # # Covariance reset parameters
+    # mnvr_day = 217
+    # mnvr_time = mnvr_day * 24 * 3600
+    # mnvr_reset_covariance = np.diag([10, 10, 10, 0.01, 0.01, 0.01, 0.05, 1e-8, 1e-8, 1e-8, 1e-3, 1e-3, 1e-3, 1e-8, 1e-8, 1e-8])**2
+
+    # # SNC parameters
+    # process_noise_type = 'None'
+    # Q = np.diag([5e-10, 5e-10, 5e-10])**2
+
+    # # Adapative SNC parameters
+    # alpha = 0.005
+    # window = 10
+    # Q_adaptive = 5e-7 # 1 mm/s adaptive process noise for velocity states
+
+    # filter_name = f'LKF (50 Days Smoothed with DSS65 Estimated)'
+
+    # x_hist, P_hist, residuals_df = run_task_3_analysis(period_of_data,
+    #                                                    estimation_mode,
+    #                                                    parameter_indices,
+    #                                                    DSS_34_cov,
+    #                                                    DSS_65_cov,
+    #                                                    DSS_13_cov,
+    #                                                    start_mode,
+    #                                                    start_length,
+    #                                                    mnvr_day,
+    #                                                    mnvr_reset_covariance,
+    #                                                    process_noise_type,
+    #                                                    Q,
+    #                                                    alpha,
+    #                                                    window,
+    #                                                    Q_adaptive,
+    #                                                    filter_name,
+    #                                                    estimate_b_plane=False)
+    
+    # Switching to 50 day estimation with the EKF to see if residuals improve
+
+    # # Measurement data time period to use (in days)
+    # period_of_data = [0, 100]
+
+    # # Estimation Parameters
+    # estimation_mode = ['SRP', 'Stations']
+    # parameter_indices = [6, 7]
+
+    # DSS_34_cov = [1e-16, 1e-16, 1e-16]
+    # DSS_65_cov = [0.1, 0.1, 0.1]
+    # DSS_13_cov = [1e-16, 1e-16, 1e-16]
+
+    # # EKF start mode parameters
+    # start_mode = 'warm'
+    # start_length = 1100
+
+    # # Covariance reset parameters
+    # mnvr_day = 217
+    # mnvr_time = mnvr_day * 24 * 3600
+    # mnvr_reset_covariance = np.diag([10, 10, 10, 0.01, 0.01, 0.01, 0.05, 1e-8, 1e-8, 1e-8, 1e-3, 1e-3, 1e-3, 1e-8, 1e-8, 1e-8])**2
+
+    # # SNC parameters
+    # process_noise_type = 'None'
+    # Q = np.diag([5e-10, 5e-10, 5e-10])**2
+
+    # # Adapative SNC parameters
+    # alpha = 0.005
+    # window = 10
+    # Q_adaptive = 5e-7 # 1 mm/s adaptive process noise for velocity states
+
+    # filter_name = f'LKF (100 Days Smoothed with DSS65 Estimated)'
+
+    # x_hist, P_hist, residuals_df = run_task_3_analysis(period_of_data,
+    #                                                    estimation_mode,
+    #                                                    parameter_indices,
+    #                                                    DSS_34_cov,
+    #                                                    DSS_65_cov,
+    #                                                    DSS_13_cov,
+    #                                                    start_mode,
+    #                                                    start_length,
+    #                                                    mnvr_day,
+    #                                                    mnvr_reset_covariance,
+    #                                                    process_noise_type,
+    #                                                    Q,
+    #                                                    alpha,
+    #                                                    window,
+    #                                                    Q_adaptive,
+    #                                                    filter_name,
+    #                                                    estimate_b_plane=False)
+
+    # # Adding SNC to EKF for 100 day estimation with DSS65 estimation to see if residuals improve and how covariance changes
+    # Measurement data time period to use (in days)
+    period_of_data = [0, 100]
+
+    # Estimation Parameters
+    estimation_mode = ['SRP', 'Stations']
+    parameter_indices = [6, 7]
+
+    DSS_34_cov = [1e-16, 1e-16, 1e-16]
+    DSS_65_cov = [0.1, 0.1, 0.1]
+    DSS_13_cov = [1e-16, 1e-16, 1e-16]
+
+    # EKF start mode parameters
+    start_mode = 'warm'
+    start_length = 200
+
+    # Covariance reset parameters
+    mnvr_day = 217
+    mnvr_time = mnvr_day * 24 * 3600
+    mnvr_reset_covariance = np.diag([10, 10, 10, 0.01, 0.01, 0.01, 0.05, 1e-8, 1e-8, 1e-8, 1e-3, 1e-3, 1e-3, 1e-8, 1e-8, 1e-8])**2
+
+    # SNC parameters
+    process_noise_type = 'SNC'
+    Q = np.diag([5e-10, 5e-10, 5e-10])**2
+
+    # Adapative SNC parameters
+    alpha = 0.005
+    window = 10
+    Q_adaptive = 5e-7 # 1 mm/s adaptive process noise for velocity states
+
+    filter_name = f'EKF (100 Days with DSS65 Estimated and SNC)'
+
+    x_hist, P_hist, residuals_df, time_vector = run_task_3_analysis(period_of_data,
+                                                       estimation_mode,
+                                                       parameter_indices,
+                                                       DSS_34_cov,
+                                                       DSS_65_cov,
+                                                       DSS_13_cov,
+                                                       start_mode,
+                                                       start_length,
+                                                       mnvr_day,
+                                                       mnvr_reset_covariance,
+                                                       process_noise_type,
+                                                       Q,
+                                                       alpha,
+                                                       window,
+                                                       Q_adaptive,
+                                                       filter_name,
+                                                       estimate_b_plane=False)
+    df = pd.DataFrame({'time': time_vector})
+    df.to_pickle(f'ASEN_6080/Project2/data/time_vector_{filter_name}.pkl')
+    # residuals_df.to_pickle(f'ASEN_6080/Project2/data/residuals_df_{filter_name}.pkl')
+
+    # Estimating for 247 days with DSS65 estimation and SNC to see how residuals evolve over longer time period and how covariance changes
+    # Measurement data time period to use (in days)
+    period_of_data = [0, 250]
+
+    # Estimation Parameters
+    estimation_mode = ['SRP', 'Stations']
+    parameter_indices = [6, 7]
+
+    DSS_34_cov = [1e-16, 1e-16, 1e-16]
+    DSS_65_cov = [0.1, 0.1, 0.1]
+    DSS_13_cov = [1e-16, 1e-16, 1e-16]
+
+    # EKF start mode parameters
+    start_mode = 'warm'
+    start_length = 200
+
+    # Covariance reset parameters
+    mnvr_day = None
+    mnvr_time = None
+    mnvr_reset_covariance = np.diag([10, 10, 10, 0.01, 0.01, 0.01, 0.05, 1e-8, 1e-8, 1e-8, 1e-3, 1e-3, 1e-3, 1e-8, 1e-8, 1e-8])**2
+
+    # SNC parameters
+    process_noise_type = 'SNC'
+    Q = np.diag([5e-10, 5e-10, 5e-10])**2
+
+    # Adapative SNC parameters
+    alpha = 0.005
+    window = 10
+    Q_adaptive = 5e-7 # 1 mm/s adaptive process noise for velocity states
+
+    filter_name = f'EKF (247 Days with DSS65 Estimated and SNC)'
+
+    x_hist, P_hist, residuals_df, time_vector = run_task_3_analysis(period_of_data,
+                                                                    estimation_mode,
+                                                                    parameter_indices,
+                                                                    DSS_34_cov,
+                                                                    DSS_65_cov,
+                                                                    DSS_13_cov,
+                                                                    start_mode,
+                                                                    start_length,
+                                                                    mnvr_day,
+                                                                    mnvr_reset_covariance,
+                                                                    process_noise_type,
+                                                                    Q,
+                                                                    alpha,
+                                                                    window,
+                                                                    Q_adaptive,
+                                                                    filter_name,
+                                                                    estimate_b_plane=True)
+    # Also save time vector to use for plotting residuals later
+    df = pd.DataFrame({'time': time_vector})
+    df.to_pickle(f'ASEN_6080/Project2/data/time_vector_{filter_name}.pkl')
+    residuals_df.to_pickle(f'ASEN_6080/Project2/data/residuals_df_{filter_name}.pkl')
+
     # # ----------------------------------------------------------------------------------------------------------------------------
     # # TASK 3 FINAL ANALYSIS
     # # ----------------------------------------------------------------------------------------------------------------------------
@@ -66,12 +331,12 @@ if __name__ == "__main__":
 
     # EKF start mode parameters
     start_mode = 'warm'
-    start_length = 100
+    start_length = 200
 
     # Covariance reset parameters
     mnvr_day = 217
     mnvr_time = mnvr_day * 24 * 3600
-    mnvr_reset_covariance = np.diag([10, 10, 10, 0.5, 0.5, 0.5, 0.05, 1e-8, 1e-8, 1e-8, 1e-3, 1e-3, 1e-3, 1e-8, 1e-8, 1e-8])**2
+    mnvr_reset_covariance = np.diag([10, 10, 10, 0.01, 0.01, 0.01, 0.05, 1e-8, 1e-8, 1e-8, 1e-3, 1e-3, 1e-3, 1e-8, 1e-8, 1e-8])**2
 
     # SNC parameters
     process_noise_type = 'SNC'
@@ -82,24 +347,23 @@ if __name__ == "__main__":
     window = 10
     Q_adaptive = 5e-7 # 1 mm/s adaptive process noise for velocity states
 
-    filter_name = f'EKF (DSS65 Estimated with SNC)'
+    filter_name = f'EKF (247 Days with DSS65 Estimated, SNC, and Covariance Reset)'
 
-    run_task_3_analysis(period_of_data,
-                        estimation_mode,
-                        parameter_indices,
-                        DSS_34_cov,
-                        DSS_65_cov,
-                        DSS_13_cov,
-                        start_mode,
-                        start_length,
-                        mnvr_day,
-                        mnvr_reset_covariance,
-                        process_noise_type,
-                        Q,
-                        alpha,
-                        window,
-                        Q_adaptive,
-                        filter_name)
-    
-
-
+    x_hist, P_hist, residuals_df, time_vector = run_task_3_analysis(period_of_data,
+                                                                    estimation_mode,
+                                                                    parameter_indices,
+                                                                    DSS_34_cov,
+                                                                    DSS_65_cov,
+                                                                    DSS_13_cov,
+                                                                    start_mode,
+                                                                    start_length,
+                                                                    mnvr_day,
+                                                                    mnvr_reset_covariance,
+                                                                    process_noise_type,
+                                                                    Q,
+                                                                    alpha,
+                                                                    window,
+                                                                    Q_adaptive,
+                                                                    filter_name,
+                                                                    estimate_b_plane=True)
+    residuals_df.to_pickle(f'ASEN_6080/Project2/data/residuals_df_{filter_name}.pkl')

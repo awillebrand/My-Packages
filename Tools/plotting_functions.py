@@ -336,7 +336,7 @@ def plot_state_errors(time_vector: np.ndarray, state_errors: np.ndarray, covaria
                                     yanchor="top",
                                     y=1.1,
                                     xanchor="left",
-                                    x=0.7,
+                                    x=0.8,
                                     itemsizing='constant'))
     vel_fig.write_html(f"{file_directory}/{filter_name}_velocity_errors.html")
     try:

@@ -199,8 +199,18 @@ class EKF:
             print("Starting EKF in warm start mode.")
             # Run LKF on initial measurements to get initial state correction
             lkf = LKF(self.integrator, self.measurement_mgrs, initial_earth_spin_angle=self.coordinate_mgr.initial_earth_spin_angle, earth_rotation_rate=self.coordinate_mgr.earth_rotation_rate)
-            [lkf_x_history, lkf_P_history, residuals_df] = lkf.run(initial_state, initial_x_correction, initial_covariance, measurement_data.iloc[0:start_length], Q=Q, R=R, max_iterations=1, process_noise_approach=process_noise_approach, Q_frame=Q_frame, beta_mat=beta_mat, adaptive_snc=adaptive_snc)
-                    
+            [lkf_x_history, lkf_P_history, residuals_df] = lkf.run(initial_state, initial_x_correction, initial_covariance, measurement_data.iloc[0:start_length], Q=Q, R=R, max_iterations=5, process_noise_approach=process_noise_approach, Q_frame=Q_frame, beta_mat=beta_mat, adaptive_snc=adaptive_snc, apply_smoothing=False)
+            
+            # relabeled as iteration 0, and discard all earlier iterations.
+            final_lkf_iteration = residuals_df['iteration'].max()
+            residuals_df = residuals_df[residuals_df['iteration'] == final_lkf_iteration].copy()
+            residuals_df['iteration'] = 0
+            residuals_df = residuals_df.reset_index(drop=True)
+
+            P = lkf_P_history[:,:,-1]
+            X_k_0 = lkf_x_history[:,-1]
+            x_hat = np.zeros(raw_state_length)  # No additional correction after warm start
+
             P = lkf_P_history[:,:,-1]
             X_k_0 = lkf_x_history[:,-1]
             x_hat = np.zeros(raw_state_length)  # No additional correction after warm start

@@ -319,22 +319,25 @@ def run_task_2_B_plane_analysis(filters_to_run, iterations_for_filters=None, tol
                     col = 1
                     fig_cov.update_xaxes(title=dict(text='Time (days)', font=dict(size=18)), row=row, col=col)
                     fig_cov.update_yaxes(title=dict(text=state_labels[k], font=dict(size=18)), showexponent="all", exponentformat="e", row=row, col=col)
-                fig_cov.write_html(
-                    f'ASEN_6080/Project2/final_figures/task2_covariance_envelopes_{filter_name}_SNC.html'
-                )
+                if process_noise is not None:
+                    fig_cov.write_html(f'ASEN_6080/Project2/final_figures/task2_covariance_envelopes_{filter_name}_SNC.html')
+                else:
+                    fig_cov.write_html(f'ASEN_6080/Project2/final_figures/task2_covariance_envelopes_{filter_name}.html')
 
                 # (g) Pre-fit and post-fit residuals
                 plot_residuals(meas_time_vector, residuals_df, filter_name=f'{filter_name} with SNC', file_directory='ASEN_6080/Project2/final_figures/', auto_save=True, omit_outliers=False)
 
         # Save B-plane figure for this filter
-        b_plane_fig.update_layout(
-            title=f'B-plane Analysis for {filter_name} Filter',
-            xaxis_title='B·T (km)',
-            yaxis_title='B·R (km)',
-            width=800,
-            height=600,
-            yaxis=dict(autorange='reversed')
-        )
-        b_plane_fig.write_html(f'ASEN_6080/Project2/final_figures/task2_B_plane_{filter_name}_SNC.html')
-        b_plane_fig.write_image(f'ASEN_6080/Project2/final_figures/task2_B_plane_{filter_name}_SNC.png')
+        b_plane_fig.update_layout(title=f'B-plane Analysis for {filter_name} Filter',
+                                  xaxis_title='B·T (km)',
+                                  yaxis_title='B·R (km)',
+                                  width=800,
+                                  height=600,
+                                  yaxis=dict(autorange='reversed'))
+        if process_noise is not None:
+            b_plane_fig.write_html(f'ASEN_6080/Project2/final_figures/task2_B_plane_{filter_name}_SNC.html')
+            b_plane_fig.write_image(f'ASEN_6080/Project2/final_figures/task2_B_plane_{filter_name}_SNC.png')
+        else:
+            b_plane_fig.write_html(f'ASEN_6080/Project2/final_figures/task2_B_plane_{filter_name}.html')
+            b_plane_fig.write_image(f'ASEN_6080/Project2/final_figures/task2_B_plane_{filter_name}.png')
         print(f"\nTask 2 figures saved for filter: {filter_name}")

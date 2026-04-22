@@ -13,7 +13,7 @@ from Tools.SRIF import SRIF
 from Tools.adaptive_snc import AdaptiveSNC
 from Tools.plotting_functions import plot_residuals, plot_state_errors
 
-from constants import unknown_dynamics_measurement_file_path, a_priori_state, a_priori_covariance, observation_noise, initial_spin_angle, earth_spin_rate, station_locations
+from constants import unknown_dynamics_measurement_file_path, a_priori_state, a_priori_covariance, observation_noise, initial_spin_angle, earth_spin_rate, task_3_station_locations
 from constants import C_r, mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, initial_epoch, initial_epoch_jd
 from constants import alpha, window, Q_adaptive, maneuver_reset_covariance
 np.set_printoptions(linewidth=200)
@@ -158,7 +158,7 @@ if __name__ == "__main__":
     # Initialize measurement managers
 
     station_mgrs = []
-    for station_name, station_info in station_locations.items():
+    for station_name, station_info in task_3_station_locations.items():
         mgr = MeasurementMgr(
             station_name,
             station_lat=station_info['lat'],
@@ -233,7 +233,7 @@ if __name__ == "__main__":
     measurement_data = load_measurement_data(unknown_dynamics_measurement_file_path)
 
     # Convert measurement data to DataFrame format
-    measurement_df = convert_measurements_to_df(measurement_data, station_names=list(station_locations.keys()), period_of_data=period_of_data)
+    measurement_df = convert_measurements_to_df(measurement_data, station_names=list(task_3_station_locations.keys()), period_of_data=period_of_data)
     time_vector = measurement_data['time_vector']
 
     integrator = initialize_integrator(initial_epoch, estimation_mode, parameter_indices)
