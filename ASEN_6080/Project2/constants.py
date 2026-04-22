@@ -30,13 +30,13 @@ initial_epoch_jd = 2456296.25       # Initial epoch in Julian Date (J2000)
 initial_spin_angle = 0.0                    # Initial Earth spin angle in radians
 earth_spin_rate = 7.29211585275553E-5   # Earth's rotation rate in rad per second
 
-station_locations = {
+task_3_station_locations = {
     'DSS34': {'lat': -35.398333, 'lon': 148.981944, 'radius': 0.691750 + R_e},  # Canberra, Australia
     'DSS65': {'lat': 40.427222, 'lon': 355.749444, 'radius': 0.834539 + R_e}, # Madrid, Spain
     'DSS13': {'lat': 35.247164, 'lon': 243.205, 'radius': 1.07114904 + R_e}   # Goldstone, CA
 }
 
-part_2_station_locations = {
+task_2_station_locations = {
     'DSS34': {'lat': -35.398333, 'lon': 148.981944, 'radius': 0.691750 + R_e},  # Canberra, Australia
     'DSS65': {'lat': 40.427222, 'lon': -355.749444, 'radius': 0.834539 + R_e}, # Madrid, Spain
     'DSS13': {'lat': 35.247164, 'lon': 243.205, 'radius': 1.07114904 + R_e}   # Goldstone, CA
@@ -70,7 +70,6 @@ C_r = 1.0
 a_priori_state = np.array([x, y, z, vx, vy, vz, C_r])
 a_priori_covariance = np.diag([100, 100, 100, 0.1, 0.1, 0.1, 0.1])**2
 
-# Adapative SNCparams
 alpha = 0.005
 window = 10
 Q_adaptive = 5e-7 # 1 mm/s adaptive process noise for velocity states

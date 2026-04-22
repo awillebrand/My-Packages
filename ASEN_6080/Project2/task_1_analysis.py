@@ -1,49 +1,21 @@
 import numpy as np
 import plotly.graph_objects as go
-import plotly.express as px
 from plotly.subplots import make_subplots
-import scipy.io
-from constants import truth_data_file_path, mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, AU, initial_epoch, initial_epoch_jd, initial_spin_angle, earth_spin_rate
+from generic_functions import load_truth_data
 from Tools.integrator import Integrator
+from constants import mu_sun, mu_earth, R_e, solar_flux, SRP_area_to_mass, initial_epoch, initial_epoch_jd, earth_spin_rate, truth_data_file_path
 
-"""
-This file tests the dynamical model needed for Project 2 by comparing it to the given data set. The tasks to test include:
-"""
-
-def load_truth_data(file_path):
-    """
-    Load the truth data from the provided .mat file path.
-
-    Parameters
-    ----------
-    file_path : str
-        The path to the .mat file containing the truth data.
-
-    Returns
-    -------
-    dict
-        A dictionary containing the time vector and state vectors from the truth data.
-    """
-    data = scipy.io.loadmat(file_path)
-    time_vector = data['Tt_50'].flatten()  # Flatten to convert from 2D array to 1D array
-    state_vectors = data['Xt_50']  # This should already be in the correct shape (6, N)
-    
-    return {
-        'time_vector': time_vector,
-        'state_vectors': state_vectors
-    }
-
-if __name__ == "__main__":
+def run_task_1_analysis():
     # Load truth data
     truth_data = load_truth_data(truth_data_file_path)
+
     time_vector = truth_data['time_vector']
     state_vectors = truth_data['state_vectors'].T
 
     initial_state = state_vectors[:7, 0]  # Initial state from the truth data
 
-    C_r = initial_state[6]  # For test, 7th element is true C_r value. This will need to be estimated for the actual problem, but for testing the dynamics we can use the true value to ensure the SRP effects are being calculated correctly.
+    C_r = initial_state[6] 
     # Initialize integrator with appropriate parameters for the test
-
     integrator = Integrator(
         mu=mu_earth,
         R_e=R_e,        
@@ -89,7 +61,8 @@ if __name__ == "__main__":
             zaxis_title='Z (km)'
         )
     )
-    fig.show()
+
+    fig.write_html('ASEN_6080/Project2/final_figures/dynamics_test_trajectory_comparison.html')
 
     # Compute the state error between the integrated trajectory and the truth data
     state_error = augmented_integrated_states[0:7,:] - state_vectors[0:7,:]  # Compute error for the first 7 state components (position, velocity, and C_r)
@@ -116,7 +89,7 @@ if __name__ == "__main__":
                 fig.update_yaxes(title_text='Position Error (km)', showexponent="all", exponentformat="e", row=i, col=j)
             else:
                 fig.update_yaxes(title_text='Velocity Error (km/s)', showexponent="all", exponentformat="e", row=i, col=j)
-    fig.write_html('ASEN_6080/Project2/figures/dynamics_test_state_error.html')
+    fig.write_html('ASEN_6080/Project2/final_figures/dynamics_test_state_error.html')
 
     # Plot relative state error over time
     fig = make_subplots(rows=3, cols=2, subplot_titles=('Relative X Error', 'Relative Vx Error', 'Relative Y Error', 'Relative Vy Error', 'Relative Z Error', 'Relative Vz Error'))
@@ -134,7 +107,7 @@ if __name__ == "__main__":
                 fig.update_yaxes(title_text='Relative Position Error', showexponent="all", exponentformat="e", row=i, col=j)
             else:
                 fig.update_yaxes(title_text='Relative Velocity Error', showexponent="all", exponentformat="e", row=i, col=j)
-    fig.write_html('ASEN_6080/Project2/figures/dynamics_test_relative_state_error.html')
+    fig.write_html('ASEN_6080/Project2/final_figures/dynamics_test_relative_state_error.html')
     
     # Compute difference between truth STM and integrated STM
     truth_stm = state_vectors[7:, :].reshape((7, 7, state_vectors.shape[1]), order='F')  # Reshape truth STM from the truth data

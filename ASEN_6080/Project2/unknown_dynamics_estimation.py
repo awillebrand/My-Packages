@@ -245,7 +245,7 @@ if __name__ == "__main__":
     adaptive_snc_mat = np.diag([Q_adaptive**2, Q_adaptive**2, Q_adaptive**2])
 
     adaptive_snc = AdaptiveSNC(alpha=alpha, window=window, Q_adaptive=adaptive_snc_mat)
-
+    breakpoint()
     print(f"A Priori State: {a_priori_state}")
     print(f"A Priori Covariance: {a_priori_covariance}\n")
     if filter_to_run == 'batch':
