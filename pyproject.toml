@@ -13,12 +13,13 @@ authors = [
 dependencies = [
     "numpy",
     "scipy",
+    "pandas",
+    "plotly"
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
-    "plotly",
 ]
 
 [tool.setuptools. packages.find]

@@ -29,7 +29,10 @@ def run_task_3_analysis(period_of_data,
                         filter_name,
                         estimate_b_plane):
 
-    mnvr_time = mnvr_day * 24 * 3600
+    if mnvr_day is not None:
+        mnvr_time = mnvr_day * 24 * 3600
+    else:
+        mnvr_time = None
 
     # ---------------------------------------------------------------------------------------------------------------------------
     # INITIALIZE MGRS, INTEGRATOR, AND FILTER
@@ -111,8 +114,6 @@ def run_task_3_analysis(period_of_data,
 
     else:
         raise ValueError(f"Invalid filter name: {filter_name}. Must contain either 'EKF' or 'LKF'.")
-
-    
     
     plot_residuals(time_vector, residuals_df, filter_name=filter_name, file_directory=f'ASEN_6080/Project2/final_figures/', auto_save=True, omit_outliers=False)
 
@@ -136,9 +137,17 @@ def run_task_3_analysis(period_of_data,
     # Save final state estimate and covariance to a text file
     final_state_estimate = x_hist[:, -1]
     final_covariance_estimate = np.diag(P_hist[:, :, -1])
-    with open(f'ASEN_6080/Project2/final_results/final_state_estimate_and_covariance.txt', 'w') as f:
+    with open(f'ASEN_6080/Project2/txt_results/final_state_estimate_and_covariance_{filter_name}.txt', 'w') as f:
         f.write(f"Final State Estimate:\n{final_state_estimate}\n\n")
         f.write(f"Final Covariance Estimate (Diagonal):\n{final_covariance_estimate}\n")
+
+    initial_state_estimate = x_hist[:, 0]
+    initial_covariance_estimate = np.diag(P_hist[:, :, 0])
+    formatted_initial_state = np.array2string(initial_state_estimate, precision=15, separator=', ')
+    formatted_cov = np.array2string(initial_covariance_estimate, precision=15, separator=', ')
+    with open(f'ASEN_6080/Project2/txt_results/initial_state_estimate_and_covariance{filter_name}.txt', 'w') as f:
+        f.write(f"Initial State Estimate:\n{formatted_initial_state}\n\n")
+        f.write(f"Initial Covariance Estimate (Diagonal):\n{formatted_cov}\n")
 
     if estimate_b_plane:
         # Compute the B-plane crossing and covariance at crossing using the final state estimate and covariance from the filter

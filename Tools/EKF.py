@@ -195,12 +195,18 @@ class EKF:
             state_estimates[:,0] = X_k_0 + x_hat.T
             covariance_estimates[:,:,0] = P
             ekf_start = 1
+            residuals_df = pd.DataFrame(columns=['iteration', 'station', 'pre-fit', 'post-fit'])
         elif start_mode == 'warm':
             print("Starting EKF in warm start mode.")
             # Run LKF on initial measurements to get initial state correction
-            lkf = LKF(self.integrator, self.measurement_mgrs, initial_earth_spin_angle=self.coordinate_mgr.initial_earth_spin_angle, earth_rotation_rate=self.coordinate_mgr.earth_rotation_rate)
-            [lkf_x_history, lkf_P_history, residuals_df] = lkf.run(initial_state, initial_x_correction, initial_covariance, measurement_data.iloc[0:start_length], Q=Q, R=R, max_iterations=5, process_noise_approach=process_noise_approach, Q_frame=Q_frame, beta_mat=beta_mat, adaptive_snc=adaptive_snc, apply_smoothing=False)
-            
+            if process_noise_approach == 'Adaptive SNC':
+                # Dont iterate
+                lkf = LKF(self.integrator, self.measurement_mgrs, initial_earth_spin_angle=self.coordinate_mgr.initial_earth_spin_angle, earth_rotation_rate=self.coordinate_mgr.earth_rotation_rate)
+                [lkf_x_history, lkf_P_history, residuals_df] = lkf.run(initial_state, initial_x_correction, initial_covariance, measurement_data.iloc[0:start_length], Q=Q, R=R, max_iterations=5, process_noise_approach='None', Q_frame=Q_frame, beta_mat=beta_mat, adaptive_snc=adaptive_snc, apply_smoothing=False)
+            else:
+                lkf = LKF(self.integrator, self.measurement_mgrs, initial_earth_spin_angle=self.coordinate_mgr.initial_earth_spin_angle, earth_rotation_rate=self.coordinate_mgr.earth_rotation_rate)
+                [lkf_x_history, lkf_P_history, residuals_df] = lkf.run(initial_state, initial_x_correction, initial_covariance, measurement_data.iloc[0:start_length], Q=Q, R=R, max_iterations=5, process_noise_approach=process_noise_approach, Q_frame=Q_frame, beta_mat=beta_mat, adaptive_snc=adaptive_snc, apply_smoothing=False)
+                
             # relabeled as iteration 0, and discard all earlier iterations.
             final_lkf_iteration = residuals_df['iteration'].max()
             residuals_df = residuals_df[residuals_df['iteration'] == final_lkf_iteration].copy()
@@ -247,7 +253,7 @@ class EKF:
             print(f"EKF Time Step {k}/{len(time_vector)-1}         ", end='\r')
             # Integrate from previous time to current time
             previous_time = time_vector[k-1]
-            [_, augmented_state_history] = self.integrator.integrate_stm(time+0.01, X_k_0, teval=[previous_time, time], initial_time=previous_time, DMC=(process_noise_approach=='DMC'), beta_mat=beta_mat)
+            [_, augmented_state_history] = self.integrator.integrate_stm(time, X_k_0, teval=[previous_time, time], initial_time=previous_time, DMC=(process_noise_approach=='DMC'), beta_mat=beta_mat)
             # Separate state and STM
             raw_state = augmented_state_history[:,-1]
             X_k = raw_state[0:raw_state_length]
@@ -402,19 +408,27 @@ class EKF:
         for i in range(len(self.measurement_mgrs)):
             station_name = self.measurement_mgrs[i].station_name
             
-            # Append pre and post fit residuals to existing entries in residuals_df for this station
-            pre_fits = residuals_df.loc[(residuals_df['iteration'] == 0) & (residuals_df['station'] == station_name), 'pre-fit'].values
-            post_fits = residuals_df.loc[(residuals_df['iteration'] == 0) & (residuals_df['station'] == station_name), 'post-fit'].values
+            if start_mode == 'warm':
+                # Append pre and post fit residuals to existing entries in residuals_df for this station
+                pre_fits = residuals_df.loc[(residuals_df['iteration'] == 0) & (residuals_df['station'] == station_name), 'pre-fit'].values
+                post_fits = residuals_df.loc[(residuals_df['iteration'] == 0) & (residuals_df['station'] == station_name), 'post-fit'].values
 
-            extended_pre_fits = np.concatenate((pre_fits[0], pre_fit_residuals_mat[2*i:2*i+2,:]), axis=1)
-            extended_post_fits = np.concatenate((post_fits[0], post_fit_residuals_mat[2*i:2*i+2,:]), axis=1)
+                extended_pre_fits = np.concatenate((pre_fits[0], pre_fit_residuals_mat[2*i:2*i+2,:]), axis=1)
+                extended_post_fits = np.concatenate((post_fits[0], post_fit_residuals_mat[2*i:2*i+2,:]), axis=1)
 
-            pre_fits[0] = extended_pre_fits
-            post_fits[0] = extended_post_fits
+                pre_fits[0] = extended_pre_fits
+                post_fits[0] = extended_post_fits
 
-            residuals_df.loc[(residuals_df['iteration'] == 0) & (residuals_df['station'] == station_name), 'pre-fit'] = pre_fits
-            residuals_df.loc[(residuals_df['iteration'] == 0) & (residuals_df['station'] == station_name), 'post-fit'] = post_fits
-
+                residuals_df.loc[(residuals_df['iteration'] == 0) & (residuals_df['station'] == station_name), 'pre-fit'] = pre_fits
+                residuals_df.loc[(residuals_df['iteration'] == 0) & (residuals_df['station'] == station_name), 'post-fit'] = post_fits
+            else:
+                new_row = pd.DataFrame([{
+                    'iteration': 0,
+                    'station':   station_name,
+                    'pre-fit':   pre_fit_residuals_mat[2*i:2*i+2, :],
+                    'post-fit':  post_fit_residuals_mat[2*i:2*i+2, :]
+                }])
+                residuals_df = pd.concat([residuals_df, new_row], ignore_index=True)
             
         return state_estimates, covariance_estimates, residuals_df
-            
+        

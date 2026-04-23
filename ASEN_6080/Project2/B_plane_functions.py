@@ -155,7 +155,13 @@ def perform_B_plane_analysis(DCO_state, DCO_epoch, DCO_covariance, C_r, fig, col
     reduced_covariance = B_plane_crossing_pos_covariance_in_B_plane_frame[1:3, 1:3]  # The covariance for the ellipse is given by the y and z components of the covariance in the B-plane frame
     b_plane_covariance_ellipse = covariance_ellipse_2D(center, reduced_covariance, n_std=3)  # Compute the covariance ellipse at 3-sigma
 
-    
+    # Write B-plane target and covariance to txt
+    formatted_center = np.array2string(center, precision=15, separator=', ')
+    formatted_cov = np.array2string(reduced_covariance, precision=15, separator=', ')
+    with open(f'ASEN_6080/Project2/final_results/b_plane_stats.txt', 'w') as f:
+        f.write(f"B-Plane Target Estimate:\n{formatted_center}\n\n")
+        f.write(f"B-Plane Covariance Estimate:\n{formatted_cov}\n")
+
     if time != None:
         fig.add_trace(go.Scatter(x=[center[0]], y=[center[1]], mode='markers', name=f'{time} days', marker=dict(color=color, size=10)))
         fig.add_trace(go.Scatter(x=b_plane_covariance_ellipse[:, 0], y=b_plane_covariance_ellipse[:, 1], mode='lines', name=f'{time} days', marker=dict(color=color), showlegend=False))

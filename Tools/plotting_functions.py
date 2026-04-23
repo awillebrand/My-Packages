@@ -129,7 +129,7 @@ def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filte
                                     yanchor="top",
                                     y=1.13,
                                     xanchor="left",
-                                    x=0.7,
+                                    x=0.8,
                                     itemsizing='constant'))
         if auto_save:
             fig_1.write_html(f"{file_directory}/{filter_name}_pre_fit_residuals_iteration_{iteration+1}.html")
@@ -230,7 +230,7 @@ def plot_residuals(time_vector : np.ndarray, residuals_df : pd.DataFrame,  filte
                                     yanchor="top",
                                     y=1.13,
                                     xanchor="left",
-                                    x=0.7,
+                                    x=0.8,
                                     itemsizing='constant'))
         if auto_save:
             fig_2.write_html(f"{file_directory}/{filter_name}_post_fit_residuals_iteration_{iteration+1}.html")
@@ -313,7 +313,7 @@ def plot_state_errors(time_vector: np.ndarray, state_errors: np.ndarray, covaria
                                     yanchor="top",
                                     y=1.1,
                                     xanchor="left",
-                                    x=0.7,
+                                    x=0.8,
                                     itemsizing='constant'))
     pos_fig.write_html(f"{file_directory}/{filter_name}_position_errors.html")
     try:
